@@ -4,13 +4,15 @@ import fs from "fs";
 import { getAttachments, createAttachment, deleteAttachment } from "@/lib/db";
 import { validateUpload } from "@/lib/attachments";
 
-const UPLOAD_DIR = process.env.UPLOAD_DIR || "/opt/garageledger/data/uploads";
+export const runtime = "nodejs";
+
+function uploadDir(): string {
+  return process.env.UPLOAD_DIR || "/opt/garageledger/data/uploads";
+}
 
 function ensureDir(dir: string) {
   try { fs.mkdirSync(dir, { recursive: true }); } catch {}
 }
-
-export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -41,12 +43,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: check.error }, { status: check.status });
     }
 
-    ensureDir(UPLOAD_DIR);
+    ensureDir(uploadDir());
 
     const ext = path.extname(file.name).toLowerCase();
     const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
-    fs.writeFileSync(path.join(UPLOAD_DIR, uniqueName), buffer);
+    fs.writeFileSync(path.join(uploadDir(), uniqueName), buffer);
 
     const att = createAttachment(carId, uniqueName, file.name, file.type, buffer.length, expenseId);
     return NextResponse.json(att, { status: 201 });

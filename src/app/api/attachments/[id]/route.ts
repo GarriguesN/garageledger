@@ -7,7 +7,9 @@ import type { Attachment } from "@/lib/db/attachments";
 
 export const runtime = "nodejs";
 
-const UPLOAD_DIR = process.env.UPLOAD_DIR || "/opt/garageledger/data/uploads";
+function uploadDir(): string {
+  return process.env.UPLOAD_DIR || "/opt/garageledger/data/uploads";
+}
 
 // RFC 5987 + latin1 fallback for non-ASCII filenames.
 // Keeps Content-Disposition parser-safe across browsers.
@@ -39,9 +41,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   // Reject path traversal in stored filename (must resolve under UPLOAD_DIR).
   const stored = path.basename(row.filename);     // strips any dir components
-  const fullPath = path.join(UPLOAD_DIR, stored);
+  const dir = uploadDir();
+  const fullPath = path.join(dir, stored);
   const resolved = path.resolve(fullPath);
-  const root = path.resolve(UPLOAD_DIR) + path.sep;
+  const root = path.resolve(dir) + path.sep;
   if (!resolved.startsWith(root)) {
     return NextResponse.json({ error: "Ruta inválida" }, { status: 400 });
   }
