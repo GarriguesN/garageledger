@@ -105,13 +105,6 @@ export default function VehicleCard({
       >
         {/* Header row */}
         <div className="flex items-start gap-3 pt-3.5 px-4">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors group-hover:bg-[var(--accent)] group-hover:text-white"
-            style={{ background: ICON_GREY_BG }}
-            aria-hidden
-          >
-            <Car size={20} />
-          </div>
           <div className="min-w-0 flex-1">
             <h2 className="text-base font-bold leading-tight truncate">
               {marca} {modelo}
