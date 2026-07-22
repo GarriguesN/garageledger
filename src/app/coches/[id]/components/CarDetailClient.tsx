@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Plus } from "lucide-react";
 
 // Subcomponentes del detalle
 import CarHeader          from "./CarHeader";
 import CarStatsGrid       from "./CarStatsGrid";
 import AlertBanner        from "./AlertBanner";
 import AddExpenseForm     from "./AddExpenseForm";
+import ActionButtons       from "./ActionButtons";
 import ExpenseHistory     from "./ExpenseHistory";
 import MaintenanceSchedule from "./MaintenanceSchedule";
 import GloveBox           from "./GloveBox";
@@ -315,21 +315,17 @@ export default function CarDetailClient({
       <AlertBanner metrics={metrics} />
 
       {/* Add expense */}
-      <div>
-        <button className="btn btn-primary mb-3" onClick={() => setShowForm(!showForm)}>
-          <Plus size={16} /> Añadir gasto
-        </button>
-        {showForm && (
-          <AddExpenseForm
-            form={form}
-            maintenanceTasks={maintenanceTasks}
-            saving={saving}
-            onChange={setForm}
-            onSubmit={submitForm}
-            onCancel={() => setShowForm(false)}
-          />
-        )}
-      </div>
+      <ActionButtons onAddExpense={() => setShowForm(!showForm)} />
+      {showForm && (
+        <AddExpenseForm
+          form={form}
+          maintenanceTasks={maintenanceTasks}
+          saving={saving}
+          onChange={setForm}
+          onSubmit={submitForm}
+          onCancel={() => setShowForm(false)}
+        />
+      )}
 
       {/* Historial */}
       <ExpenseHistory
