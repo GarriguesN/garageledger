@@ -170,6 +170,21 @@ body {
   100% { background-position: -200% 0; }
 }
 
+/* Ticket 1.6: highlight breve de la fila de mantenimiento destino de una
+   alerta. Se aplica cuando el usuario pulsa la alerta y queremos indicarle
+   visualmente cuál fila era. animation-fill-mode: forwards deja el último
+   frame aplicado. La duración (1.5s) es el sweet spot entre perceptible
+   y molesto. */
+@keyframes flash-task-highlight {
+  0%   { background-color: rgba(195, 66, 63, 0.18); }
+  100% { background-color: transparent; }
+}
+
+.flash-task {
+  animation: flash-task-highlight 1.5s ease-out forwards;
+  border-radius: 16px;
+}
+
 .grid-layout {
   display: grid;
   gap: 1rem;

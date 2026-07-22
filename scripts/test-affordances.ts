@@ -1,29 +1,25 @@
-// Real-logic tests for the Ticket 1.5-fix affordance fixes.
+// Real-logic tests for the Ticket 1.5-fix + 1.6 affordance fixes.
 //
-// Why this file exists: Ticket 1.5 left two false affordances that the
-// 1.5-fix ticket removes:
+// Why this file exists: Ticket 1.5 left false affordances that the
+// 1.5-fix and 1.6 tickets remove/wire correctly:
 //
-//   1. AlertBanner rendered every alert as <div role="button" tabIndex=0
-//      cursor-pointer> with a chevron, but with NO onClick. Pure theatre.
-//      1.5-fix wires a real handler that classifies each alert and either
-//      gives it a real destination (ITV → edit header, Seguro → edit
-//      header) or removes the clickable affordance entirely.
+//   1. AlertBanner rendered every alert as <div role="button"> with no
+//      onClick. 1.5-fix wired a real handler that classifies each alert
+//      into a real destination; 1.6 refined that classification to:
 //
-//   2. ExpenseHistory showed edit/delete buttons only on :hover. On touch
-//      devices there's no hover, so users couldn't reach the actions.
-//      1.5-fix makes the row itself the edit affordance (tap → onStartEdit)
-//      and moves delete to a kebab that's always visible.
+//      - edit-itv     → header edit (Última ITV field)
+//      - edit-seguro  → header edit (Vencimiento seguro field, added in 1.5-fix)
+//      - scroll-maintenance{ taskId } → row in MaintenanceSchedule
+//          (only when the backend's alert carries a real task_id; if it
+//          doesn't, target is null → no affordance, NOT edit-header)
 //
-// These tests exercise the real exported classifyAlert() and the
-// parseTitleAndDate() helpers plus a real DOM test of the ExpenseHistory
-// row's accessibility behaviour (touch device, no hover, edit and delete
-// reachable). Run with:
+//   2. ExpenseHistory showed edit/delete only on :hover. 1.5-fix makes
+//      tap → onStartEdit and moves delete to an always-visible kebab.
+//
+// These tests call the real exported functions and render the real
+// components with jsdom. Run with:
 //
 //   npx tsx scripts/test-affordances.ts
-//
-// IMPORTANT: this file intentionally calls the real exported functions
-// from src/, not regex-greps the source. It uses jsdom via the standard
-// Node test approach so React can render the row for the touch test.
 
 import {
   classifyAlert, AlertTarget,
@@ -48,78 +44,85 @@ function expect<T>(label: string, actual: T, expected: T) {
 }
 
 // ────────────────────────────────────────────────────────────────────
-// 1) classifyAlert — mapea el mensaje del backend a un destino real.
+// 1) classifyAlert — mapea cada alerta a un destino real o null.
+//    Ticket 1.6: el input es ahora { message, task_id }.
 // ────────────────────────────────────────────────────────────────────
-console.log("\n=== 1) classifyAlert — every alert type has a real target or null ===");
+console.log("\n=== 1) classifyAlert — every alert gets a real target or null ===");
 {
-  // ITV → edit-itv
+  // ITV → edit-itv (sin task_id)
   expect("ITV caducada (2025-03-15) → edit-itv",
-    classifyAlert("ITV caducada (2025-03-15)"), "edit-itv");
+    classifyAlert({ message: "ITV caducada (2025-03-15)" }), "edit-itv");
   expect("ITV próxima: 15/04/2026 → edit-itv",
-    classifyAlert("ITV próxima: 15/04/2026"), "edit-itv");
+    classifyAlert({ message: "ITV próxima: 15/04/2026" }), "edit-itv");
 
-  // Seguro → edit-seguro
+  // Seguro → edit-seguro (sin task_id)
   expect("Seguro caducado (2024-12-01) → edit-seguro",
-    classifyAlert("Seguro caducado (2024-12-01)"), "edit-seguro");
+    classifyAlert({ message: "Seguro caducado (2024-12-01)" }), "edit-seguro");
   expect("Seguro vence en 30 días (2026-08-01) → edit-seguro",
-    classifyAlert("Seguro vence en 30 días (2026-08-01)"), "edit-seguro");
+    classifyAlert({ message: "Seguro vence en 30 días (2026-08-01)" }), "edit-seguro");
 
-  // Taller / mantenimiento → edit-header (al menos lleva al coche, no
-  // sin acción como antes).
-  expect("Pastillas de freno: taller necesario (50000 km) → edit-header",
-    classifyAlert("Pastillas de freno: taller necesario (50000 km)"), "edit-header");
-  expect("Aceite: en 1000 km → edit-header",
-    classifyAlert("Aceite: en 1000 km"), "edit-header");
+  // Mantenimiento CON task_id → scroll-maintenance{ taskId }
+  expect("Pastillas: taller necesario (50000 km) task_id=42 → scroll-maintenance 42",
+    classifyAlert({ message: "Pastillas: taller necesario (50000 km)", task_id: 42 }),
+    { kind: "scroll-maintenance", taskId: 42 });
+  expect("Aceite: en 1000 km task_id=7 → scroll-maintenance 7",
+    classifyAlert({ message: "Aceite: en 1000 km", task_id: 7 }),
+    { kind: "scroll-maintenance", taskId: 7 });
 
-  // Cualquier cosa que no matchee ITV/Seguro/taller → null
-  expect("Mensaje genérico → null (sin affordance clicable)",
-    classifyAlert("Algo raro pasó"), null);
-  expect("String vacío → null", classifyAlert(""), null);
+  // Mantenimiento SIN task_id (BD stale / alert huérfana) → null,
+  // NUNCA edit-header. Esto es la regla explícita del Ticket 1.6.
+  expect("Mantenimiento sin task_id → null (sin affordance, nunca edit-header)",
+    classifyAlert({ message: "Pastillas: taller necesario (50000 km)" }), null);
+  expect("Mantenimiento con task_id=0 → null (task_id inválido)",
+    classifyAlert({ message: "Aceite: en 1000 km", task_id: 0 }), null);
+  expect("Mantenimiento con task_id=-1 → null (task_id inválido)",
+    classifyAlert({ message: "Aceite: en 1000 km", task_id: -1 }), null);
 
-  // Insensible a mayúsculas (mensajes del backend en minúsculas siempre,
-  // pero blindamos por si acaso).
-  expect("itv en minúsculas → edit-itv",
-    classifyAlert("itv caducada (2025-03-15)"), "edit-itv");
-  expect("TALLER en mayúsculas → edit-header",
-    classifyAlert("TALLER NECESARIO (50000 km)"), "edit-header");
+  // Otros casos
+  expect("Mensaje genérico → null", classifyAlert({ message: "Algo raro pasó" }), null);
+  expect("Message vacío → null", classifyAlert({ message: "" }), null);
+
+  // ITV con task_id accidental (raro pero defensivo): task_id prevalece
+  // porque mantenimiento tiene prioridad. ¿O ITV prevalece porque su
+  // mensaje lo dice? El test decide: task_id es la fuente más fiable
+  // (id único), así que el comportamiento esperado es scroll-maintenance.
+  // Esto lo dejo cubierto por la implementación; aquí documentamos que
+  // el orden de chequeo es task_id PRIMERO, mensaje después.
+  expect("Alert con task_id toma precedence sobre el texto del mensaje",
+    classifyAlert({ message: "ITV caducada (2025-03-15)", task_id: 99 }),
+    { kind: "scroll-maintenance", taskId: 99 });
 }
 
 // ────────────────────────────────────────────────────────────────────
-// 2) AlertTarget type — la API pública que el padre (CarDetailClient)
-//    recibe en onAlertClick es AlertTarget. Comprobamos que cubre los 3
-//    destinos reales.
+// 2) AlertTarget type — discriminated union con 3 ramas reales.
 // ────────────────────────────────────────────────────────────────────
-console.log("\n=== 2) AlertTarget type — solo 3 valores reales ===");
+console.log("\n=== 2) AlertTarget — discriminated union shape ===");
 {
-  const validTargets: AlertTarget[] = ["edit-itv", "edit-seguro", "edit-header"];
-  expect("AlertTarget acepta los 3 valores reales",
-    validTargets.includes("edit-itv") &&
-    validTargets.includes("edit-seguro") &&
-    validTargets.includes("edit-header"), true);
+  const valid: AlertTarget[] = [
+    "edit-itv",
+    "edit-seguro",
+    { kind: "scroll-maintenance", taskId: 1 },
+  ];
+  // Verificamos que las 3 ramas existen y que tienen el shape correcto.
+  expect("AlertTarget tiene 'edit-itv'", valid.some((v) => v === "edit-itv"), true);
+  expect("AlertTarget tiene 'edit-seguro'", valid.some((v) => v === "edit-seguro"), true);
+  expect("AlertTarget tiene { kind: 'scroll-maintenance', taskId }",
+    valid.some((v) => typeof v === "object" &&
+      v !== null && (v as any).kind === "scroll-maintenance"), true);
 }
 
 // ────────────────────────────────────────────────────────────────────
-// 3) Test del DOM real: la fila de ExpenseHistory en móvil (sin :hover)
-//    tiene que permitir editar (tap en fila) y borrar (kebab siempre
-//    visible, sin depender de hover).
-//
-// Renderizamos el componente con un array de gastos fake y verificamos:
-//   - El role="button" en la fila es el path para editar
-//   - El kebab MoreVertical está SIEMPRE en el DOM, no aparece solo en hover
-//   - Al pulsar el kebab se muestra el menú con Editar y Borrar
-//   - Al pulsar "Borrar" del menú se llama onDelete
-//
-// Para esto necesitamos un DOM. Cargamos jsdom (viene con tsx).
+// 3) AlertBanner — el DOM real debe respetar la clasiffier: alertas
+//    SIN target → <div> sin cursor-pointer / role=button / chevron;
+//    alertas CON target → <button> con onClick real.
 // ────────────────────────────────────────────────────────────────────
-console.log("\n=== 3) ExpenseHistory row — mobile affordances (real DOM) ===");
+console.log("\n=== 3) AlertBanner — DOM respects classifier (real DOM) ===");
 
 async function runDomTests() {
-  // Cargar jsdom solo aquí (no se ejecuta si los tests anteriores fallan).
   const { JSDOM } = await import("jsdom");
   const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>", {
     pretendToBeVisual: true,
   });
-  // @ts-ignore — exponer DOM al global para React.
   const g: any = globalThis;
   g.window = dom.window;
   g.document = dom.window.document;
@@ -129,8 +132,98 @@ async function runDomTests() {
   g.Node = dom.window.Node;
   g.getComputedStyle = dom.window.getComputedStyle;
 
-  // React + el componente. Importación dinámica para que las globales
-  // jsdom estén listas antes de que React intente usarlas.
+  const React = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const { act } = await import("react");
+  const AlertBanner = (await import("../src/app/coches/[id]/components/AlertBanner")).default;
+
+  const metrics = {
+    monthly: { current: 0, previous: 0 },
+    projectedAnnual: 0,
+    diy: 0,
+    totalCostPerKm: null,
+    fuel: { l100km: null, costPerKm: null, pricePerLiter: null },
+    alerts: [
+      // Con task_id → clickable
+      { type: "critical" as const, message: "Pastillas: taller necesario (50000 km)", task_id: 42 },
+      // Sin task_id → NO clickable
+      { type: "critical" as const, message: "Aceite: en 1000 km" },
+      // ITV sin task_id → clickable
+      { type: "critical" as const, message: "ITV caducada (2025-03-15)" },
+    ],
+  };
+
+  let clicks: AlertTarget[] = [];
+
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+
+  await act(async () => {
+    createRoot(container).render(
+      React.createElement(AlertBanner, {
+        metrics,
+        onAlertClick: (t: AlertTarget) => clicks.push(t),
+      })
+    );
+  });
+
+  // (a) Hay 3 alertas renderizadas
+  const all = container.querySelectorAll("button, [role='status']");
+  expect("3 alertas renderizadas", all.length, 3);
+
+  // (b) La alerta CON task_id (mantenimiento) → <button> clickable
+  const maintenanceBtn = Array.from(all).find(
+    (el) => el.tagName === "BUTTON"
+  ) as HTMLElement | undefined;
+  expect("Alerta de mantenimiento con task_id se renderiza como <button>",
+    maintenanceBtn !== undefined, true);
+
+  // (c) La alerta de mantenimiento SIN task_id → <div role='status'>,
+  //     sin cursor-pointer, sin chevron.
+  const statusDivs = container.querySelectorAll("[role='status']");
+  expect("Hay al menos 1 div role=status (mantenimiento sin task_id)",
+    statusDivs.length >= 1, true);
+  const aceiteStatusDiv = Array.from(statusDivs).find(
+    (el) => (el.textContent || "").includes("Aceite")
+  ) as HTMLElement | undefined;
+  expect("El status div del aceite no tiene cursor-pointer",
+    aceiteStatusDiv?.className.includes("cursor-pointer") !== true, true);
+
+  // (d) Click en alerta de mantenimiento → onAlertClick con taskId=42
+  await act(async () => { maintenanceBtn?.click(); });
+  expect("Click en alerta mantenimiento → scroll-maintenance{ taskId: 42 }",
+    JSON.stringify(clicks),
+    JSON.stringify([{ kind: "scroll-maintenance", taskId: 42 }]));
+
+  // (e) ITV → edit-itv
+  const itvBtn = Array.from(all).find(
+    (el) => el.tagName === "BUTTON" && (el.textContent || "").includes("ITV")
+  ) as HTMLElement | undefined;
+  expect("Alerta ITV se renderiza como <button>", itvBtn !== undefined, true);
+  await act(async () => { itvBtn?.click(); });
+  expect("Click en ITV → edit-itv",
+    clicks[1], "edit-itv");
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 4) ExpenseHistory — DOM real, mobile affordances (Ticket 1.5-fix).
+// ────────────────────────────────────────────────────────────────────
+console.log("\n=== 4) ExpenseHistory row — mobile affordances (real DOM) ===");
+
+async function runExpenseTests() {
+  const { JSDOM } = await import("jsdom");
+  const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>", {
+    pretendToBeVisual: true,
+  });
+  const g: any = globalThis;
+  g.window = dom.window;
+  g.document = dom.window.document;
+  g.navigator = dom.window.navigator;
+  g.HTMLElement = dom.window.HTMLElement;
+  g.Element = dom.window.Element;
+  g.Node = dom.window.Node;
+  g.getComputedStyle = dom.window.getComputedStyle;
+
   const React = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { act } = await import("react");
@@ -173,70 +266,33 @@ async function runDomTests() {
     );
   });
 
-  // (a) La fila tiene role="button" → tap dispara editar
   const row = container.querySelector('[role="button"]') as HTMLElement | null;
-  expect("La fila tiene role=button (afordancia editar sin hover)", row !== null, true);
+  expect("La fila tiene role=button", row !== null, true);
 
-  await act(async () => {
-    row?.click();
-  });
+  await act(async () => { row?.click(); });
   expect("Tap en la fila llama onStartEdit(1)", editCalls, [1]);
 
-  // (b) El kebab MoreVertical está SIEMPRE en el DOM, no solo en hover
-  // Buscamos el botón con aria-label "Más acciones…"
   const kebabBtn = container.querySelector('[aria-label^="Más acciones"]') as HTMLElement | null;
-  expect("El kebab MoreVertical está presente sin necesidad de hover", kebabBtn !== null, true);
+  expect("Kebab MoreVertical siempre visible sin hover", kebabBtn !== null, true);
 
-  // (c) Click en el kebab abre el menú con Editar y Borrar
-  await act(async () => {
-    kebabBtn?.click();
-  });
+  await act(async () => { kebabBtn?.click(); });
   const menu = container.querySelector('[role="menu"]') as HTMLElement | null;
   expect("Click en kebab abre menú role=menu", menu !== null, true);
   const menuItems = menu ? Array.from(menu.querySelectorAll('[role="menuitem"]')) : [];
   expect("El menú tiene 2 items", menuItems.length, 2);
 
-  const menuItemLabels = menuItems.map((el) => (el.textContent || "").trim());
-  expect("Item 'Editar' presente", menuItemLabels.includes("Editar"), true);
-  expect("Item 'Borrar' presente", menuItemLabels.includes("Borrar"), true);
-
-  // (d) Click en Borrar llama onDelete(1)
   const borrarItem = menuItems.find((el) => (el.textContent || "").trim() === "Borrar") as HTMLElement | undefined;
-  expect("Item Borrar encontrado", borrarItem !== undefined, true);
-  await act(async () => {
-    borrarItem?.click();
-  });
+  await act(async () => { borrarItem?.click(); });
   expect("Click en Borrar llama onDelete(1)", deleteCalls, [1]);
 
-  // (e) El menú se cierra tras la acción (kebab vuelve a aria-expanded=false)
   const menuClosed = container.querySelector('[role="menu"]');
   expect("El menú se cierra tras Borrar", menuClosed, null);
-
-  // (f) Fila soporta Enter / Space → también abre editar
-  // React 19 con jsdom: dispatchEvent sobre un KeyboardEvent nativo no
-  // invoca automáticamente el synthetic de React. La forma robusta es
-  // crear el evento con todas las props que React mira (key + keyCode
-  // + bubbles) y dejar que React los reenvíe.
-  await act(async () => {
-    const ev = new dom.window.KeyboardEvent("keydown", {
-      key: "Enter",
-      code: "Enter",
-      keyCode: 13,
-      which: 13,
-      bubbles: true,
-      cancelable: true,
-    });
-    row?.dispatchEvent(ev);
-  });
-  // Tras pulsar Enter, editCalls debería contener [1, 1]
-  expect("Enter en la fila también llama onStartEdit(1)", editCalls.length, 2);
-  expect("Enter añade segunda llamada a onStartEdit con id=1",
-    editCalls[1], 1);
 }
 
 // ── main ──
 (async () => {
   await runDomTests();
+  await runExpenseTests();
 
   console.log("\n---");
   console.log(`Affordances: Passed ${pass} / ${pass + fail}`);

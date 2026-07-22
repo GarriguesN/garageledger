@@ -68,7 +68,14 @@ export interface CarMetrics {
     costPerKm: number | null;
     pricePerLiter: number | null;
   };
-  alerts: { type: "critical" | "warning" | "info"; message: string }[];
+  alerts: {
+    type: "critical" | "warning" | "info";
+    message: string;
+    // Ticket 1.6: presente solo en alertas de mantenimiento. Identifica
+    // la fila exacta de maintenance_tasks que disparó la alerta para
+    // scroll + highlight desde el AlertBanner.
+    task_id?: number;
+  }[];
 }
 
 export interface AddExpenseFormState {

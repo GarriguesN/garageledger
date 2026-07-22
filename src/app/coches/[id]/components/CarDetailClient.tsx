@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 // Subcomponentes del detalle
 import CarHeader          from "./CarHeader";
 import CarStatsGrid       from "./CarStatsGrid";
-import AlertBanner        from "./AlertBanner";
+import AlertBanner, { AlertTarget } from "./AlertBanner";
 import AddExpenseForm     from "./AddExpenseForm";
 import ActionButtons       from "./ActionButtons";
 import ExpenseHistory     from "./ExpenseHistory";
@@ -90,17 +90,51 @@ export default function CarDetailClient({
   // Ref al header para hacer scroll desde AlertBanner (Ticket 1.5-fix).
   const headerRef = useRef<HTMLDivElement | null>(null);
 
-  // Click en una alerta: abre el form de edición del coche en el header
-  // y hace scroll suave hasta él. Sin handler en alerts sin destino
-  // (AlertBanner no las renderiza como clicables — ver classifyAlert).
-  const handleAlertClick = () => {
-    setShowEditCar(true);
-    // requestAnimationFrame asegura que el form de edición ya esté en el
-    // DOM cuando se mide la posición; sin él, scrollIntoView usa la
-    // posición del header ANTES de expandir el form.
+  // Ticket 1.6: Map taskId → HTMLElement de la fila correspondiente.
+  // MaintenanceSchedule nos llama con `registerTaskRef(task.id, el)` en
+  // cada render y con `el=null` al desmontar. Usamos Map (no useRef
+  // con objeto) porque queremos set/has/delete ergonómicos.
+  const taskRefs = useRef<Map<number, HTMLElement>>(new Map());
+
+  const registerTaskRef = (taskId: number, el: HTMLElement | null) => {
+    if (el) taskRefs.current.set(taskId, el);
+    else taskRefs.current.delete(taskId);
+  };
+
+  // Ticket 1.6: id de tarea a flashear (highlight breve al pulsar alerta).
+  const [flashTaskId, setFlashTaskId] = useState<number | null>(null);
+
+  // Click en una alerta: el destino depende del AlertTarget que devuelve
+  // classifyAlert (Ticket 1.6: discriminated union con scroll-maintenance
+  // para tareas de mantenimiento, edit-itv/edit-seguro para ITV/Seguro).
+  const handleAlertClick = (target: AlertTarget) => {
+    if (target === "edit-itv" || target === "edit-seguro") {
+      setShowEditCar(true);
+      requestAnimationFrame(() => {
+        headerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+      return;
+    }
+    // scroll-maintenance
+    const el = taskRefs.current.get(target.taskId);
+    if (!el) {
+      // La tarea referenciada por el task_id no está renderizada (caso
+      // raro: alert stale de BD, race con completeTask). Avisamos al
+      // usuario en vez de hacer scroll a un destino incorrecto.
+      setToast({
+        msg: "La tarea ya no está en la lista. Recarga la página.",
+        type: "error",
+      });
+      return;
+    }
+    setFlashTaskId(target.taskId);
     requestAnimationFrame(() => {
-      headerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
     });
+    // Quitamos el flag después de la animación (1.5s en CSS + margen).
+    setTimeout(() => {
+      setFlashTaskId((current) => (current === target.taskId ? null : current));
+    }, 1700);
   };
 
   // ── Loader (refresco tras mutación; la carga inicial viene del servidor) ──
@@ -367,6 +401,8 @@ export default function CarDetailClient({
         tasks={maintenanceTasks}
         car={car}
         onCompleteTask={completeTask}
+        registerTaskRef={registerTaskRef}
+        flashTaskId={flashTaskId}
       />
 
       {/* Guantera (notes + attachments) */}

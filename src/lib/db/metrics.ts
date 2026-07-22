@@ -50,7 +50,7 @@ export function getCarMetrics(carId: number) {
   const totalCostPerKm = getTotalCostPerKm(carId);
   const projectedAnnual = monthly.current * 12;
   const car = getCar(carId);
-  const alerts: { type: 'critical' | 'warning' | 'info'; message: string }[] = [];
+  const alerts: { type: 'critical' | 'warning' | 'info'; message: string; task_id?: number }[] = [];
   if (car) {
     // Auto-calculate estado
     const newEstado = computeCarEstado(car);
@@ -59,12 +59,25 @@ export function getCarMetrics(carId: number) {
     }
 
     // Maintenance task alerts
+    // Ticket 1.6: cada alerta de mantenimiento lleva `task_id` para que
+    // el frontend pueda hacer scroll a la fila exacta en
+    // MaintenanceSchedule. Sin este vínculo, dos tareas con el mismo
+    // part_name (caso real: cambias filtros con marcas distintas) no se
+    // podrían distinguir parseando solo el mensaje.
     const tasks = getDb().prepare("SELECT * FROM maintenance_tasks WHERE car_id=? AND completed=0").all(carId) as any[];
     for (const t of tasks) {
       if (t.next_km && t.next_km <= car.km_actuales) {
-        alerts.push({ type: 'critical', message: `${t.part_name}: taller necesario (${t.next_km.toLocaleString("es-ES")} km)` });
+        alerts.push({
+          type: 'critical',
+          message: `${t.part_name}: taller necesario (${t.next_km.toLocaleString("es-ES")} km)`,
+          task_id: t.id,
+        });
       } else if (t.next_km && (t.next_km - car.km_actuales) < (t.interval_km || 15000) * 0.15) {
-        alerts.push({ type: 'warning', message: `${t.part_name}: en ${(t.next_km - car.km_actuales).toLocaleString("es-ES")} km` });
+        alerts.push({
+          type: 'warning',
+          message: `${t.part_name}: en ${(t.next_km - car.km_actuales).toLocaleString("es-ES")} km`,
+          task_id: t.id,
+        });
       }
     }
 

@@ -1,36 +1,49 @@
 // Banner de alertas por cada aviso crítico/warning que el backend devuelve
 // en metrics.alerts.
 //
-// Rediseño Ticket 1.5 + 1.5-fix: cada alerta SERÁ clicable si tiene un
-// destino real en la UI; las que NO tienen destino se renderizan sin
-// affordance (sin cursor-pointer, sin role="button", sin chevron) — Ticket
-// 1.5-fix prohíbe dejar apariencia de acción sin acción.
-//
-// Destinos por tipo de alerta (en este orden de prioridad):
-//   1. Texto contiene "ITV"        → header en modo edición (campo Última ITV)
-//   2. Texto contiene "Seguro"     → header en modo edición (campo Vencimiento seguro)
-//   3. Texto contiene "taller"     → header en modo edición (sin campo específico;
-//                                     la tarea se gestiona vía MaintenanceSchedule)
-//   4. Cualquier otro              → sin handler, sin affordance clicable.
+// Rediseño Ticket 1.5 + 1.5-fix + 1.6:
+//   - Cada alerta con destino real es <button> con onClick.
+//   - Las alertas SIN destino se renderizan como <div role="status"> sin
+//     cursor-pointer, sin role=button, sin chevron.
+//   - Ticket 1.6: las alertas de mantenimiento llevan `task_id` desde el
+//     backend. La clasificación devuelve `{kind:"scroll-maintenance",
+//     taskId}` para esas, y `null` si el task_id falta (afordancia
+//     deshabilitada, NUNCA fallback a edit-header — Ticket 1.6 explícito).
 
 import { AlertTriangle, ChevronRight } from "lucide-react";
 import type { CarMetrics } from "../lib/types";
 
-export type AlertTarget = "edit-itv" | "edit-seguro" | "edit-header";
+export type AlertTarget =
+  | "edit-itv"
+  | "edit-seguro"
+  | { kind: "scroll-maintenance"; taskId: number };
 
 interface AlertBannerProps {
   metrics: CarMetrics;
   onAlertClick?: (target: AlertTarget) => void;
 }
 
-// Exportado también para tests (Ticket 1.5-fix). NO se considera API
-// pública — solo lo usan scripts/test-affordances.ts.
-export function classifyAlert(message: string): AlertTarget | null {
-  const m = message.toLowerCase();
+// Clasifica una alerta individual en un destino real, o null si no
+// hay destino fiable. Para alertas de mantenimiento USA EL `task_id`
+// del backend — NO parsea `part_name` del mensaje porque un mismo
+// coche puede tener dos tareas con el mismo `part_name` (caso real:
+// cambias aceite con marca A y luego con marca B, o dos filtros
+// distintos). El parseo del mensaje no garantiza unicidad →
+// sin `task_id` no hay destino → null (sin affordance).
+export function classifyAlert(alert: {
+  message: string;
+  task_id?: number;
+}): AlertTarget | null {
+  // Mantenimiento: usa task_id si está y es positivo.
+  if (typeof alert.task_id === "number" && alert.task_id > 0) {
+    return { kind: "scroll-maintenance", taskId: alert.task_id };
+  }
+  const m = alert.message.toLowerCase();
   if (m.includes("itv")) return "edit-itv";
   if (m.includes("seguro")) return "edit-seguro";
-  // "taller necesario" o "en N km" (warning de mantenimiento próximo).
-  if (m.includes("taller") || /en\s+\d+\s*km/.test(m)) return "edit-header";
+  // Si por alguna razón llegó una alerta de mantenimiento SIN task_id
+  // (código viejo en BD, race condition, etc.), no la llevamos a
+  // edit-header — mejor sin afordancia que a un destino incorrecto.
   return null;
 }
 
@@ -48,7 +61,7 @@ export default function AlertBanner({ metrics, onAlertClick }: AlertBannerProps)
         const titleColor = isCritical ? "#a83633" : "#92400e";
 
         const parsed = parseTitleAndDate(a.message);
-        const target = classifyAlert(a.message);
+        const target = classifyAlert(a);
         const clickable = target !== null && typeof onAlertClick === "function";
 
         const handleClick = () => {
@@ -91,7 +104,6 @@ export default function AlertBanner({ metrics, onAlertClick }: AlertBannerProps)
           </>
         );
 
-        // Clickable → <button> real; no-clickable → <div> sin affordance.
         if (clickable) {
           return (
             <button
@@ -100,7 +112,7 @@ export default function AlertBanner({ metrics, onAlertClick }: AlertBannerProps)
               className="flex items-center gap-3 w-full rounded-2xl px-4 py-3 text-left transition-opacity hover:opacity-90 cursor-pointer"
               style={{ background: bg }}
               onClick={handleClick}
-              aria-label={`Corregir ${parsed.title}`}
+              aria-label={`Ir a ${parsed.title}`}
             >
               {content}
             </button>
@@ -125,8 +137,7 @@ export default function AlertBanner({ metrics, onAlertClick }: AlertBannerProps)
 /* ─────────────── helpers ─────────────── */
 
 // Parsea el mensaje del backend en { title, subtitle } cuando el formato
-// es "TITULO (YYYY-MM-DD)" o "TITULO (algo entre paréntesis)". Si no
-// matchea, devuelve title = message completo y subtitle = null.
+// es "TITULO (YYYY-MM-DD)" o "TITULO (algo entre paréntesis)".
 function parseTitleAndDate(message: string): { title: string; subtitle: string | null } {
   const m = message.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
   if (!m) return { title: message, subtitle: null };

@@ -1,13 +1,13 @@
 // Lista de tareas de mantenimiento programado del coche.
-// Rediseño Ticket 1.5: cada fila muestra icono circular gris + nombre +
-// "Próximo: X km · fecha" + "Realizado: Y km" + barra de progreso fina
-// roja a la derecha con "N km restantes" encima. Mantiene el estado vacío
-// del Ticket 1.4 con el mismo lenguaje visual nuevo.
-//
-// NO se tocan handlers ni cálculos nuevos: los datos vienen de
-// MaintenanceTask (next_km, current_km, interval_km). El cálculo de
-// "km restantes" y el porcentaje para la barra usan los mismos campos que
-// ya consumía el componente (next_km - car.km_actuales).
+// Rediseño Ticket 1.5 + 1.6:
+//   - 1.5: cada fila muestra icono circular gris + nombre + "Próximo: X km
+//     · fecha" + "Realizado: Y km" + barra de progreso fina + "N km
+//     restantes" encima. Estado vacío del 1.4 conservado.
+//   - 1.6: el componente expone `registerTaskRef` para que el padre
+//     (CarDetailClient) pueda resolver `taskId → HTMLElement` y hacer
+//     scroll + highlight cuando el usuario pulsa una alerta de
+//     mantenimiento. También acepta `flashTaskId` para aplicar la clase
+//     `flash-task` a la fila exacta.
 
 import { Clock, ClipboardList, Wrench, ChevronRight } from "lucide-react";
 import { fmt0, formatLongMonthYear } from "../lib/format";
@@ -17,6 +17,12 @@ interface MaintenanceScheduleProps {
   tasks: MaintenanceTask[];
   car: Car;
   onCompleteTask: (task: MaintenanceTask) => void;
+  // Ticket 1.6: el padre pasa un callback para registrar cada fila y
+  // poder hacer scroll. El padre mantiene un Map<taskId, HTMLElement>.
+  registerTaskRef?: (taskId: number, el: HTMLElement | null) => void;
+  // Si está definido, la fila con ese id recibe la clase flash-task para
+  // animarse brevemente.
+  flashTaskId?: number | null;
 }
 
 const TEXT_DARK = "#211a1e";
@@ -24,6 +30,7 @@ const TEXT_GRAY = "#8a8588";
 
 export default function MaintenanceSchedule({
   tasks, car, onCompleteTask,
+  registerTaskRef, flashTaskId,
 }: MaintenanceScheduleProps) {
   const isEmpty = tasks.length === 0;
   const kmActuales = car?.km_actuales ?? 0;
@@ -32,7 +39,7 @@ export default function MaintenanceSchedule({
     <div>
       {/* Header con título + "Ver todos" (mockup). "Ver todos" queda
           disabled — no existe pantalla /coches/[id]/mantenimiento; cuando
-          exista, se enchufa aquí (Ticket 1.5 no introduce navegación). */}
+          exista, se enchufa aquí. */}
       <div className="flex items-center justify-between mb-3 gap-2">
         <h2 className="text-[15px] font-bold flex items-center gap-2 min-w-0">
           <Clock size={16} style={{ color: "var(--accent)" }} />
@@ -72,10 +79,6 @@ export default function MaintenanceSchedule({
         )}
 
         {tasks.map((task) => {
-          // Cálculo de "km restantes" y porcentaje para la barra.
-          // Si la tarea ya está vencida (next_km <= km_actuales), restantes
-          // es 0 y la barra se pinta llena en rojo. Si no hay next_km o
-          // interval_km, la barra se oculta.
           const intervalKm = task.interval_km ?? 15000;
           const restantes =
             task.next_km !== null ? Math.max(task.next_km - kmActuales, 0) : null;
@@ -93,12 +96,19 @@ export default function MaintenanceSchedule({
                 )
               : null;
 
-          const barColor = overdue ? "#c3423f" : "#c3423f"; // mockup: siempre rojo
+          const barColor = overdue ? "#c3423f" : "#c3423f";
+          const isFlashing = flashTaskId === task.id;
 
           return (
             <div
               key={task.id}
-              className="card !p-3 flex items-center gap-3"
+              // Ticket 1.6: ref callback. React llama con `null` al
+              // desmontar — el padre debe limpiar el Map para no leaks.
+              ref={(el) => registerTaskRef?.(task.id, el)}
+              className={
+                "card !p-3 flex items-center gap-3 " +
+                (isFlashing ? "flash-task" : "")
+              }
             >
               <div
                 className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
@@ -138,7 +148,6 @@ export default function MaintenanceSchedule({
                 </p>
               </div>
 
-              {/* Barra de progreso fina + km restantes encima */}
               {restantes !== null && progressPct !== null && (
                 <div className="flex flex-col items-end gap-1 flex-shrink-0 min-w-[120px]">
                   <span
