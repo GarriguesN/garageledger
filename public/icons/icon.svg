@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="32" fill="#c3423f"/>
+  <g transform="translate(96,96)">
+    <rect x="-28" y="-18" width="56" height="48" rx="8" fill="none" stroke="#f0edee" stroke-width="3"/>
+    <rect x="-16" y="-1" width="32" height="18" rx="2" fill="#f0edee" opacity="0.3"/>
+    <circle cx="-28" cy="-18" r="6" fill="#f0edee"/>
+    <circle cx="28" cy="-18" r="6" fill="#f0edee"/>
+    <line x1="-20" y1="24" x2="-20" y2="42" stroke="#f0edee" stroke-width="3" stroke-linecap="round"/>
+    <line x1="0" y1="24" x2="0" y2="42" stroke="#f0edee" stroke-width="3" stroke-linecap="round"/>
+    <line x1="20" y1="24" x2="20" y2="42" stroke="#f0edee" stroke-width="3" stroke-linecap="round"/>
+    <line x1="-20" y1="-10" x2="-20" y2="-4" stroke="#f0edee" stroke-width="2" stroke-linecap="round"/>
+    <line x1="20" y1="-10" x2="20" y2="-4" stroke="#f0edee" stroke-width="2" stroke-linecap="round"/>
+    <line x1="-28" y1="-2" x2="-20" y2="-2" stroke="#f0edee" stroke-width="2"/>
+    <line x1="20" y1="-2" x2="28" y2="-2" stroke="#f0edee" stroke-width="2"/>
+  </g>
+</svg>
