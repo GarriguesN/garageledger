@@ -14,6 +14,17 @@ export function fmt0(n: number) {
   return n.toLocaleString("es-ES", { minimumFractionDigits: 0 });
 }
 
+// Render seguro: si el valor no es un número finito (null, undefined, NaN,
+// Infinity, o cualquier cosa que no sea `number`), devolvemos un guion. Esto
+// blinda `CarStatsGrid` y futuros consumidores contra estados corruptos o
+// filas incompletas (ej. consumo medio sin litros registrados → null).
+// Si el valor es finito, lo formatea con `decimals` decimales sin grouping.
+export function fmtOrDash(n: unknown, decimals = 0): string {
+  return typeof n === "number" && Number.isFinite(n)
+    ? n.toFixed(decimals)
+    : "—";
+}
+
 export function formatDate(d: string) {
   return new Date(d + "T12:00:00").toLocaleDateString("es-ES", {
     day: "2-digit",

@@ -1,4 +1,4 @@
-import { Clock, CheckCircle2 } from "lucide-react";
+import { Clock, CheckCircle2, ClipboardList } from "lucide-react";
 import { fmt0, formatLongMonthYear } from "../lib/format";
 import type { Car, MaintenanceTask } from "../lib/types";
 
@@ -11,7 +11,12 @@ interface MaintenanceScheduleProps {
 export default function MaintenanceSchedule({
   tasks, car, onCompleteTask,
 }: MaintenanceScheduleProps) {
-  if (tasks.length === 0) return null;
+  // Estado vacío explícito: NO suprimimos el panel como antes (`return null`).
+  // Lo renderizamos siempre para que el usuario sepa dónde aparecerá el
+  // mantenimiento cuando lo programe. No añadimos botón CTA porque la app
+  // aún no expone una acción para crear una tarea de mantenimiento; cuando
+  // exista, se enlaza aquí.
+  const isEmpty = tasks.length === 0;
 
   return (
     <div>
@@ -19,6 +24,19 @@ export default function MaintenanceSchedule({
         <Clock size={16} style={{ color: "var(--accent)" }} /> Mantenimiento programado
       </h2>
       <div className="space-y-2">
+        {isEmpty && (
+          <div className="card flex flex-col items-center justify-center gap-2 py-8 text-center">
+            <ClipboardList size={28} className="text-[var(--text-muted)]" aria-hidden />
+            <p className="text-sm font-medium text-[var(--text-secondary)]">
+              No hay mantenimientos programados todavía
+            </p>
+            <p className="text-xs text-[var(--text-muted)]">
+              Cuando registres un gasto de tipo «Mantenimiento (DIY/Taller)» se creará aquí
+              automáticamente.
+            </p>
+          </div>
+        )}
+
         {tasks.map((task) => {
           const overdue = task.next_km !== null && task.next_km <= (car?.km_actuales || 0);
           const near =

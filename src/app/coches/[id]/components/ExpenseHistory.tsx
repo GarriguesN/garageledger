@@ -3,6 +3,7 @@
 import {
   Calendar, Plus, Fuel, Wrench, Euro,
   Edit, Save, X, Trash2, FileText, Gauge,
+  Receipt,
 } from "lucide-react";
 import {
   fmt, fmt0, formatDate, Sparkline, TIPO_COLOR, CATEGORIAS,
@@ -86,8 +87,14 @@ export default function ExpenseHistory({
           );
         })}
         {timeline.length === 0 && (
-          <div className="card text-center py-6">
-            <p className="text-sm text-[var(--text-secondary)]">No hay gastos registrados</p>
+          <div className="card flex flex-col items-center justify-center gap-2 py-8 text-center">
+            <Receipt size={28} className="text-[var(--text-muted)]" aria-hidden />
+            <p className="text-sm font-medium text-[var(--text-secondary)]">
+              Aún no hay gastos registrados
+            </p>
+            <p className="text-xs text-[var(--text-muted)]">
+              Añade el primero arriba con el botón «Añadir gasto».
+            </p>
           </div>
         )}
         {timeline.length > timelineLimit && (

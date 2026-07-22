@@ -1,5 +1,6 @@
 import {
   FileText, Plus, Trash2, Paperclip, Upload,
+  StickyNote, FolderOpen,
 } from "lucide-react";
 import type { Note, Attachment } from "../lib/types";
 
@@ -43,7 +44,8 @@ export default function GloveBox({
         >
           <Plus size={14} /> Anadir nota
         </button>
-        {notes.length > 0 && (
+
+        {notes.length > 0 ? (
           <div className="space-y-1.5">
             {notes.map((n) => (
               <div
@@ -59,6 +61,15 @@ export default function GloveBox({
                 </button>
               </div>
             ))}
+          </div>
+        ) : (
+          // Estado vacío independiente: solo aparece cuando NO hay notas
+          // (sea porque nunca se añadió o porque se borraron todas).
+          <div className="flex items-center gap-2 py-3 px-2 rounded-md bg-[var(--bg-primary)]/40">
+            <StickyNote size={16} className="text-[var(--text-muted)] flex-shrink-0" aria-hidden />
+            <p className="text-xs text-[var(--text-muted)]">
+              Sin notas todavía. Añade la primera arriba con «Anadir nota».
+            </p>
           </div>
         )}
 
@@ -80,7 +91,8 @@ export default function GloveBox({
             <Upload size={14} /> {uploading ? "Subiendo..." : "Subir archivo"}
           </button>
         </div>
-        {attachments.length > 0 && (
+
+        {attachments.length > 0 ? (
           <div className="space-y-1.5">
             {attachments.map((a) => (
               <div key={a.id} className="flex items-center gap-2 py-1 text-sm">
@@ -97,6 +109,16 @@ export default function GloveBox({
                 </button>
               </div>
             ))}
+          </div>
+        ) : (
+          // Estado vacío independiente para adjuntos: vive dentro de la MISMA
+          // card que las notas pero separado, para que ambas secciones tengan
+          // su propio feedback.
+          <div className="flex items-center gap-2 py-3 px-2 rounded-md bg-[var(--bg-primary)]/40">
+            <FolderOpen size={16} className="text-[var(--text-muted)] flex-shrink-0" aria-hidden />
+            <p className="text-xs text-[var(--text-muted)]">
+              Sin adjuntos. Sube una factura o foto con «Subir archivo».
+            </p>
           </div>
         )}
       </div>
