@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Car, Gauge, Euro, Circle, MoreVertical, Edit, Download, Archive,
   Hash, FileDigit, Fuel,
@@ -44,10 +45,12 @@ export default function VehicleCard({
   kmActuales, estado, gastoMensual,
   fotoAttachmentId, archivado,
 }: VehicleCardProps) {
+  const router = useRouter();
   const subtitle = [generacion, ano, motor].filter(Boolean).join(" · ");
   const color = statusColor(estado);
   const fotoSrc = fotoAttachmentId ? `/api/attachments/${fotoAttachmentId}` : null;
   const gastoColor = gastoInAccent(estado) ? "var(--accent)" : "var(--text-primary)";
+  const cardHref = `/coches/${id}`;
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -71,10 +74,28 @@ export default function VehicleCard({
     }
   }, [menuOpen]);
 
+  // Whole card navigates on plain click; manual nav because the card is a
+  // <div>, not an <a> (we have <a> items inside for the menu — invalid HTML
+  // to nest <a> in <a>). Keep keyboard a11y via role + tabIndex + Enter.
+  function onCardClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (e.defaultPrevented) return; // a child handled it
+    router.push(cardHref);
+  }
+  function onCardKey(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.defaultPrevented) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      router.push(cardHref);
+    }
+  }
+
   return (
-    <Link
-      href={`/coches/${id}`}
-      className="group block no-underline text-[var(--text-primary)] relative"
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={onCardClick}
+      onKeyDown={onCardKey}
+      className="group block no-underline text-[var(--text-primary)] relative cursor-pointer"
     >
       <article
         className={`relative bg-white border border-[var(--border-color)] rounded-2xl overflow-hidden transition-all duration-200
@@ -239,7 +260,7 @@ export default function VehicleCard({
           </div>
         </div>
       </article>
-    </Link>
+    </div>
   );
 }
 
