@@ -4,14 +4,24 @@ export const config = {
   // Protect:
   //   - all /api/* routes EXCEPT /api/pin (pre-session login) and /api/session
   //     (introspection: must work pre-session so PinGate can decide what to show)
-  //   - all app pages EXCEPT / (the home; it just renders PinGate) and the
-  //     public Next assets / API health checks.
+  //   - all app pages that touch sensitive data: /coches/**, /settings.
   //
-  // Ticket 1.3: page-data is now loaded server-side via Server Components,
-  // so a request to /coches/[id] would otherwise reply with the full HTML
-  // (incl. sensitive maintenance costs/notes) without any middleware check.
-  // Adding page protection closes that hole before the PinGate client-side
-  // hydrates and fires its /api/session check.
+  // The home ("/") is INTENTIONALLY NOT in this matcher. GaragePage is a
+  // Server Component, and it implements the same defense-in-depth as
+  // src/app/coches/[id]/page.tsx: readSessionCookie(cookies()) + redirect to
+  // "/" if no session AND a PIN is configured. The home MUST stay reachable
+  // when no PIN has been configured yet ("primer uso") — otherwise the
+  // user can't reach PinGate to set their PIN at all. For that one case,
+  // the middleware can't help (Edge runtime, can't read SQLite) and the SC
+  // is the only gate, which is fine — it's the same pattern we already use
+  // for /coches/[id] (matcher covers it AND SC double-checks).
+  //
+  // Ticket 1.3-fix history: an earlier iteration of this fix had "/" in the
+  // matcher, but that caused an infinite redirect-loop for first-time users
+  // (middleware blocks → SC never runs → PinGate never mounts). The current
+  // shape (matcher covers everything sensitive, SC handles "/" alone) is the
+  // correct one: tested with curl +13 assertions in
+  // scripts/test-middleware-coverage.ts.
   matcher: [
     "/api/((?!pin|session).*)",
     "/coches/:path*",
@@ -101,15 +111,18 @@ export async function middleware(req: NextRequest) {
 }
 
 function unauthorized(req: NextRequest) {
-  // For app pages we send the user back to the home with the gate; the
-  // "/" client will show PinGate. For APIs we reply JSON 401 (clients expect it).
-  const isPage =
-    req.nextUrl.pathname.startsWith("/coches") ||
-    req.nextUrl.pathname === "/settings";
-  if (isPage) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
+  // Two flavors depending on what got matched:
+  //   - /api/* (matched by /api/((?!pin|session).*)) → JSON 401. Clients
+  //     (fetch in the browser, curl, scripts) expect a structured error.
+  //   - app pages (/coches/*, /settings) → redirect to "/". The home
+  //     handles "is the user authenticated or do they need to see the PIN
+  //     gate?" via its own SC check; PinGate then either mounts the unlock
+  //     form or, if no PIN is configured yet, the "Establecer PIN" wizard.
+  const isApi = req.nextUrl.pathname.startsWith("/api");
+  if (isApi) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const url = req.nextUrl.clone();
+  url.pathname = "/";
+  return NextResponse.redirect(url);
 }
