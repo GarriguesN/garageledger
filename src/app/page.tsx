@@ -20,14 +20,14 @@ import { cookies } from "next/headers";
 import { Home, Car, Plus } from "lucide-react";
 import VehicleCard from "@/components/VehicleCard";
 import { getCarDashboardData } from "@/lib/db";
-import { readSessionCookie } from "@/lib/auth";
+import { readSessionFromValue } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function GaragePage() {
   // ── 1) Auth: leer y validar la cookie ANTES de tocar la DB de coches.
   const cookieStore = await cookies();
-  const session = readSessionCookie(cookieStore.get("gl_sess")?.value);
+  const session = readSessionFromValue(cookieStore.get("gl_sess")?.value);
 
   // ── 2) Carga inicial en el servidor (solo si hay sesión válida).
   // Si no hay sesión devolvemos lista vacía: NO se filtra NINGÚN dato de
