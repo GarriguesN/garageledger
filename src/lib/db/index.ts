@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import path from "path";
+import { hashPin, isPinHashed } from "@/lib/auth";
 
 const DB_PATH = process.env.DB_PATH || "/opt/garageledger/data/garageledger.db";
 
@@ -98,6 +99,13 @@ function migrateSchema(db: Database.Database) {
   const colNames = cols.map(c => c.name);
   if (!colNames.includes("fecha_ultima_itv")) db.exec("ALTER TABLE cars ADD COLUMN fecha_ultima_itv TEXT");
   if (!colNames.includes("mantenimiento_config")) db.exec("ALTER TABLE cars ADD COLUMN mantenimiento_config TEXT");
+
+  // Migrate legacy plaintext PIN to scrypt hash in-place.
+  // Idempotent: only fires when stored value is not already a scrypt blob.
+  const pinRow = db.prepare("SELECT value FROM settings WHERE key = 'pin'").get() as { value: string } | undefined;
+  if (pinRow && !isPinHashed(pinRow.value)) {
+    db.prepare("UPDATE settings SET value = ? WHERE key = 'pin'").run(hashPin(pinRow.value));
+  }
 }
 
 function seedIfEmpty(db: Database.Database) {
