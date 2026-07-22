@@ -18,7 +18,7 @@ import { getCar, getCarMetrics, getTimeline } from "@/lib/db";
 import { getCarNotes } from "@/lib/db/notes";
 import { getAttachments } from "@/lib/db/attachments";
 import { getMaintenanceTasks } from "@/lib/db/maintenance";
-import { readSessionCookie } from "@/lib/auth";
+import { readSessionFromValue } from "@/lib/auth";
 
 import CarDetailClient from "./components/CarDetailClient";
 
@@ -33,7 +33,7 @@ export default async function CarDetailPage({ params }: PageProps) {
   // pero replicamos en el Server Component como defensa-en-profundidad: si el
   // matcher se queda corto en el futuro, este redirect sigue blindando el HTML.
   const cookieStore = await cookies();
-  const session = readSessionCookie(cookieStore.get("gl_sess")?.value);
+  const session = readSessionFromValue(cookieStore.get("gl_sess")?.value);
   if (!session) {
     redirect("/");
   }

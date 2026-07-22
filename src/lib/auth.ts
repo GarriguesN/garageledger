@@ -99,21 +99,29 @@ export function clearSessionCookie(): string {
   return `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
 }
 
-export function readSessionCookie(cookieHeader: string | null | undefined): SessionPayload | null {
-  if (!cookieHeader) return null;
-  const cookies = cookieHeader.split(";").map((c) => c.trim());
-  const match = cookies.find((c) => c.startsWith(`${COOKIE_NAME}=`));
-  if (!match) return null;
-  const value = match.slice(COOKIE_NAME.length + 1);
+// Parse and verify a session cookie value (the part after `gl_sess=`,
+// i.e. "body.signature"). Returns the payload on success, null on failure
+// (missing, malformed, bad signature, or expired). Does NOT look for the
+// `gl_sess=` prefix — use `readSessionCookie` for that.
+//
+// This is the canonical implementation; `readSessionCookie` (below) is a
+// thin wrapper that splits a full Cookie header first and then delegates
+// here. New callers (e.g. Server Components using `cookies().get(...)`
+// from `next/headers`) should use this function directly.
+export function readSessionFromValue(value: string | null | undefined): SessionPayload | null {
+  if (!value) return null;
   const dot = value.indexOf(".");
   if (dot < 0) return null;
   const body = value.slice(0, dot);
   const sig = value.slice(dot + 1);
+  if (!body || !sig) return null;
+
   const expected = sign(body);
   // Constant-time signature compare
   const a = Buffer.from(sig);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+
   let payload: SessionPayload;
   try {
     payload = JSON.parse(b64urlDecode(body).toString("utf8"));
@@ -123,6 +131,15 @@ export function readSessionCookie(cookieHeader: string | null | undefined): Sess
   if (!payload?.uid || !payload.exp) return null;
   if (Date.now() > payload.exp) return null;
   return payload;
+}
+
+export function readSessionCookie(cookieHeader: string | null | undefined): SessionPayload | null {
+  if (!cookieHeader) return null;
+  const cookies = cookieHeader.split(";").map((c) => c.trim());
+  const match = cookies.find((c) => c.startsWith(`${COOKIE_NAME}=`));
+  if (!match) return null;
+  const value = match.slice(COOKIE_NAME.length + 1);
+  return readSessionFromValue(value);
 }
 
 // -------- IP rate limit (in-memory, per Node process) --------

@@ -47,8 +47,8 @@ const page = fs.readFileSync("src/app/coches/[id]/page.tsx", "utf8");
 expect("page.tsx NO tiene 'use client'",
   !page.includes("\"use client\"") && !page.includes("'use client'"));
 expect("page.tsx es async", /export default async function/.test(page));
-expect("page.tsx valida session con readSessionCookie",
-  page.includes("readSessionCookie"));
+expect("page.tsx valida session con readSessionFromValue (no readSessionCookie)",
+  page.includes("readSessionFromValue") && !page.includes("readSessionCookie"));
 expect("page.tsx redirige / si no hay sesión", page.includes('redirect("/")'));
 
 console.log("\n=== 6) CarDetailClient existe con props initial* ===");
@@ -67,8 +67,9 @@ console.log("\n=== 8) Server Component en / (GaragePage) — Ticket 1.3-fix ==="
 const home = fs.readFileSync("src/app/page.tsx", "utf8");
 expect("page.tsx NO tiene 'use client'",
   !home.includes("\"use client\"") && !home.includes("'use client'"));
-expect("page.tsx importa readSessionCookie",
-  /import\s+\{[^}]*readSessionCookie[^}]*\}\s+from\s+["']@\/lib\/auth["']/.test(home));
+expect("page.tsx importa readSessionFromValue (no readSessionCookie)",
+  /import\s+\{[^}]*readSessionFromValue[^}]*\}\s+from\s+["']@\/lib\/auth["']/.test(home) &&
+  !/import\s+\{[^}]*readSessionCookie[^}]*\}\s+from\s+["']@\/lib\/auth["']/.test(home));
 expect("page.tsx es un async Server Component",
   /export default async function/.test(home));
 expect("page.tsx lee cookies() con await (Next 16)",
