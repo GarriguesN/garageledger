@@ -1,10 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export const config = {
-  // Protect everything under /api except /api/pin and /api/session.
-  // /api/pin   → pre-session (login)
-  // /api/session → introspection (used by PinGate to know if the cookie is valid)
-  matcher: ["/api/((?!pin|session).*)"],
+  // Protect:
+  //   - all /api/* routes EXCEPT /api/pin (pre-session login) and /api/session
+  //     (introspection: must work pre-session so PinGate can decide what to show)
+  //   - all app pages EXCEPT / (the home; it just renders PinGate) and the
+  //     public Next assets / API health checks.
+  //
+  // Ticket 1.3: page-data is now loaded server-side via Server Components,
+  // so a request to /coches/[id] would otherwise reply with the full HTML
+  // (incl. sensitive maintenance costs/notes) without any middleware check.
+  // Adding page protection closes that hole before the PinGate client-side
+  // hydrates and fires its /api/session check.
+  matcher: [
+    "/api/((?!pin|session).*)",
+    "/coches/:path*",
+    "/settings",
+  ],
 };
 
 const COOKIE_NAME = "gl_sess";
@@ -62,10 +74,10 @@ function readCookie(req: NextRequest, name: string): string | null {
 
 export async function middleware(req: NextRequest) {
   const raw = readCookie(req, COOKIE_NAME);
-  if (!raw) return unauthorized();
+  if (!raw) return unauthorized(req);
 
   const dot = raw.indexOf(".");
-  if (dot < 0) return unauthorized();
+  if (dot < 0) return unauthorized(req);
   const body = raw.slice(0, dot);
   const sig = raw.slice(dot + 1);
 
@@ -73,21 +85,31 @@ export async function middleware(req: NextRequest) {
   const expectedBuf = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body));
   const expectedSig = btoa(String.fromCharCode(...new Uint8Array(expectedBuf)))
     .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-  if (!ctEq(sig, expectedSig)) return unauthorized();
+  if (!ctEq(sig, expectedSig)) return unauthorized(req);
 
   // Decode + expiry check
   let payload: any;
   try {
     payload = JSON.parse(b64urlDecodeToString(body));
   } catch {
-    return unauthorized();
+    return unauthorized(req);
   }
-  if (!payload?.exp || typeof payload.exp !== "number") return unauthorized();
-  if (Date.now() > payload.exp) return unauthorized();
+  if (!payload?.exp || typeof payload.exp !== "number") return unauthorized(req);
+  if (Date.now() > payload.exp) return unauthorized(req);
 
   return NextResponse.next();
 }
 
-function unauthorized() {
+function unauthorized(req: NextRequest) {
+  // For app pages we send the user back to the home with the gate; the
+  // "/" client will show PinGate. For APIs we reply JSON 401 (clients expect it).
+  const isPage =
+    req.nextUrl.pathname.startsWith("/coches") ||
+    req.nextUrl.pathname === "/settings";
+  if (isPage) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/";
+    return NextResponse.redirect(url);
+  }
   return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 }
