@@ -13,6 +13,10 @@ import MaintenanceSchedule from "./MaintenanceSchedule";
 import GloveBox           from "./GloveBox";
 
 import { isFuel } from "../lib/format";
+// Helper de red: fetch con parseo + toast de error unificado.
+// Ticket 1.4 estandariza el patrón: `res.ok` + `{ error }` en JSON + fallback
+// genérico cuando el servidor no devuelve nada legible.
+import { fetchJsonWithToast } from "../lib/net";
 import { MAX_FILE_SIZE_BYTES } from "@/lib/attachments";
 import type {
   Car, CarMetrics, TimelineEntry, Note, Attachment, MaintenanceTask,
@@ -83,18 +87,30 @@ export default function CarDetailClient({
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
   // ── Loader (refresco tras mutación; la carga inicial viene del servidor) ──
+  //
+  // Ticket 1.4: si el refresh silencioso falla, el helper `fetchJsonWithToast`
+  // ya dispara el toast de error internamente (con `{ error }` del JSON o el
+  // `fallback` si no hay). Por eso `load()` no añade segundo toast: simplemente
+  // aborta la actualización de estado y deja que el helper avise al usuario.
   const load = () => {
-    fetch(`/api/car/${carId}/page-data`)
-      .then((r) => r.json())
-      .then((d) => {
+    fetchJsonWithToast(
+      `/api/car/${carId}/page-data`,
+      { fallback: "No se pudo refrescar el detalle del vehículo." },
+      setToast,
+    )
+      .then((r) => {
+        if (!r.ok) return;
+        const d = r.data as {
+          car: Car; metrics: CarMetrics; timeline?: TimelineEntry[];
+          notes?: Note[]; attachments?: Attachment[]; maintenanceTasks?: MaintenanceTask[];
+        };
         setCar(d.car);
         setMetrics(d.metrics);
         setTimeline(d.timeline || []);
         setNotes(d.notes || []);
         setAttachments(d.attachments || []);
         setMaintenanceTasks(d.maintenanceTasks || []);
-      })
-      .catch(() => { /* network error during refresh; UI keeps prior data */ });
+      });
   };
 
   // Auto-fill km al abrir el form de gasto (mantiene el comportamiento del SC).
@@ -110,27 +126,32 @@ export default function CarDetailClient({
   // ── Handlers (idénticos a los del orquestador anterior) ──
   const submitForm = async () => {
     setSaving(true);
-    try {
-      const body: Record<string, unknown> = {
-        carId, tipo: form.tipo, importe: parseFloat(form.importe),
-        date: form.date, descripcion: form.descripcion, referencia: form.referencia,
-      };
-      if (form.litros) body.litros = parseFloat(form.litros);
-      if (form.km) body.km = parseInt(form.km);
-      if (form.tipo.includes("DIY") && form.costeTaller) body.costeTaller = parseFloat(form.costeTaller);
-      await fetch("/api/expenses", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-      });
-      setShowForm(false);
-      setForm({
-        tipo: "Carburante", importe: "", date: new Date().toISOString().split("T")[0],
-        descripcion: "", referencia: "", litros: "", km: String(car.km_actuales || ""),
-        costeTaller: "", selectedTask: "",
-      });
-      setToast({ msg: "Gasto guardado", type: "success" });
-      setTimeout(() => setToast(null), 2500);
-      load();
-    } finally { setSaving(false); }
+    const body: Record<string, unknown> = {
+      carId, tipo: form.tipo, importe: parseFloat(form.importe),
+      date: form.date, descripcion: form.descripcion, referencia: form.referencia,
+    };
+    if (form.litros) body.litros = parseFloat(form.litros);
+    if (form.km) body.km = parseInt(form.km);
+    if (form.tipo.includes("DIY") && form.costeTaller) body.costeTaller = parseFloat(form.costeTaller);
+
+    const res = await fetchJsonWithToast(
+      "/api/expenses",
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        fallback: "No se pudo guardar el gasto. Inténtalo de nuevo." },
+      setToast,
+    );
+    setSaving(false);
+
+    if (!res.ok) return;          // el toast ya se disparó dentro del helper
+    setShowForm(false);
+    setForm({
+      tipo: "Carburante", importe: "", date: new Date().toISOString().split("T")[0],
+      descripcion: "", referencia: "", litros: "", km: String(car.km_actuales || ""),
+      costeTaller: "", selectedTask: "",
+    });
+    setToast({ msg: "Gasto guardado", type: "success" });
+    setTimeout(() => setToast(null), 2500);
+    load();      // si falla, fetchJsonWithToast ya muestra el toast de error
   };
 
   const startEdit = (entry: TimelineEntry) => {
@@ -144,9 +165,13 @@ export default function CarDetailClient({
 
   const updateExpenseInline = async () => {
     if (!editingId) return;
-    await fetch("/api/expenses", {
-      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(editForm),
-    });
+    const res = await fetchJsonWithToast(
+      "/api/expenses",
+      { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(editForm),
+        fallback: "No se pudo actualizar el gasto. Inténtalo de nuevo." },
+      setToast,
+    );
+    if (!res.ok) return;
     setEditingId(null);
     setToast({ msg: "Gasto actualizado", type: "success" });
     setTimeout(() => setToast(null), 2500);
@@ -155,34 +180,54 @@ export default function CarDetailClient({
 
   const deleteExp = async (id: number) => {
     if (!confirm("Eliminar gasto?")) return;
-    await fetch(`/api/expenses?id=${id}`, { method: "DELETE" });
+    const res = await fetchJsonWithToast(
+      `/api/expenses?id=${id}`,
+      { method: "DELETE",
+        fallback: "No se pudo eliminar el gasto. Inténtalo de nuevo." },
+      setToast,
+    );
+    if (!res.ok) return;
     setToast({ msg: "Gasto eliminado", type: "success" });
     setTimeout(() => setToast(null), 2500);
     load();
   };
 
   const updateCarData = async () => {
-    await fetch("/api/cars", {
-      method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: carId, ...carForm }),
-    });
+    const res = await fetchJsonWithToast(
+      "/api/cars",
+      { method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: carId, ...carForm }),
+        fallback: "No se pudieron guardar los datos del vehículo. Inténtalo de nuevo." },
+      setToast,
+    );
+    if (!res.ok) return;
     setShowEditCar(false);
     load();
   };
 
   const addNote = async () => {
     if (!noteContent.trim()) return;
-    await fetch("/api/notes", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ carId, content: noteContent }),
-    });
+    const res = await fetchJsonWithToast(
+      "/api/notes",
+      { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ carId, content: noteContent }),
+        fallback: "No se pudo guardar la nota. Inténtalo de nuevo." },
+      setToast,
+    );
+    if (!res.ok) return;
     setNoteContent("");
     load();
   };
 
   const deleteNote = async (id: number) => {
     if (!confirm("Eliminar nota?")) return;
-    await fetch(`/api/notes?id=${id}`, { method: "DELETE" });
+    const res = await fetchJsonWithToast(
+      `/api/notes?id=${id}`,
+      { method: "DELETE",
+        fallback: "No se pudo eliminar la nota. Inténtalo de nuevo." },
+      setToast,
+    );
+    if (!res.ok) return;
     load();
   };
 
@@ -200,15 +245,27 @@ export default function CarDetailClient({
     const fd = new FormData();
     fd.append("car_id", String(carId));
     fd.append("file", file);
-    await fetch("/api/attachments", { method: "POST", body: fd });
+    const res = await fetchJsonWithToast(
+      "/api/attachments",
+      { method: "POST", body: fd,
+        fallback: "No se pudo subir el archivo. Inténtalo de nuevo." },
+      setToast,
+    );
     setUploading(false);
     if (fileRef.current) fileRef.current.value = "";
+    if (!res.ok) return;
     load();
   };
 
   const deleteAttachment = async (id: number) => {
     if (!confirm("Eliminar archivo?")) return;
-    await fetch(`/api/attachments?id=${id}`, { method: "DELETE" });
+    const res = await fetchJsonWithToast(
+      `/api/attachments?id=${id}`,
+      { method: "DELETE",
+        fallback: "No se pudo eliminar el archivo. Inténtalo de nuevo." },
+      setToast,
+    );
+    if (!res.ok) return;
     load();
   };
 
@@ -216,10 +273,14 @@ export default function CarDetailClient({
     const km = prompt(`Km actuales para completar "${task.part_name}":`, String(car?.km_actuales || ""));
     if (!km) return;
     const date = new Date().toISOString().split("T")[0];
-    await fetch("/api/maintenance", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "complete", id: task.id, currentKm: parseInt(km), currentDate: date }),
-    });
+    const res = await fetchJsonWithToast(
+      "/api/maintenance",
+      { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "complete", id: task.id, currentKm: parseInt(km), currentDate: date }),
+        fallback: `No se pudo completar "${task.part_name}". Inténtalo de nuevo.` },
+      setToast,
+    );
+    if (!res.ok) return;
     setToast({ msg: `${task.part_name} completado`, type: "success" });
     setTimeout(() => setToast(null), 2500);
     load();
