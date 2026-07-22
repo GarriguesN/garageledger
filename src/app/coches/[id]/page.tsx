@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   Car, ArrowLeft, Trash2, Gauge, Euro, Fuel, Wrench,
@@ -231,7 +232,7 @@ export default function CarDetailPage() {
       {/* ── Header with edit ── */}
       <div className="flex items-start gap-3">
         {/* Back arrow — solo desktop (móvil usa bottom navbar) */}
-        <button className="max-sm:hidden sm:flex items-center justify-center p-2 mt-1 rounded-md hover:bg-[var(--bg-secondary)] transition-colors" onClick={() => router.push("/")}><ArrowLeft size={20} /></button>
+        <Link href="/" className="max-sm:hidden sm:flex items-center justify-center p-2 mt-1 rounded-md hover:bg-[var(--bg-secondary)] transition-colors"><ArrowLeft size={20} /></Link>
         <div className="w-14 h-14 sm:w-12 sm:h-12 rounded-xl bg-[var(--bg-secondary)] flex items-center justify-center flex-shrink-0">
           <Car size={22} style={{ color: "var(--accent)" }} />
         </div>

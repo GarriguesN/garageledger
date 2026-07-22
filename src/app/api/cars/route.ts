@@ -13,7 +13,19 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const car = createCar(body.marca, body.modelo, body.generacion || "", body.motor || "", body.ano || null, body.puertas || 5, body.km || 0);
+  const car = createCar({
+    marca: body.marca,
+    modelo: body.modelo,
+    generacion: body.generacion,
+    motor: body.motor,
+    ano: body.ano ?? null,
+    puertas: body.puertas ?? 5,
+    km: body.km ?? 0,
+    matricula: body.matricula,
+    bastidor: body.bastidor,
+    combustible: body.combustible,
+    foto_attachment_id: body.foto_attachment_id ?? null,
+  });
   return NextResponse.json(car, { status: 201 });
 }
 

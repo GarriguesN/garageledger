@@ -70,6 +70,12 @@ function migrateSchema(db: Database.Database) {
   if (!colNames.includes("fecha_ultima_itv")) db.exec("ALTER TABLE cars ADD COLUMN fecha_ultima_itv TEXT");
   if (!colNames.includes("mantenimiento_config")) db.exec("ALTER TABLE cars ADD COLUMN mantenimiento_config TEXT");
   if (!colNames.includes("fecha_vencimiento_seguro")) db.exec("ALTER TABLE cars ADD COLUMN fecha_vencimiento_seguro TEXT");
+  // Ticket 1.1 — enriquecimiento de tarjetas
+  if (!colNames.includes("matricula")) db.exec("ALTER TABLE cars ADD COLUMN matricula TEXT NOT NULL DEFAULT ''");
+  if (!colNames.includes("bastidor")) db.exec("ALTER TABLE cars ADD COLUMN bastidor TEXT NOT NULL DEFAULT ''");
+  if (!colNames.includes("combustible")) db.exec("ALTER TABLE cars ADD COLUMN combustible TEXT NOT NULL DEFAULT 'Gasolina'");
+  if (!colNames.includes("foto_attachment_id")) db.exec("ALTER TABLE cars ADD COLUMN foto_attachment_id INTEGER");
+  if (!colNames.includes("archivado")) db.exec("ALTER TABLE cars ADD COLUMN archivado INTEGER NOT NULL DEFAULT 0");
 
   const expCols = db.prepare("PRAGMA table_info(expenses)").all() as { name: string }[];
   const expNames = expCols.map(c => c.name);
