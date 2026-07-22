@@ -144,7 +144,7 @@ export default function CarHeader({
                 placeholder="Estado"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <label className="text-xs text-[var(--text-secondary)] flex items-center gap-1">
                 Última ITV:
                 <input
@@ -152,6 +152,15 @@ export default function CarHeader({
                   type="date"
                   value={carForm.fecha_ultima_itv}
                   onChange={(e) => onChangeCarForm({ ...carForm, fecha_ultima_itv: e.target.value })}
+                />
+              </label>
+              <label className="text-xs text-[var(--text-secondary)] flex items-center gap-1">
+                Vencimiento seguro:
+                <input
+                  className="input text-xs w-32"
+                  type="date"
+                  value={carForm.fecha_vencimiento_seguro}
+                  onChange={(e) => onChangeCarForm({ ...carForm, fecha_vencimiento_seguro: e.target.value })}
                 />
               </label>
             </div>

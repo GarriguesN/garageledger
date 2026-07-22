@@ -13,6 +13,7 @@ export interface Car {
   km_actuales: number;
   estado: string;
   fecha_ultima_itv: string | null;
+  fecha_vencimiento_seguro: string | null;
   matricula: string;
   bastidor: string;
   combustible: string;
@@ -103,4 +104,5 @@ export interface CarEditFormState {
   km_actuales: string | number;
   estado: string;
   fecha_ultima_itv: string;
+  fecha_vencimiento_seguro: string;
 }

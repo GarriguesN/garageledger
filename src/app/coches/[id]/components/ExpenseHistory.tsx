@@ -1,18 +1,25 @@
 "use client";
 
 // Historial cronológico de gastos del coche.
-// Rediseño Ticket 1.5: cada fila es un mockup "categoría + descripción +
-// meta + importe + chevron" con icono circular por categoría usando
-// TIPO_COLOR/isFuel/isDiy que ya existían. Mantiene el estado vacío del
-// Ticket 1.4 (icono + texto) con el mismo lenguaje visual nuevo, y el
-// modo edición inline (EditExpenseFormFields) intacto — Ticket 1.5 no
-// toca handlers.
+// Rediseño Ticket 1.5 + 1.5-fix: cada fila es un mockup "categoría +
+// descripción + meta + importe + chevron" con icono circular por categoría
+// usando TIPO_COLOR/isFuel/isDiy que ya existían. Estado vacío del Ticket
+// 1.4 conservado. Modo edición inline intacto.
+//
+// Accesibilidad móvil (Ticket 1.5-fix):
+//   - Sin :hover (touch), la fila NO debe perder acceso a editar/borrar.
+//   - Estrategia: tap en la fila → abre edición (onStartEdit). Borrar se
+//     mueve a un kebab `MoreVertical` siempre visible (no depende de
+//     hover). En escritorio con hover, los iconos de editar/borrar siguen
+//     apareciendo también al pasar el ratón para velocidad de uso.
+//   - Razón: respeta la affordance del mockup (fila clickeable) y no
+//     depende de un sensor (hover) que no existe en táctil.
 
 import { useState } from "react";
 import {
-  Calendar, Plus, Fuel, Wrench, Euro,
+  Calendar, Fuel, Wrench, Euro,
   Edit, Save, X, Trash2, FileText, Gauge,
-  Receipt, ChevronRight, BarChart3,
+  Receipt, ChevronRight, BarChart3, MoreVertical,
 } from "lucide-react";
 import {
   fmt, fmt0, formatDate, Sparkline, TIPO_COLOR, CATEGORIAS,
@@ -43,7 +50,6 @@ export default function ExpenseHistory({
   onStartEdit, onChangeEditForm, onSaveInline, onCancelEdit,
   onDelete, onLoadMore,
 }: ExpenseHistoryProps) {
-  // Sparkline datos: carburante chronológico ascendente.
   const sparkData = timeline
     .filter((e) => e.tipo === "Carburante")
     .reverse()
@@ -52,9 +58,7 @@ export default function ExpenseHistory({
   return (
     <div>
       {/* Header con título + sparkline + "Ver todos" (mockup).
-          "Ver todos" es visualmente clicable pero el handler real queda
-          pendiente — no existe la ruta /coches/[id]/historial. Cuando se
-          cree, se enchufa aquí. */}
+          "Ver todos" pendiente de ruta /coches/[id]/historial. */}
       <div className="flex items-center justify-between mb-3 gap-2">
         <h2 className="text-[15px] font-bold flex items-center gap-2 min-w-0">
           <Receipt size={16} style={{ color: "var(--accent)" }} />
@@ -66,7 +70,6 @@ export default function ExpenseHistory({
             type="button"
             className="text-[12px] font-semibold flex items-center gap-1 flex-shrink-0"
             style={{ color: "var(--accent)" }}
-            // Pendiente: ruta /coches/[id]/historial cuando exista.
             disabled
             title="Pendiente: pantalla de historial completo"
           >
@@ -285,19 +288,21 @@ interface ReadOnlyFieldsProps {
   onDelete: (id: number) => void;
 }
 
-// Fila del historial (mockup): icono circular por categoría + categoría en
-// color + descripción + meta en gris + importe grande a la derecha +
-// chevron. Los iconos cambian según TIPO_COLOR/isFuel/isDiy que ya
-// existían en lib/format.tsx.
+// Fila del historial (mockup). Ticket 1.5-fix móvil:
+//   - Tap en la fila → onStartEdit (abrir edición inline)
+//   - Kebab MoreVertical (siempre visible) → menú con Editar/Borrar
+//     En escritorio con hover, el kebab se intensifica; sigue siendo
+//     clicable siempre, sin depender de :hover.
 function ReadOnlyFields({ entry, color, onStartEdit, onDelete }: ReadOnlyFieldsProps) {
   const [hover, setHover] = useState(false);
+  const [kebabOpen, setKebabOpen] = useState(false);
+
   const Icon = entry.tipo === "Carburante" ? Fuel
     : entry.tipo?.includes("DIY") ? Wrench
     : entry.tipo === "Mantenimiento (Taller)" ? Wrench
     : entry.tipo === "Seguro" ? BarChart3
     : Euro;
 
-  // Línea meta (mockup): fecha + litros/precio/km o "Taller: X€".
   const metaParts: string[] = [];
   if (entry.litros && entry.km && entry.km > 0 && entry.litros > 0) {
     metaParts.push(`${entry.litros}L · ${(entry.importe / entry.litros).toFixed(3)}€/L · ${fmt0(entry.km)} km`);
@@ -313,9 +318,21 @@ function ReadOnlyFields({ entry, color, onStartEdit, onDelete }: ReadOnlyFieldsP
 
   return (
     <div
-      className="flex items-center gap-3 cursor-pointer"
+      className="relative flex items-center gap-3 cursor-pointer"
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
+      onClick={() => onStartEdit(entry)}
+      // El teclado también abre la edición (Enter/Space) para usuarios que
+      // no usan ratón ni touch.
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onStartEdit(entry);
+        }
+      }}
+      tabIndex={0}
+      role="button"
+      aria-label={`Editar gasto ${entry.descripcion ?? entry.tipo}`}
     >
       {/* Icono circular por categoría */}
       <div
@@ -366,29 +383,57 @@ function ReadOnlyFields({ entry, color, onStartEdit, onDelete }: ReadOnlyFieldsP
         />
       </div>
 
-      {/* Acciones inline (editar/borrar) — aparecen en hover, no rompen
-          la fila del mockup porque son iconos pequeños superpuestos. */}
-      <div
-        className={`flex items-center gap-0.5 transition-opacity ${hover ? "opacity-100" : "opacity-0"}`}
-      >
+      {/* Kebab siempre visible (Ticket 1.5-fix) — clicable sin hover.
+          En hover de escritorio se tinta en accent; en táctil es el único
+          camino para borrar. */}
+      <div className="relative flex-shrink-0">
         <button
           type="button"
           className="btn p-1.5 text-[var(--text-muted)] hover:text-[var(--accent)]"
-          onClick={(e) => { e.stopPropagation(); onStartEdit(entry); }}
-          title="Editar"
-          aria-label={`Editar gasto ${entry.descripcion ?? entry.tipo}`}
+          style={{ color: hover ? "var(--accent)" : "var(--text-muted)" }}
+          onClick={(e) => {
+            e.stopPropagation();
+            setKebabOpen((v) => !v);
+          }}
+          title="Más acciones"
+          aria-label={`Más acciones para ${entry.descripcion ?? entry.tipo}`}
+          aria-haspopup="menu"
+          aria-expanded={kebabOpen}
         >
-          <Edit size={13} />
+          <MoreVertical size={14} />
         </button>
-        <button
-          type="button"
-          className="btn p-1.5 text-[var(--text-muted)] hover:text-red-500"
-          onClick={(e) => { e.stopPropagation(); onDelete(entry.id); }}
-          title="Eliminar"
-          aria-label={`Eliminar gasto ${entry.descripcion ?? entry.tipo}`}
-        >
-          <Trash2 size={13} />
-        </button>
+        {kebabOpen && (
+          <div
+            role="menu"
+            className="absolute right-0 top-full mt-1 min-w-[140px] bg-white border border-[var(--border-color)] rounded-xl shadow-lg z-20 py-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-[var(--bg-secondary)]"
+              onClick={(e) => {
+                e.stopPropagation();
+                setKebabOpen(false);
+                onStartEdit(entry);
+              }}
+            >
+              <Edit size={14} className="text-[var(--text-muted)]" /> Editar
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-[var(--bg-secondary)]"
+              onClick={(e) => {
+                e.stopPropagation();
+                setKebabOpen(false);
+                onDelete(entry.id);
+              }}
+            >
+              <Trash2 size={14} /> Borrar
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

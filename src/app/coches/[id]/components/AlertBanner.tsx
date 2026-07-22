@@ -1,19 +1,40 @@
 // Banner de alertas por cada aviso crítico/warning que el backend devuelve
-// en metrics.alerts. Rediseño Ticket 1.5: banner ancho completo con fondo
-// rojo/ámbar suave, icono de alerta en círculo, texto con título + fecha
-// (o subtítulo), chevron a la derecha y clicable.
+// en metrics.alerts.
 //
-// NO se modifica la lógica: el componente sigue iterando metrics.alerts[] y
-// decidiendo critical/warning igual que antes. Solo cambia la presentación.
+// Rediseño Ticket 1.5 + 1.5-fix: cada alerta SERÁ clicable si tiene un
+// destino real en la UI; las que NO tienen destino se renderizan sin
+// affordance (sin cursor-pointer, sin role="button", sin chevron) — Ticket
+// 1.5-fix prohíbe dejar apariencia de acción sin acción.
+//
+// Destinos por tipo de alerta (en este orden de prioridad):
+//   1. Texto contiene "ITV"        → header en modo edición (campo Última ITV)
+//   2. Texto contiene "Seguro"     → header en modo edición (campo Vencimiento seguro)
+//   3. Texto contiene "taller"     → header en modo edición (sin campo específico;
+//                                     la tarea se gestiona vía MaintenanceSchedule)
+//   4. Cualquier otro              → sin handler, sin affordance clicable.
 
 import { AlertTriangle, ChevronRight } from "lucide-react";
 import type { CarMetrics } from "../lib/types";
 
+export type AlertTarget = "edit-itv" | "edit-seguro" | "edit-header";
+
 interface AlertBannerProps {
   metrics: CarMetrics;
+  onAlertClick?: (target: AlertTarget) => void;
 }
 
-export default function AlertBanner({ metrics }: AlertBannerProps) {
+// Exportado también para tests (Ticket 1.5-fix). NO se considera API
+// pública — solo lo usan scripts/test-affordances.ts.
+export function classifyAlert(message: string): AlertTarget | null {
+  const m = message.toLowerCase();
+  if (m.includes("itv")) return "edit-itv";
+  if (m.includes("seguro")) return "edit-seguro";
+  // "taller necesario" o "en N km" (warning de mantenimiento próximo).
+  if (m.includes("taller") || /en\s+\d+\s*km/.test(m)) return "edit-header";
+  return null;
+}
+
+export default function AlertBanner({ metrics, onAlertClick }: AlertBannerProps) {
   if (metrics.alerts.length === 0) return null;
 
   return (
@@ -22,24 +43,18 @@ export default function AlertBanner({ metrics }: AlertBannerProps) {
         const isCritical = a.type === "critical";
         const isWarning = a.type === "warning";
 
-        // Tokens visuales según severidad (mismo lenguaje que el resto de
-        // la app: crítico = rojo brand, warning = ámbar).
         const bg = isCritical ? "#fde7e6" : "#fef3c7";
         const fg = isCritical ? "#c3423f" : "#f59e0b";
         const titleColor = isCritical ? "#a83633" : "#92400e";
 
-        // El backend mete la fecha dentro del mensaje (ej.: "ITV caducada
-        // (2025-03-15)"). Para el rediseño queremos título en una línea y
-        // fecha en otra. Como no tenemos un campo separado en metrics.alerts
-        // (Ticket 1.5 no introduce lógica nueva), parseamos el mensaje
-        // cuando viene entre paréntesis con formato YYYY-MM-DD; si no, lo
-        // mostramos tal cual como subtítulo.
         const parsed = parseTitleAndDate(a.message);
+        const target = classifyAlert(a.message);
+        const clickable = target !== null && typeof onAlertClick === "function";
 
-        // Rediseño Ticket 1.5: el banner es visualmente clicable (chevron
-        // + cursor-pointer) pero el handler onClick real se mantiene en
-        // cero — Ticket 1.5 no introduce navegación nueva. El cursor
-        // pointer se justifica por el chevron, que indica affordance.
+        const handleClick = () => {
+          if (target && onAlertClick) onAlertClick(target);
+        };
+
         const content = (
           <>
             <div
@@ -65,23 +80,39 @@ export default function AlertBanner({ metrics }: AlertBannerProps) {
                 </p>
               )}
             </div>
-            <ChevronRight
-              size={18}
-              className="flex-shrink-0"
-              style={{ color: fg }}
-              aria-hidden
-            />
+            {clickable && (
+              <ChevronRight
+                size={18}
+                className="flex-shrink-0"
+                style={{ color: fg }}
+                aria-hidden
+              />
+            )}
           </>
         );
 
+        // Clickable → <button> real; no-clickable → <div> sin affordance.
+        if (clickable) {
+          return (
+            <button
+              key={i}
+              type="button"
+              className="flex items-center gap-3 w-full rounded-2xl px-4 py-3 text-left transition-opacity hover:opacity-90 cursor-pointer"
+              style={{ background: bg }}
+              onClick={handleClick}
+              aria-label={`Corregir ${parsed.title}`}
+            >
+              {content}
+            </button>
+          );
+        }
         return (
           <div
             key={i}
-            className="flex items-center gap-3 w-full rounded-2xl px-4 py-3 text-left cursor-pointer transition-opacity hover:opacity-90"
+            className="flex items-center gap-3 w-full rounded-2xl px-4 py-3 text-left"
             style={{ background: bg }}
-            role="button"
-            tabIndex={0}
-            aria-label={`Detalle de ${parsed.title}`}
+            role="status"
+            aria-label={parsed.title}
           >
             {content}
           </div>
@@ -96,16 +127,11 @@ export default function AlertBanner({ metrics }: AlertBannerProps) {
 // Parsea el mensaje del backend en { title, subtitle } cuando el formato
 // es "TITULO (YYYY-MM-DD)" o "TITULO (algo entre paréntesis)". Si no
 // matchea, devuelve title = message completo y subtitle = null.
-//
-// Esto NO añade lógica nueva: el backend ya produce ese formato en
-// `src/lib/db/metrics.ts` (líneas 65/77/87/89). Solo lo separamos para
-// que el rediseño visual tenga dos líneas.
 function parseTitleAndDate(message: string): { title: string; subtitle: string | null } {
   const m = message.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
   if (!m) return { title: message, subtitle: null };
   const title = m[1].trim();
   const paren = m[2].trim();
-  // Si parece fecha YYYY-MM-DD, formateamos a es-ES corto.
   const dateMatch = paren.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (dateMatch) {
     const [, y, mo, d] = dateMatch;

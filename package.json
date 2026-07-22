@@ -24,8 +24,10 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
     "@types/better-sqlite3": "^7.6.13",
+    "@types/jsdom": "^28.0.3",
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
+    "jsdom": "^29.1.1",
     "postcss": "^8.5.21",
     "tailwindcss": "^4.3.3",
     "typescript": "~5.7.0"

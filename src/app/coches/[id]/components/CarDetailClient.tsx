@@ -58,6 +58,7 @@ export default function CarDetailClient({
     ano: initialCar.ano ?? "", puertas: 5, km_actuales: initialCar.km_actuales || 0,
     estado: initialCar.estado || "",
     fecha_ultima_itv: initialCar.fecha_ultima_itv || "",
+    fecha_vencimiento_seguro: initialCar.fecha_vencimiento_seguro || "",
   });
 
   // Add expense inline
@@ -85,6 +86,22 @@ export default function CarDetailClient({
 
   // Toast simple
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+
+  // Ref al header para hacer scroll desde AlertBanner (Ticket 1.5-fix).
+  const headerRef = useRef<HTMLDivElement | null>(null);
+
+  // Click en una alerta: abre el form de edición del coche en el header
+  // y hace scroll suave hasta él. Sin handler en alerts sin destino
+  // (AlertBanner no las renderiza como clicables — ver classifyAlert).
+  const handleAlertClick = () => {
+    setShowEditCar(true);
+    // requestAnimationFrame asegura que el form de edición ya esté en el
+    // DOM cuando se mide la posición; sin él, scrollIntoView usa la
+    // posición del header ANTES de expandir el form.
+    requestAnimationFrame(() => {
+      headerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
 
   // ── Loader (refresco tras mutación; la carga inicial viene del servidor) ──
   //
@@ -298,21 +315,25 @@ export default function CarDetailClient({
         </div>
       )}
 
-      {/* Header */}
-      <CarHeader
-        car={car}
-        showEditCar={showEditCar}
-        carForm={carForm}
-        onChangeCarForm={setCarForm}
-        onSave={updateCarData}
-        onCancel={() => setShowEditCar(false)}
-      />
+      {/* Header — envuelto en un div con ref para que AlertBanner pueda
+          hacer scroll hacia él cuando el usuario pulsa una alerta
+          clicable (Ticket 1.5-fix). */}
+      <div ref={headerRef}>
+        <CarHeader
+          car={car}
+          showEditCar={showEditCar}
+          carForm={carForm}
+          onChangeCarForm={setCarForm}
+          onSave={updateCarData}
+          onCancel={() => setShowEditCar(false)}
+        />
+      </div>
 
       {/* Metrics */}
       <CarStatsGrid metrics={metrics} />
 
       {/* Alerts */}
-      <AlertBanner metrics={metrics} />
+      <AlertBanner metrics={metrics} onAlertClick={handleAlertClick} />
 
       {/* Add expense */}
       <ActionButtons onAddExpense={() => setShowForm(!showForm)} />
