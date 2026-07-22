@@ -16,6 +16,7 @@ import GloveBox           from "./components/GloveBox";
 import {
   CATEGORIAS, isFuel,
 } from "./lib/format";
+import { MAX_FILE_SIZE_BYTES } from "@/lib/attachments";
 import type {
   Car, CarMetrics, TimelineEntry, Note, Attachment, MaintenanceTask,
   AddExpenseFormState, EditExpenseFormState, CarEditFormState,
@@ -172,8 +173,11 @@ export default function CarDetailPage() {
   const uploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      setToast({ msg: "Archivo demasiado grande (max 5MB)", type: "error" });
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      // Sanity check en cliente: el servidor también lo valida en src/lib/attachments.ts.
+      // Mantenemos ambos checks: cliente evita un round-trip innecesario, servidor
+      // es la verdad (un cliente manipulado podría saltarse este).
+      setToast({ msg: `Archivo demasiado grande (máx ${MAX_FILE_SIZE_BYTES / 1024 / 1024}MB)`, type: "error" });
       setTimeout(() => setToast(null), 3000);
       if (fileRef.current) fileRef.current.value = "";
       return;
