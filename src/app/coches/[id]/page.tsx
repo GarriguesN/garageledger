@@ -231,7 +231,7 @@ export default function CarDetailPage() {
       {/* ── Header with edit ── */}
       <div className="flex items-center gap-3">
         {/* Back arrow — solo desktop (móvil usa bottom navbar) */}
-        <button className="btn p-2 max-sm:hidden sm:flex" onClick={() => router.push("/")}><ArrowLeft size={20} /></button>
+        <button className="max-sm:hidden sm:flex items-center justify-center p-2 rounded-md hover:bg-[var(--bg-secondary)] transition-colors" onClick={() => router.push("/")}><ArrowLeft size={20} /></button>
         <div className="w-14 h-14 sm:w-12 sm:h-12 rounded-xl bg-[var(--bg-secondary)] flex items-center justify-center flex-shrink-0">
           <Car size={22} style={{ color: "var(--accent)" }} />
         </div>
