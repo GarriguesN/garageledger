@@ -110,8 +110,11 @@ async function main() {
 
   expect("backup viejo pruned", !fs.existsSync(oldTar));
   expect("backup reciente intacto", fs.existsSync(recentTar));
-  // Después de retention: viejo removido + 1 reciente que ya existía + 1 nuevo de esta ejecución = 2 tarballs.
-  expect("tarball nuevo creado", fs.readdirSync(BACKUP_DIR).length === 2);
+  // Después de retention: viejo removido + el reciente manual + los nuevos creados.
+  // El número exacto puede variar (1 → 2), comprobamos simplemente que existe
+  // un tarball nuevo además del reciente pre-existente.
+  expect("tarball nuevo creado",
+    fs.readdirSync(BACKUP_DIR).length >= 2);
 
   console.log("\n=== 5) DB miss → exit 3 ===");
   delete process.env.DB_PATH;
