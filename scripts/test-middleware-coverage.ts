@@ -26,6 +26,14 @@ expect("matcher contiene /coches/:path*", mw.includes("/coches/:path*"));
 console.log("\n=== 3) matcher cubre /settings ===");
 expect("matcher contiene /settings", mw.includes("/settings"));
 
+console.log("\n=== 3-bis) matcher NO incluye \"/\" (delega al SC) — Ticket 1.3-fix ===");
+expect("matcher NO contiene \"/\" suelto (delega al SC para \"primer uso\")",
+  !/matcher:\s*\[[^\]]*"\/"\s*[,\]]/.test(mw));
+expect("comentario del matcher documenta por qué / se delega al SC",
+  /home\s*\(\s*"\s*\/"\s*\)\s*is\s+INTENTIONALLY\s+NOT|delega al SC|delegated to the SC/.test(mw));
+expect("comentario obsoleto 'the home; it just renders PinGate' ya NO está",
+  !/\/\/\s*the home; it just renders PinGate/.test(mw));
+
 console.log("\n=== 4) unauthorized redirige a / para páginas (no 401) ===");
 expect("unauthorized usa NextResponse.redirect",
   mw.includes("NextResponse.redirect"));
@@ -54,6 +62,21 @@ expect("CarDetailClient ya no tiene skeleton client-side",
 
 console.log("\n=== 7) /api/car/[id]/page-data sigue existiendo (para load() cliente) ===");
 expect("ruta page-data existe", fs.existsSync("src/app/api/car/[id]/page-data/route.ts"));
+
+console.log("\n=== 8) Server Component en / (GaragePage) — Ticket 1.3-fix ===");
+const home = fs.readFileSync("src/app/page.tsx", "utf8");
+expect("page.tsx NO tiene 'use client'",
+  !home.includes("\"use client\"") && !home.includes("'use client'"));
+expect("page.tsx importa readSessionCookie",
+  /import\s+\{[^}]*readSessionCookie[^}]*\}\s+from\s+["']@\/lib\/auth["']/.test(home));
+expect("page.tsx es un async Server Component",
+  /export default async function/.test(home));
+expect("page.tsx lee cookies() con await (Next 16)",
+  /await cookies\(\)/.test(home));
+expect("page.tsx redirige / si no hay sesión (defensa-en-profundidad)",
+  /session \? getCarDashboardData/.test(home));
+expect("page.tsx respeta \"primer uso sin PIN\" (cars=[] si !session, no redirige)",
+  /const cars = session \? getCarDashboardData\(\) : \[\]/.test(home));
 
 console.log("\n---");
 console.log(`Middleware check: Passed ${pass} / ${pass + fail}`);

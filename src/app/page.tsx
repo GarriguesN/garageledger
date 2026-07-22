@@ -1,10 +1,39 @@
+// Server Component para "/" (Garaje).
+//
+// Defensa-en-profundidad (mismo patrón que src/app/coches/[id]/page.tsx del
+// Ticket 1.3):
+//   - Lee la cookie de sesión server-side ANTES de tocar getCarDashboardData().
+//   - Sin sesión válida: NO llama a getCarDashboardData() (cars queda []).
+//     El HTML resultante NO contiene marca/modelo/matrícula/VIN/gastoMensual.
+//   - La PinGate cliente (envuelta en src/app/layout.tsx) está SIEMPRE montada
+//     en el layout raíz y se encarga de mostrar el candado (si hay PIN) o el
+//     wizard "Establecer PIN" (si no hay PIN, "primer uso"). Esta doble
+//     barrera (SC con cars=[] + layout con PinGate) garantiza que un curl sin
+//     cookie NUNCA vea datos sensibles, ni siquiera si alguien borrara el SC.
+//
+// Esto cierra el agujero del Ticket 1.3-fix: antes, "/" NO estaba en el
+// matcher del middleware Y GaragePage renderizaba getCarDashboardData() sin
+// comprobar sesión, así que un curl sin cookie recibía el HTML completo.
+
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { Home, Car, Plus } from "lucide-react";
 import VehicleCard from "@/components/VehicleCard";
 import { getCarDashboardData } from "@/lib/db";
+import { readSessionCookie } from "@/lib/auth";
 
-export default function GaragePage() {
-  const cars = getCarDashboardData();
+export const dynamic = "force-dynamic";
+
+export default async function GaragePage() {
+  // ── 1) Auth: leer y validar la cookie ANTES de tocar la DB de coches.
+  const cookieStore = await cookies();
+  const session = readSessionCookie(cookieStore.get("gl_sess")?.value);
+
+  // ── 2) Carga inicial en el servidor (solo si hay sesión válida).
+  // Si no hay sesión devolvemos lista vacía: NO se filtra NINGÚN dato de
+  // coche al HTML. La PinGate cliente (montada en src/app/layout.tsx) se
+  // encarga de mostrar el unlock o el wizard de "Establecer PIN".
+  const cars = session ? getCarDashboardData() : [];
 
   return (
     <div className="space-y-5">
