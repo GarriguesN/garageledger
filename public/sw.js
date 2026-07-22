@@ -1,4 +1,4 @@
-const CACHE_NAME = "garageledger-v1";
+const CACHE_NAME = "garageledger-v2";
 const STATIC_ASSETS = [
   "/",
   "/manifest.json",

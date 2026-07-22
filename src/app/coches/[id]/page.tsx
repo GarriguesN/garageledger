@@ -85,17 +85,17 @@ export default function CarDetailPage() {
   const [uploading, setUploading] = useState(false);
 
   const load = () => {
-    Promise.all([
-      fetch(`/api/car/${carId}/data`).then(r => r.json()),
-      fetch(`/api/car/${carId}/metrics`).then(r => r.json()),
-      fetch(`/api/car/${carId}/timeline`).then(r => r.json()),
-      fetch(`/api/notes?car_id=${carId}`).then(r => r.json()),
-      fetch(`/api/attachments?car_id=${carId}`).then(r => r.json()),
-      fetch(`/api/maintenance?car_id=${carId}`).then(r => r.json()),
-    ]).then(([c, m, t, n, a, mt]) => {
-      setCar(c); setMetrics(m); setTimeline(t); setNotes(n); setAttachments(a); setMaintenanceTasks(mt);
-      setCarForm({ marca: c.marca, modelo: c.modelo, generacion: c.generacion, motor: c.motor, ano: c.ano ?? "", puertas: c.puertas, km_actuales: c.km_actuales, estado: c.estado, fecha_ultima_itv: c.fecha_ultima_itv || "" });
-    }).finally(() => setLoading(false));
+    fetch(`/api/car/${carId}/page-data`)
+      .then(r => r.json())
+      .then(d => {
+        setCar(d.car); setMetrics(d.metrics); setTimeline(d.timeline || []);
+        setNotes(d.notes || []); setAttachments(d.attachments || []); setMaintenanceTasks(d.maintenanceTasks || []);
+        setCarForm({
+          marca: d.car.marca, modelo: d.car.modelo, generacion: d.car.generacion, motor: d.car.motor,
+          ano: d.car.ano ?? "", puertas: d.car.puertas, km_actuales: d.car.km_actuales,
+          estado: d.car.estado, fecha_ultima_itv: d.car.fecha_ultima_itv || "",
+        });
+      }).finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, [carId]);
@@ -231,7 +231,7 @@ export default function CarDetailPage() {
       {/* ── Header with edit ── */}
       <div className="flex items-center gap-3">
         {/* Back arrow — solo desktop (móvil usa bottom navbar) */}
-        <button className="btn p-2 hidden sm:flex" onClick={() => router.push("/")}><ArrowLeft size={20} /></button>
+        <button className="btn p-2 max-sm:hidden sm:flex" onClick={() => router.push("/")}><ArrowLeft size={20} /></button>
         <div className="w-14 h-14 sm:w-12 sm:h-12 rounded-xl bg-[var(--bg-secondary)] flex items-center justify-center flex-shrink-0">
           <Car size={22} style={{ color: "var(--accent)" }} />
         </div>
