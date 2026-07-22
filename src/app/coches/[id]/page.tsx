@@ -230,8 +230,9 @@ export default function CarDetailPage() {
 
       {/* ── Header with edit ── */}
       <div className="flex items-center gap-3">
-        <button className="btn p-2" onClick={() => router.push("/")}><ArrowLeft size={20} /></button>
-        <div className="w-12 h-12 rounded-xl bg-[var(--bg-secondary)] flex items-center justify-center">
+        {/* Back arrow — solo desktop (móvil usa bottom navbar) */}
+        <button className="btn p-2 hidden sm:flex" onClick={() => router.push("/")}><ArrowLeft size={20} /></button>
+        <div className="w-14 h-14 sm:w-12 sm:h-12 rounded-xl bg-[var(--bg-secondary)] flex items-center justify-center flex-shrink-0">
           <Car size={22} style={{ color: "var(--accent)" }} />
         </div>
         <div className="flex-1 min-w-0">
@@ -264,17 +265,18 @@ export default function CarDetailPage() {
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl font-bold">{car.marca} {car.modelo}</h1>
-                <a href={`/coches/${car.id}/editar`} className="btn p-1.5 text-[var(--text-muted)] hover:text-[var(--accent)]" title="Editar coche">
-                  <Edit size={14} />
+                <a href={`/coches/${car.id}/editar`} className="btn btn-secondary btn-sm text-xs gap-1.5 flex-shrink-0"
+                  title="Editar vehículo">
+                  <Edit size={14} /> <span className="hidden sm:inline">Editar</span>
                 </a>
               </div>
               <p className="text-sm text-[var(--text-secondary)]">{car.generacion} · {car.ano} · {car.motor}</p>
             </>
           )}
         </div>
-        <a href={`/api/car/${carId}/export`} className="btn btn-secondary text-xs flex-shrink-0 hidden sm:inline-flex" download>
+        <a href={`/api/car/${carId}/export`} className="btn btn-secondary text-xs flex-shrink-0 hidden sm:inline-flex gap-1.5" download>
           <Download size={14} /> Exportar CSV
         </a>
       </div>
