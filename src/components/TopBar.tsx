@@ -75,7 +75,7 @@ export default function TopBar() {
   }
 
   return <>
-    <header className="sticky top-0 z-30 h-12 flex items-center justify-between px-4 bg-transparent">
+    <header className="sticky top-0 z-40 h-12 flex items-center justify-between px-4 bg-[var(--bg-primary)]/90 backdrop-blur border-b border-[var(--border-color)]">
       <button aria-label="Abrir menú" onClick={() => setOpen(true)}><Menu size={22}/></button>
       {/* suppressHydrationWarning: el servidor no conoce la matrícula,
           así que el primer render del cliente puede diferir del SSR. */}
