@@ -33,9 +33,15 @@ const COOKIE_NAME = "gl_sess";
 const COOKIE_MAX_AGE_SEC = 12 * 60 * 60; // 12h, matches auth.ts SESSION_TTL_MS
 
 // Same dev fallback as src/lib/auth.ts (must keep in sync).
+// audit:C-1 — En producción, FAIL HARD si no hay secreto válido.
 function getSecret(): string {
   const s = process.env.SESSION_SECRET;
   if (s && s.length >= 32) return s;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "SESSION_SECRET no configurada o demasiado corta (mínimo 32 chars)."
+    );
+  }
   return "garageledger-dev-secret-do-not-use-in-prod-min-32chars";
 }
 

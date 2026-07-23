@@ -9,7 +9,13 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  let body: any;
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ error: "Cuerpo JSON inválido" }, { status: 400 });
+  }
+  if (!body?.carId || !body?.content?.trim()) {
+    return NextResponse.json({ error: "carId y content son requeridos" }, { status: 400 });
+  }
   const note = createCarNote(body.carId, body.content);
   return NextResponse.json(note, { status: 201 });
 }

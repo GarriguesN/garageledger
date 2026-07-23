@@ -80,13 +80,18 @@ export function completeMaintenanceTask(id: number, currentKm: number, currentDa
     d.setMonth(d.getMonth() + task.interval_months);
     return d.toISOString().slice(0, 10);
   })() : null;
-  getDb().prepare("UPDATE maintenance_tasks SET completed=1, current_km=?, current_date=?, next_km=?, next_date=? WHERE id=?").run(currentKm, currentDate, nextKm, nextDate, id);
-  // Re-insert as a new active task with updated values
-  const r = getDb().prepare(`
-    INSERT INTO maintenance_tasks (car_id, part_name, part_brand, part_model, current_km, current_date, next_km, next_date, interval_km, interval_months, notes)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?)
-  `).run(task.car_id, task.part_name, task.part_brand, task.part_model, currentKm, currentDate, nextKm, nextDate, task.interval_km, task.interval_months, task.notes);
-  return getDb().prepare("SELECT * FROM maintenance_tasks WHERE id=?").get(r.lastInsertRowid) as MaintenanceTask | undefined;
+  // audit:M-6 — Envolver UPDATE + INSERT en transacción para atomicidad.
+  const db = getDb();
+  const tx = db.transaction(() => {
+    db.prepare("UPDATE maintenance_tasks SET completed=1, current_km=?, current_date=?, next_km=?, next_date=? WHERE id=?").run(currentKm, currentDate, nextKm, nextDate, id);
+    const r = db.prepare(`
+      INSERT INTO maintenance_tasks (car_id, part_name, part_brand, part_model, current_km, current_date, next_km, next_date, interval_km, interval_months, notes)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)
+    `).run(task.car_id, task.part_name, task.part_brand, task.part_model, currentKm, currentDate, nextKm, nextDate, task.interval_km, task.interval_months, task.notes);
+    return r.lastInsertRowid as number;
+  });
+  const newId = tx();
+  return getDb().prepare("SELECT * FROM maintenance_tasks WHERE id=?").get(newId) as MaintenanceTask | undefined;
 }
 
 export function deleteMaintenanceTask(id: number): void {

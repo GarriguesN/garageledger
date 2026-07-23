@@ -1,4 +1,5 @@
 // Barrel — re-exporta todos los modulos de db/
+// audit:M-1 — Consolidado: db/index.ts eliminado, todas las exports aquí.
 export { getDb, getSetting, setSetting } from "./db/core";
 export type { Car } from "./db/cars";
 export { getCars, getCar, createCar, updateCar, deleteCar, getCarDashboardData } from "./db/cars";
@@ -12,3 +13,6 @@ export { getMonthlySpend, getDiySavings, getFuelConsumption, getTotalCostPerKm, 
 export { DEFAULT_MANTENIMIENTO, getMantenimientoConfig, saveMantenimientoConfig } from "./db/maintenance";
 export type { MaintenanceTask } from "./db/maintenance";
 export { getMaintenanceTasks, createMaintenanceTask, updateMaintenanceTask, completeMaintenanceTask, deleteMaintenanceTask } from "./db/maintenance";
+// audit:M-1 — getKmStats exportado aquí (antes solo en db/index.ts que se eliminó)
+export { getKmStats } from "./db/cars";
+export type { KmStats } from "./db/cars";

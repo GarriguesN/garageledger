@@ -12,7 +12,13 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  let body: any;
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ error: "Cuerpo JSON inválido" }, { status: 400 });
+  }
+  if (!body?.marca || !body?.modelo) {
+    return NextResponse.json({ error: "marca y modelo son requeridos" }, { status: 400 });
+  }
   const car = createCar({
     marca: body.marca,
     modelo: body.modelo,
@@ -30,7 +36,10 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const body = await req.json();
+  let body: any;
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ error: "Cuerpo JSON inválido" }, { status: 400 });
+  }
   const { id, ...fields } = body;
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
   const updated = updateCar(parseInt(id), fields);
