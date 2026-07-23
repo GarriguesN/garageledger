@@ -77,7 +77,7 @@ export default function CarDetailClient({
   });
 
   // Timeline pagination
-  const [timelineLimit, setTimelineLimit] = useState(10);
+  const [timelineLimit, setTimelineLimit] = useState(5);
 
   // Notes + uploads
   const [noteContent, setNoteContent] = useState("");

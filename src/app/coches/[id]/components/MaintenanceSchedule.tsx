@@ -28,12 +28,27 @@ interface MaintenanceScheduleProps {
 const TEXT_DARK = "#211a1e";
 const TEXT_GRAY = "#8a8588";
 
+export function sortMaintenanceTasks(tasks: MaintenanceTask[], car: Car): MaintenanceTask[] {
+  const kmActuales = car?.km_actuales ?? 0;
+  const urgency = (task: MaintenanceTask): number => {
+    if (task.next_km !== null && task.next_km !== undefined) return task.next_km - kmActuales;
+    if (task.next_date) {
+      const days = Math.ceil((new Date(`${task.next_date}T12:00:00`).getTime() - Date.now()) / 86400000);
+      return days * 100;
+    }
+    return Number.POSITIVE_INFINITY;
+  };
+  return [...tasks].sort((a, b) => urgency(a) - urgency(b) || a.id - b.id);
+}
+
 export default function MaintenanceSchedule({
   tasks, car, onCompleteTask,
   registerTaskRef, flashTaskId,
 }: MaintenanceScheduleProps) {
   const isEmpty = tasks.length === 0;
   const kmActuales = car?.km_actuales ?? 0;
+  const orderedTasks = sortMaintenanceTasks(tasks, car);
+  const visibleTasks = orderedTasks.slice(0, 5);
 
   return (
     <div>
@@ -45,7 +60,7 @@ export default function MaintenanceSchedule({
           <Clock size={16} style={{ color: "var(--accent)" }} />
           <span className="truncate">Mantenimientos programados</span>
         </h2>
-        {!isEmpty && (
+        {!isEmpty && orderedTasks.length > 5 && (
           <button
             type="button"
             className="text-[12px] font-semibold flex items-center gap-1 flex-shrink-0 opacity-40 cursor-not-allowed"
@@ -78,7 +93,7 @@ export default function MaintenanceSchedule({
           </div>
         )}
 
-        {tasks.map((task) => {
+        {visibleTasks.map((task) => {
           const intervalKm = task.interval_km ?? 15000;
           const restantes =
             task.next_km !== null ? Math.max(task.next_km - kmActuales, 0) : null;
