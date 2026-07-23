@@ -366,8 +366,8 @@ export default function CarDetailClient({
       {/* Metrics */}
       <CarStatsGrid metrics={metrics} />
 
-      {/* Alerts */}
-      <AlertBanner metrics={metrics} onAlertClick={handleAlertClick} />
+      {/* Alerts (informativas: no son botones, no llevan a ningún sitio) */}
+      <AlertBanner metrics={metrics} />
 
       {/* Add expense */}
       <ActionButtons onAddExpense={() => setShowForm(!showForm)} />

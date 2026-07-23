@@ -112,11 +112,11 @@ console.log("\n=== 2) AlertTarget — discriminated union shape ===");
 }
 
 // ────────────────────────────────────────────────────────────────────
-// 3) AlertBanner — el DOM real debe respetar la clasiffier: alertas
-//    SIN target → <div> sin cursor-pointer / role=button / chevron;
-//    alertas CON target → <button> con onClick real.
+// 3) AlertBanner — Ticket: las alertas son SOLO informativas. El DOM
+//    debe ser siempre <div role="status">, sin botones, sin chevron,
+//    sin handler de click.
 // ────────────────────────────────────────────────────────────────────
-console.log("\n=== 3) AlertBanner — DOM respects classifier (real DOM) ===");
+console.log("\n=== 3) AlertBanner — solo informativas (real DOM) ===");
 
 async function runDomTests() {
   const { JSDOM } = await import("jsdom");
@@ -144,65 +144,50 @@ async function runDomTests() {
     totalCostPerKm: null,
     fuel: { l100km: null, costPerKm: null, pricePerLiter: null },
     alerts: [
-      // Con task_id → clickable
       { type: "critical" as const, message: "Pastillas: taller necesario (50000 km)", task_id: 42 },
-      // Sin task_id → NO clickable
       { type: "critical" as const, message: "Aceite: en 1000 km" },
-      // ITV sin task_id → clickable
       { type: "critical" as const, message: "ITV caducada (2025-03-15)" },
     ],
   };
-
-  let clicks: AlertTarget[] = [];
 
   const container = document.createElement("div");
   document.body.appendChild(container);
 
   await act(async () => {
-    createRoot(container).render(
-      React.createElement(AlertBanner, {
-        metrics,
-        onAlertClick: (t: AlertTarget) => clicks.push(t),
-      })
-    );
+    createRoot(container).render(React.createElement(AlertBanner, { metrics }));
   });
 
-  // (a) Hay 3 alertas renderizadas
-  const all = container.querySelectorAll("button, [role='status']");
-  expect("3 alertas renderizadas", all.length, 3);
+  // 3 alertas renderizadas.
+  const statuses = container.querySelectorAll("[role='status']");
+  expect("3 alertas renderizadas", statuses.length, 3);
 
-  // (b) La alerta CON task_id (mantenimiento) → <button> clickable
-  const maintenanceBtn = Array.from(all).find(
-    (el) => el.tagName === "BUTTON"
-  ) as HTMLElement | undefined;
-  expect("Alerta de mantenimiento con task_id se renderiza como <button>",
-    maintenanceBtn !== undefined, true);
+  // Ninguna alerta es un <button>.
+  const buttons = container.querySelectorAll("button");
+  expect("Ningún botón de alerta", buttons.length, 0);
 
-  // (c) La alerta de mantenimiento SIN task_id → <div role='status'>,
-  //     sin cursor-pointer, sin chevron.
-  const statusDivs = container.querySelectorAll("[role='status']");
-  expect("Hay al menos 1 div role=status (mantenimiento sin task_id)",
-    statusDivs.length >= 1, true);
-  const aceiteStatusDiv = Array.from(statusDivs).find(
-    (el) => (el.textContent || "").includes("Aceite")
-  ) as HTMLElement | undefined;
-  expect("El status div del aceite no tiene cursor-pointer",
-    aceiteStatusDiv?.className.includes("cursor-pointer") !== true, true);
+  // Ninguna alerta tiene cursor-pointer.
+  const allStatus = Array.from(statuses) as HTMLElement[];
+  const anyClickable = allStatus.some((el) => el.className.includes("cursor-pointer"));
+  expect("Ningún div de alerta tiene cursor-pointer", anyClickable, false);
 
-  // (d) Click en alerta de mantenimiento → onAlertClick con taskId=42
-  await act(async () => { maintenanceBtn?.click(); });
-  expect("Click en alerta mantenimiento → scroll-maintenance{ taskId: 42 }",
-    JSON.stringify(clicks),
-    JSON.stringify([{ kind: "scroll-maintenance", taskId: 42 }]));
+  // Ningún chevron visible.
+  const chevrons = container.querySelectorAll("svg.lucide-chevron-right");
+  expect("Ningún chevron de alerta", chevrons.length, 0);
 
-  // (e) ITV → edit-itv
-  const itvBtn = Array.from(all).find(
-    (el) => el.tagName === "BUTTON" && (el.textContent || "").includes("ITV")
-  ) as HTMLElement | undefined;
-  expect("Alerta ITV se renderiza como <button>", itvBtn !== undefined, true);
-  await act(async () => { itvBtn?.click(); });
-  expect("Click en ITV → edit-itv",
-    clicks[1], "edit-itv");
+  // Ningún elemento de alerta tiene un handler onClick registrado en el
+  // DOM. Esto es lo importante: garantiza que las alertas son pasivas.
+  const anyOnClick = allStatus.some((el) => (el as any).onclick !== null);
+  expect("Ningún div de alerta tiene handler onclick", anyOnClick, false);
+
+  // Click programático en una alerta: ningún callback interno, no hay
+  // preventDefault, no hay redirección. Sólo registramos que el click
+  // es "pasivo" — sigue las reglas del navegador y no rompe la app.
+  const beforeUrl = (dom.window as any).location?.href;
+  await act(async () => {
+    statuses[0]?.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true, cancelable: true }));
+  });
+  const afterUrl = (dom.window as any).location?.href;
+  expect("Click en alerta no cambia la URL", beforeUrl, afterUrl);
 }
 
 // ────────────────────────────────────────────────────────────────────

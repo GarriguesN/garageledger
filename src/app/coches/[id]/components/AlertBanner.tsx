@@ -1,18 +1,15 @@
 // Banner de alertas por cada aviso crítico/warning que el backend devuelve
 // en metrics.alerts.
 //
-// Rediseño Ticket 1.5 + 1.5-fix + 1.6:
-//   - Cada alerta con destino real es <button> con onClick.
-//   - Las alertas SIN destino se renderizan como <div role="status"> sin
-//     cursor-pointer, sin role=button, sin chevron.
-//   - Ticket 1.6: las alertas de mantenimiento llevan `task_id` desde el
-//     backend. La clasificación devuelve `{kind:"scroll-maintenance",
-//     taskId}` para esas, y `null` si el task_id falta (afordancia
-//     deshabilitada, NUNCA fallback a edit-header — Ticket 1.6 explícito).
+// Ticket: las alertas son SOLO informativas. No son botones: no tienen
+// cursor-pointer, no abren destino, no hacen scroll. Se renderizan como
+// <div role="status"> para que lectores de pantalla las anuncien, y se
+// muestran con el icono, el título y la fecha contextual cuando aplica.
 
-import { AlertTriangle, ChevronRight } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import type { CarMetrics } from "../lib/types";
 
+// Mantenemos el tipo porque tests/mocks pueden importarlo.
 export type AlertTarget =
   | "edit-itv"
   | "edit-seguro"
@@ -20,56 +17,45 @@ export type AlertTarget =
 
 interface AlertBannerProps {
   metrics: CarMetrics;
-  onAlertClick?: (target: AlertTarget) => void;
 }
 
-// Clasifica una alerta individual en un destino real, o null si no
-// hay destino fiable. Para alertas de mantenimiento USA EL `task_id`
-// del backend — NO parsea `part_name` del mensaje porque un mismo
-// coche puede tener dos tareas con el mismo `part_name` (caso real:
-// cambias aceite con marca A y luego con marca B, o dos filtros
-// distintos). El parseo del mensaje no garantiza unicidad →
-// sin `task_id` no hay destino → null (sin affordance).
+// Ticket: las alertas son SOLO informativas. Esta función de clasificación
+// se conserva porque otros tests/mocks la importan, pero ya no se usa
+// para decidir entre button/div: todo se renderiza como <div role="status">.
 export function classifyAlert(alert: {
   message: string;
   task_id?: number;
 }): AlertTarget | null {
-  // Mantenimiento: usa task_id si está y es positivo.
   if (typeof alert.task_id === "number" && alert.task_id > 0) {
     return { kind: "scroll-maintenance", taskId: alert.task_id };
   }
   const m = alert.message.toLowerCase();
   if (m.includes("itv")) return "edit-itv";
   if (m.includes("seguro")) return "edit-seguro";
-  // Si por alguna razón llegó una alerta de mantenimiento SIN task_id
-  // (código viejo en BD, race condition, etc.), no la llevamos a
-  // edit-header — mejor sin afordancia que a un destino incorrecto.
   return null;
 }
 
-export default function AlertBanner({ metrics, onAlertClick }: AlertBannerProps) {
+export default function AlertBanner({ metrics }: AlertBannerProps) {
   if (metrics.alerts.length === 0) return null;
 
   return (
     <div className="space-y-2">
       {metrics.alerts.map((a, i) => {
         const isCritical = a.type === "critical";
-        const isWarning = a.type === "warning";
-
         const bg = isCritical ? "#fde7e6" : "#fef3c7";
         const fg = isCritical ? "#c3423f" : "#f59e0b";
         const titleColor = isCritical ? "#a83633" : "#92400e";
 
         const parsed = parseTitleAndDate(a.message);
-        const target = classifyAlert(a);
-        const clickable = target !== null && typeof onAlertClick === "function";
 
-        const handleClick = () => {
-          if (target && onAlertClick) onAlertClick(target);
-        };
-
-        const content = (
-          <>
+        return (
+          <div
+            key={i}
+            className="flex items-center gap-3 w-full rounded-2xl px-4 py-3 text-left"
+            style={{ background: bg }}
+            role="status"
+            aria-label={parsed.title}
+          >
             <div
               className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
               style={{ background: isCritical ? "#fff" : "#fef9c3", color: fg }}
@@ -93,40 +79,6 @@ export default function AlertBanner({ metrics, onAlertClick }: AlertBannerProps)
                 </p>
               )}
             </div>
-            {clickable && (
-              <ChevronRight
-                size={18}
-                className="flex-shrink-0"
-                style={{ color: fg }}
-                aria-hidden
-              />
-            )}
-          </>
-        );
-
-        if (clickable) {
-          return (
-            <button
-              key={i}
-              type="button"
-              className="flex items-center gap-3 w-full rounded-2xl px-4 py-3 text-left transition-opacity hover:opacity-90 cursor-pointer"
-              style={{ background: bg }}
-              onClick={handleClick}
-              aria-label={`Ir a ${parsed.title}`}
-            >
-              {content}
-            </button>
-          );
-        }
-        return (
-          <div
-            key={i}
-            className="flex items-center gap-3 w-full rounded-2xl px-4 py-3 text-left"
-            style={{ background: bg }}
-            role="status"
-            aria-label={parsed.title}
-          >
-            {content}
           </div>
         );
       })}
