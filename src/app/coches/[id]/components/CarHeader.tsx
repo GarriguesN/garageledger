@@ -84,14 +84,19 @@ export default function CarHeader({ car }: CarHeaderProps) {
         >
           {[car.generacion, car.ano, car.motor].filter(Boolean).join(" · ")}
         </p>
-        {/* Fila 3: chips de matrícula y bastidor en grid 2 columnas */}
+        {/* Fila 3: chips de matrícula y bastidor. La columna de la
+            matrícula es auto-ajustable (se dimensiona al contenido),
+            la del VIN ocupa el resto con min-w-0 para que truncate
+            funcione correctamente. */}
         {(car.matricula || car.bastidor) && (
-          <div className="grid grid-cols-2 gap-2 mt-3">
+          <div className="grid grid-cols-[auto_1fr] gap-2 mt-3">
             {car.matricula && (
               <Chip icon={<CreditCard size={13} strokeWidth={2.2} />} text={car.matricula} />
             )}
             {car.bastidor && (
-              <Chip icon={<Barcode size={13} strokeWidth={2.2} />} text={car.bastidor} />
+              <div className="min-w-0">
+                <Chip icon={<Barcode size={13} strokeWidth={2.2} />} text={car.bastidor} />
+              </div>
             )}
           </div>
         )}
@@ -144,7 +149,9 @@ export default function CarHeader({ car }: CarHeaderProps) {
 // Chip pequeño con icono a la izquierda (estilo mockup):
 // fondo gris claro, icono gris oscuro, texto gris oscuro. Se dimensiona
 // por su contenido (no width fija). truncate evita que un VIN demasiado
-// largo rompa el grid.
+// largo rompa el grid. El span del texto usa `min-width: 0` para que
+// flexbox aplique el truncate correctamente cuando el contenedor limita
+// el ancho (caso del grid auto_1fr con la columna del VIN).
 function Chip({
   icon,
   text,
@@ -156,7 +163,7 @@ function Chip({
       title={text}
     >
       <span style={{ color: "#211a1e", flexShrink: 0 }} aria-hidden>{icon}</span>
-      <span className="truncate" style={{ maxWidth: "140px" }}>{text}</span>
+      <span className="truncate min-w-0" style={{ maxWidth: "100%" }}>{text}</span>
     </span>
   );
 }
