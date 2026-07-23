@@ -71,6 +71,19 @@ export function deleteCar(id: number): void {
   getDb().prepare("DELETE FROM cars WHERE id=?").run(id);
 }
 
+/** Bump the car's km_actuales to `km` ONLY if `km` is higher than the
+ *  current value. Never lowers the odometer. Returns the updated Car or
+ *  undefined if the car doesn't exist. Idempotent: called from expense
+ *  creation/update, maintenance completion, and car editing. */
+export function bumpKmIfHigher(carId: number, km: number): Car | undefined {
+  if (!Number.isFinite(km) || km <= 0) return undefined;
+  const car = getCar(carId);
+  if (!car) return undefined;
+  if (km <= car.km_actuales) return car;
+  getDb().prepare("UPDATE cars SET km_actuales = ? WHERE id = ?").run(km, carId);
+  return getCar(carId);
+}
+
 export function getCarDashboardData(opts: { includeArchived?: boolean } = {}) {
   const cars = getCars(opts.includeArchived);
   const ym = new Date().toISOString().slice(0, 7);

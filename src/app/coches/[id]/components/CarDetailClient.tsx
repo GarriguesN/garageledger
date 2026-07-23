@@ -21,6 +21,10 @@ import MaintenanceSchedule, {
 } from "./MaintenanceSchedule";
 import FullListModal      from "./FullListModal";
 import Modal              from "@/components/Modal";
+import CompleteMaintenanceModal, {
+  emptyCompleteMaintenanceForm,
+  CompleteMaintenanceForm,
+} from "./CompleteMaintenanceModal";
 
 import { isFuel, TIPO_COLOR } from "../lib/format";
 // Helper de red: fetch con parseo + toast de error unificado.
@@ -205,6 +209,13 @@ export default function CarDetailClient({
   const [showAllExpenses, setShowAllExpenses] = useState(false);
   const [showAllMaintenance, setShowAllMaintenance] = useState(false);
 
+  // Ticket 1.14: modal de completar tarea (sustituye a window.prompt).
+  const [taskToComplete, setTaskToComplete] = useState<MaintenanceTask | null>(null);
+  const [completeForm, setCompleteForm] = useState<CompleteMaintenanceForm>(
+    emptyCompleteMaintenanceForm(initialCar.km_actuales),
+  );
+  const [completing, setCompleting] = useState(false);
+
   // ── Loader (refresco tras mutación; la carga inicial viene del servidor) ──
   //
   // Ticket 1.4: si el refresh silencioso falla, el helper `fetchJsonWithToast`
@@ -309,20 +320,32 @@ export default function CarDetailClient({
     load();
   };
 
-  const completeTask = async (task: MaintenanceTask) => {
-    const km = prompt(`Km actuales para completar "${task.part_name}":`, String(car?.km_actuales || ""));
-    if (!km) return;
-    const date = new Date().toISOString().split("T")[0];
+  // Ticket 1.14: modal de completar tarea. Abre el modal con km_actuales
+  // pre-rellenado; el guardado llama a POST /api/maintenance y refresca.
+  const openCompleteTask = (task: MaintenanceTask) => {
+    setCompleteForm(emptyCompleteMaintenanceForm(car?.km_actuales ?? initialCar.km_actuales));
+    setTaskToComplete(task);
+  };
+  const submitCompleteTask = async () => {
+    if (!taskToComplete) return;
+    setCompleting(true);
     const res = await fetchJsonWithToast(
       "/api/maintenance",
       { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "complete", id: task.id, currentKm: parseInt(km), currentDate: date }),
-        fallback: `No se pudo completar "${task.part_name}". Inténtalo de nuevo.` },
+        body: JSON.stringify({
+          action: "complete",
+          id: taskToComplete.id,
+          currentKm: completeForm.km,
+          currentDate: completeForm.date,
+        }),
+        fallback: `No se pudo completar "${taskToComplete.part_name}". Inténtalo de nuevo.` },
       setToast,
     );
+    setCompleting(false);
     if (!res.ok) return;
-    setToast({ msg: `${task.part_name} completado`, type: "success" });
+    setToast({ msg: `${taskToComplete.part_name} completado`, type: "success" });
     setTimeout(() => setToast(null), 2500);
+    setTaskToComplete(null);
     load();
   };
 
@@ -416,7 +439,7 @@ export default function CarDetailClient({
       <MaintenanceSchedule
         tasks={maintenanceTasks}
         car={car}
-        onCompleteTask={completeTask}
+        onCompleteTask={openCompleteTask}
         registerTaskRef={registerTaskRef}
         flashTaskId={flashTaskId}
         onOpenAll={() => setShowAllMaintenance(true)}
@@ -470,11 +493,30 @@ export default function CarDetailClient({
               key={task.id}
               task={task}
               car={car}
-              onComplete={completeTask}
+              onComplete={openCompleteTask}
             />
           ))}
         </div>
       </FullListModal>
+
+      {/* Ticket 1.14: modal de completar mantenimiento (sustituye a window.prompt). */}
+      <Modal
+        open={!!taskToComplete}
+        onClose={() => setTaskToComplete(null)}
+        title="Completar mantenimiento"
+        mainId="page-main"
+      >
+        {taskToComplete && (
+          <CompleteMaintenanceModal
+            task={taskToComplete}
+            carKm={completeForm.km}
+            saving={completing}
+            onChange={(km, date) => setCompleteForm({ km, date })}
+            onSubmit={submitCompleteTask}
+            onCancel={() => setTaskToComplete(null)}
+          />
+        )}
+      </Modal>
     </div>
   );
 }

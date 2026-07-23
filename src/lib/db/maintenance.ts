@@ -1,5 +1,5 @@
 import { getDb } from "./core";
-import { getCar } from "./cars";
+import { getCar, bumpKmIfHigher } from "./cars";
 
 // Legacy concept-based config (keep for backward compat)
 export const DEFAULT_MANTENIMIENTO = [
@@ -72,6 +72,8 @@ export function updateMaintenanceTask(id: number, fields: Record<string, any>): 
 export function completeMaintenanceTask(id: number, currentKm: number, currentDate: string): MaintenanceTask | undefined {
   const task = getDb().prepare("SELECT * FROM maintenance_tasks WHERE id=?").get(id) as MaintenanceTask | undefined;
   if (!task) return undefined;
+  // Ticket 1.14: bump the car's odometer when completing a task.
+  bumpKmIfHigher(task.car_id, currentKm);
   const nextKm = task.interval_km ? currentKm + task.interval_km : null;
   const nextDate = task.interval_months ? (() => {
     const d = new Date(currentDate + "T12:00:00");
