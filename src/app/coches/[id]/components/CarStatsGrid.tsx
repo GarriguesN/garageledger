@@ -204,15 +204,6 @@ function DiffNote({ safeDiff }: { safeDiff: number | null }) {
       style={{ color }}
       aria-label={up ? "Ha subido este mes" : "Ha bajado este mes"}
     >
-      <TrendingUp
-        size={11}
-        strokeWidth={2.2}
-        style={{
-          color,
-          transform: up ? "none" : "rotate(180deg)",
-        }}
-        aria-hidden
-      />
       <span>{sign}{fmtOrDash(abs, 2)}€ vs mes anterior</span>
     </span>
   );
