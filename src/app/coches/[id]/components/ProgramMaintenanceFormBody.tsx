@@ -58,10 +58,6 @@ export default function ProgramMaintenanceFormBody({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 text-sm font-semibold mb-1" style={{ color: "var(--accent)" }}>
-        <Wrench size={14} /> Programar mantenimiento
-      </div>
-
       {/* Selector de predefinidos */}
       <div>
         <label className="block text-xs text-[var(--text-muted)] mb-1">

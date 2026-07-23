@@ -7,7 +7,7 @@
 // sólo cambia el contenedor, no la lógica.
 
 import {
-  Plus, Euro, Calendar, FileText, Hash, Fuel, Gauge, Wrench,
+  Euro, Calendar, FileText, Hash, Fuel, Gauge, Wrench,
 } from "lucide-react";
 import {
   CATEGORIAS, isFuel, isDiy,
@@ -32,9 +32,6 @@ export default function AddExpenseForm({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 text-sm font-semibold mb-1" style={{ color: "var(--accent)" }}>
-        <Plus size={14} /> Nuevo gasto
-      </div>
       <div>
         <label className="block text-xs text-[var(--text-muted)] mb-1">Tipo</label>
         <select
