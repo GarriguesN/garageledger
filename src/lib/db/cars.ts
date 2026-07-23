@@ -8,6 +8,14 @@ export interface Car {
   matricula: string; bastidor: string; combustible: string;
   foto_attachment_id: number | null; archivado: number;
   notes: string; created_at: string;
+  /** Fecha de matriculación del vehículo (cuando se dio de alta en Tráfico).
+   *  Null si el usuario todavía no la ha rellenado. Usada por getKmStats
+   *  para calcular la media mensual cuando km_origen = 'matriculacion'. */
+  fecha_matriculacion: string | null;
+  /** Origen del cálculo de la media mensual de km.
+   *  'matriculacion' → desde la fecha de matriculación (default).
+   *  'primer_registro' → desde el primer gasto/mantenimiento con km. */
+  km_origen: "matriculacion" | "primer_registro";
 }
 
 export function getCars(includeArchived = false): Car[] {
@@ -58,6 +66,7 @@ export function updateCar(id: number, fields: Record<string, any>): Car | undefi
     "marca","modelo","generacion","motor","ano","puertas","km_actuales",
     "fecha_ultima_itv","fecha_vencimiento_seguro","mantenimiento_config","notes",
     "matricula","bastidor","combustible","foto_attachment_id","archivado",
+    "fecha_matriculacion","km_origen",
   ];
   const sets: string[] = []; const vals: any[] = [];
   for (const k of allowed) { if (k in fields) { sets.push(`${k}=?`); vals.push(fields[k]); } }
@@ -85,28 +94,39 @@ export function bumpKmIfHigher(carId: number, km: number): Car | undefined {
 }
 
 export function getCarDashboardData(opts: { includeArchived?: boolean } = {}) {
-  const cars = getCars(opts.includeArchived);
+  // audit:A-5 — Una sola query con subconsulta correlacionada en vez de N+1.
+  const where = opts.includeArchived ? "" : "WHERE c.archivado = 0";
   const ym = new Date().toISOString().slice(0, 7);
-  return cars.map(car => {
-    const row = getDb().prepare("SELECT COALESCE(SUM(importe),0) as gasto FROM expenses WHERE car_id=? AND strftime('%Y-%m', date)=?").get(car.id, ym) as any;
-    return { ...car, gastoMensual: row.gasto };
-  });
+  return getDb().prepare(`
+    SELECT c.*, COALESCE(
+      (SELECT SUM(importe) FROM expenses WHERE car_id = c.id AND strftime('%Y-%m', date) = ?), 0
+    ) as gastoMensual
+    FROM cars c ${where}
+    ORDER BY c.marca, c.modelo
+  `).all(ym) as (Car & { gastoMensual: number })[];
 }
 
 /** Estadísticas de kilometraje de un coche: km totales, km este mes, y
- *  media de km/mes desde el primer registro con km conocido. Se calcula
- *  a partir de los gastos con campo km. Devuelve nulls si no hay datos
- *  suficientes para calcular. */
+ *  media de km/mes. El cálculo de la media depende de `car.km_origen`:
+ *    - 'matriculacion': meses desde `car.fecha_matriculacion`. Si está
+ *      vacía, devuelve null (no se inventa).
+ *    - 'primer_registro': meses desde el primer gasto con km conocido.
+ *      Si no hay gastos con km, también devuelve null. */
 export interface KmStats {
   total: number;
   thisMonth: number | null;
   avgPerMonth: number | null;
-  /** Meses transcurridos entre el primer y el último gasto con km. */
-  months: number;
+  /** Meses usados en el cálculo (puede ser null si no hay base para contar). */
+  months: number | null;
+  /** Etiqueta legible del origen del cálculo, para mostrar en UI. */
+  source: "matriculacion" | "primer_registro" | "sin_datos";
+  /** Texto legible de la fecha desde la que se cuenta. null si no aplica. */
+  sourceLabel: string | null;
 }
 export function getKmStats(carId: number): KmStats {
   const car = getCar(carId);
   const total = car?.km_actuales ?? 0;
+  const origen: "matriculacion" | "primer_registro" = car?.km_origen ?? "matriculacion";
 
   // Recoge los gastos con km no nulo, ordenados por fecha.
   type Row = { date: string; km: number };
@@ -127,20 +147,36 @@ export function getKmStats(carId: number): KmStats {
     const lastBefore = beforeMonth[beforeMonth.length - 1].km;
     if (lastIn > lastBefore) thisMonth = lastIn - lastBefore;
   } else if (inMonth.length > 0 && total > 0 && beforeMonth.length === 0) {
-    // Sin histórico previo: usamos total - primer_km del mes como proxy.
     const firstIn = inMonth[0].km;
     if (total > firstIn) thisMonth = total - firstIn;
   }
 
-  // Media mensual: total / meses desde el primer registro.
+  // Media mensual: depende del origen elegido.
   let avgPerMonth: number | null = null;
-  let months = 0;
-  if (rows.length > 0 && total > 0) {
-    const first = new Date(rows[0].date + "T12:00:00");
-    const now = new Date();
-    months = Math.max(1, (now.getFullYear() - first.getFullYear()) * 12 + (now.getMonth() - first.getMonth()) + 1);
-    avgPerMonth = Math.round(total / months);
+  let months: number | null = null;
+  let sourceLabel: string | null = null;
+
+  if (origen === "matriculacion") {
+    const fm = car?.fecha_matriculacion || null;
+    if (fm && total > 0) {
+      const start = new Date(fm + "T12:00:00");
+      const now = new Date();
+      months = Math.max(1, (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth()) + 1);
+      avgPerMonth = Math.round(total / months);
+      sourceLabel = `desde ${fm}`;
+    }
+  } else {
+    if (rows.length > 0 && total > 0) {
+      const first = new Date(rows[0].date + "T12:00:00");
+      const now = new Date();
+      months = Math.max(1, (now.getFullYear() - first.getFullYear()) * 12 + (now.getMonth() - first.getMonth()) + 1);
+      avgPerMonth = Math.round(total / months);
+      sourceLabel = `desde ${rows[0].date}`;
+    }
   }
 
-  return { total, thisMonth, avgPerMonth, months };
+  const source: "matriculacion" | "primer_registro" | "sin_datos" =
+    avgPerMonth === null ? "sin_datos" : origen;
+
+  return { total, thisMonth, avgPerMonth, months, source, sourceLabel };
 }

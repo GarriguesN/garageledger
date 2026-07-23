@@ -9,7 +9,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  let body: any;
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ error: "Cuerpo JSON inválido" }, { status: 400 });
+  }
   if (body.action === "complete") {
     const updated = completeMaintenanceTask(body.id, body.currentKm, body.currentDate);
     return updated ? NextResponse.json(updated) : NextResponse.json({ error: "Not found" }, { status: 404 });

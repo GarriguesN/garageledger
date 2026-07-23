@@ -49,6 +49,14 @@ const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12h
 function getSecret(): string {
   const s = process.env.SESSION_SECRET;
   if (s && s.length >= 32) return s;
+  // audit:C-1 — En producción, FAIL HARD si no hay secreto válido.
+  // Un secreto hardcoded conocido permitiría forjar cookies de sesión.
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "SESSION_SECRET no configurada o demasiado corta (mínimo 32 chars). " +
+      "Genera una con: node -e \"console.log(require('crypto').randomBytes(48).toString('hex'))\""
+    );
+  }
   // Dev fallback so the app boots even without an env var. In prod (.env),
   // SESSION_SECRET must be set (>=32 chars) — generate with:
   //   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"

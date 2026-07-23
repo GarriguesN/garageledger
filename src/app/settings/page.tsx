@@ -56,13 +56,18 @@ export default function SettingsPage() {
   async function handleRemovePin() {
     if (!confirm('¿Eliminar la protección PIN?')) return;
     try {
-      await fetch('/api/pin', {
+      // audit:C-2 — Usar action 'unset' en vez de 'set' con pin vacío.
+      const res = await fetch('/api/pin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'set', pin: '' }),
+        body: JSON.stringify({ action: 'unset' }),
       });
-      setPinConfigured(false);
-      setPinSuccess('PIN eliminado');
+      if (res.ok) {
+        setPinConfigured(false);
+        setPinSuccess('PIN eliminado');
+      } else {
+        setPinError('Error al eliminar PIN');
+      }
     } catch {
       setPinError('Error al eliminar PIN');
     }

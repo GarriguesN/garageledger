@@ -2,6 +2,7 @@
 // subcomponentes del detalle del coche.
 
 import * as React from "react";
+import { CATEGORIES } from "@/lib/constants";
 
 export function fmt(n: number) {
   return n.toLocaleString("es-ES", {
@@ -55,26 +56,9 @@ export function Sparkline({ data }: { data: number[] }): React.ReactElement | nu
   );
 }
 
-export const CATEGORIAS = [
-  "Carburante", "Mantenimiento (DIY)", "Mantenimiento (Taller)",
-  "Tuning",
-  "Seguro", "ITV", "Impuestos", "Parking", "Peajes", "Lavado", "Otros",
-];
-
-// Color por categoría para los badges / iconos del historial.
-export const TIPO_COLOR: Record<string, string> = {
-  "Carburante": "#c3423f",
-  "Mantenimiento (DIY)": "#4f9d69",
-  "Mantenimiento (Taller)": "#d4956a",
-  "Tuning": "#8b5cf6",
-  "Seguro": "#3b82f6",
-  "ITV": "#8b5cf6",
-  "Impuestos": "#f59e0b",
-  "Parking": "#6b7280",
-  "Peajes": "#10b981",
-  "Lavado": "#ec4899",
-  "Otros": "#6b7280",
-};
+// audit:M-9 — CATEGORIAS y TIPO_COLOR derivados de @/lib/constants (origen único).
+export const CATEGORIAS = CATEGORIES.map(c => c.label);
+export const TIPO_COLOR = Object.fromEntries(CATEGORIES.map(c => [c.label, c.color])) as Record<string, string>;
 
 // Funciones puras de cálculo derivadas — útiles para que varios
 // subcomponentes tengan el mismo cálculo sin duplicar.

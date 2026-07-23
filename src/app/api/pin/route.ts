@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSetting, setSetting } from "@/lib/db";
-import { hashPin, verifyPin, isPinHashed, issueSessionCookie, checkRate } from "@/lib/auth";
+import { hashPin, verifyPin, isPinHashed, issueSessionCookie, clearSessionCookie, checkRate } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 function clientIp(req: NextRequest): string {
-  // x-forwarded-for first IP (proxied); fall back to remote
-  const xff = req.headers.get("x-forwarded-for");
-  if (xff) {
-    const first = xff.split(",")[0]?.trim();
-    if (first) return first;
-  }
+  // audit:A-4 — No confiar en X-Forwarded-For: el cliente puede spoofarlo
+  // para obtener un bucket de rate limit fresco. Solo x-real-ip, que nginx
+  // (CT 105) establece de forma fiable.
   const real = req.headers.get("x-real-ip");
   if (real) return real.trim();
-  // NextRequest doesn't expose raw socket; "local" is the best fallback we have
   return "local";
 }
 
@@ -75,6 +71,15 @@ export async function POST(req: NextRequest) {
     const res = NextResponse.json({ success: true });
     // Setting a PIN grants an immediate session for the owner.
     res.headers.append("Set-Cookie", issueSessionCookie());
+    return res;
+  }
+
+  // audit:C-2 — Acción explícita para eliminar el PIN. Antes se usaba
+  // action='set' con pin='' pero la validación de length >= 4 lo rechazaba.
+  if (action === "unset") {
+    setSetting("pin", "");
+    const res = NextResponse.json({ success: true });
+    res.headers.append("Set-Cookie", clearSessionCookie());
     return res;
   }
 

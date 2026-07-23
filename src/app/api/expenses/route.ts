@@ -10,7 +10,15 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  let body: any;
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ error: "Cuerpo JSON inválido" }, { status: 400 });
+  }
+  if (!body?.carId) return NextResponse.json({ error: "carId requerido" }, { status: 400 });
+  const importe = typeof body.importe === "string" ? parseFloat(body.importe) : body.importe;
+  if (typeof importe !== "number" || !Number.isFinite(importe) || importe < 0) {
+    return NextResponse.json({ error: "importe inválido" }, { status: 400 });
+  }
   const exp = createExpense(
     body.carId, body.tipo, body.importe,
     body.date || new Date().toISOString().split("T")[0],
@@ -21,7 +29,10 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const body = await req.json();
+  let body: any;
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ error: "Cuerpo JSON inválido" }, { status: 400 });
+  }
   const { id, ...fields } = body;
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
   const updated = updateExpense(parseInt(id), fields);

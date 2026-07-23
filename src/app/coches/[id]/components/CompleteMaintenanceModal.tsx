@@ -3,11 +3,11 @@
 // Modal para completar una tarea de mantenimiento. Sustituye al antiguo
 // window.prompt() — Ticket 1.14. Mismo patrón que el <Modal> genérico.
 //
-// Campos:
-//   - Km actuales (prefilled con car.km_actuales, numérico, id="cm-km")
-//   - Fecha actual (prefilled con hoy, date input, id="cm-date")
-// Botones: Completar / Cancelar.
+// audit:M-5 — Reemplazado document.querySelector por useState para
+// km y date. Fix del bug donde el input de fecha mostraba vacío cuando
+// carKm > 0.
 
+import { useState } from "react";
 import { Gauge, Calendar } from "lucide-react";
 import type { MaintenanceTask } from "@/lib/db/maintenance";
 
@@ -38,6 +38,9 @@ export default function CompleteMaintenanceModal({
   onChange, onSubmit, onCancel,
 }: CompleteMaintenanceModalProps) {
   const today = new Date().toISOString().split("T")[0];
+  // audit:M-5 — Estado local en vez de document.querySelector.
+  const [km, setKm] = useState(carKm);
+  const [date, setDate] = useState(today);
 
   return (
     <div className="space-y-4">
@@ -61,10 +64,11 @@ export default function CompleteMaintenanceModal({
             className="input"
             type="number"
             min="0"
-            value={carKm || ""}
+            value={km || ""}
             onChange={(e) => {
-              const dt = (document.querySelector("#cm-date") as HTMLInputElement)?.value || today;
-              onChange(parseInt(e.target.value) || 0, dt);
+              const v = parseInt(e.target.value) || 0;
+              setKm(v);
+              onChange(v, date);
             }}
             autoFocus
           />
@@ -81,11 +85,10 @@ export default function CompleteMaintenanceModal({
             id="cm-date"
             className="input"
             type="date"
-            value={carKm ? "" : today}
-            defaultValue={today}
+            value={date}
             onChange={(e) => {
-              const km = parseInt((document.querySelector("#cm-km") as HTMLInputElement)?.value || "0");
-              onChange(km || carKm, e.target.value);
+              setDate(e.target.value);
+              onChange(km, e.target.value);
             }}
           />
         </div>
@@ -97,7 +100,7 @@ export default function CompleteMaintenanceModal({
           className="btn btn-primary flex-1 h-11 rounded-xl text-sm font-semibold"
           style={{ background: "var(--accent)", color: "#fff" }}
           onClick={onSubmit}
-          disabled={saving || !carKm}
+          disabled={saving || !km}
         >
           {saving ? "Guardando…" : "Completar"}
         </button>
