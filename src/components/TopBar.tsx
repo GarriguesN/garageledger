@@ -9,9 +9,8 @@ export default function TopBar() {
   const [notifications, setNotifications] = useState(false);
   useEffect(() => { const close = (e: KeyboardEvent) => e.key === 'Escape' && (setOpen(false), setNotifications(false)); document.addEventListener('keydown', close); return () => document.removeEventListener('keydown', close); }, []);
   return <>
-    <header className="sticky top-0 z-40 h-12 bg-white border-b border-[var(--border-color)] flex items-center justify-between px-4 sm:hidden">
+    <header className="sticky top-0 z-40 h-12 flex items-center justify-between px-4 sm:hidden bg-transparent">
       <button aria-label="Abrir menú" onClick={() => setOpen(true)}><Menu size={22}/></button>
-      <span className="font-bold text-[var(--accent)]">GarageLedger</span>
       <button aria-label="Notificaciones" onClick={() => setNotifications(true)}><Bell size={20}/></button>
     </header>
     {open && <div className="fixed inset-0 z-[60] bg-black/30" onClick={() => setOpen(false)}><aside className="h-full w-72 bg-white p-5 space-y-4" onClick={e => e.stopPropagation()}><div className="flex justify-between"><b>Menú</b><button aria-label="Cerrar menú" onClick={() => setOpen(false)}><X/></button></div><Link className="flex gap-3 py-3" href="/" onClick={() => setOpen(false)}><Car/> Garaje</Link><Link className="flex gap-3 py-3" href="/settings" onClick={() => setOpen(false)}><Settings/> Ajustes</Link></aside></div>}
