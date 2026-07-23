@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 // Subcomponentes del detalle
 import CarHeader          from "./CarHeader";
@@ -30,7 +31,7 @@ import { MAX_FILE_SIZE_BYTES } from "@/lib/attachments";
 import { publishMatricula } from "@/components/TopBarContext";
 import type {
   Car, CarMetrics, TimelineEntry, Note, Attachment, MaintenanceTask,
-  AddExpenseFormState, EditExpenseFormState, CarEditFormState,
+  AddExpenseFormState, EditExpenseFormState,
 } from "../lib/types";
 
 interface CarDetailClientProps {
@@ -55,23 +56,15 @@ export default function CarDetailClient({
   matricula,
 }: CarDetailClientProps) {
   // ── Estado inicial ──
+  // El CarHeader es ahora solo-lectura: no contiene editor inline. La
+  // edición del coche vive en /coches/[id]/editar, accesible desde el
+  // menú kebab del header.
   const [car, setCar] = useState<Car>(initialCar);
   const [metrics, setMetrics] = useState<CarMetrics>(initialMetrics);
   const [timeline, setTimeline] = useState<TimelineEntry[]>(initialTimeline);
   const [notes, setNotes] = useState<Note[]>(initialNotes);
   const [attachments, setAttachments] = useState<Attachment[]>(initialAttachments);
   const [maintenanceTasks, setMaintenanceTasks] = useState<MaintenanceTask[]>(initialMaintenanceTasks);
-
-  // Edit car inline
-  const [showEditCar, setShowEditCar] = useState(false);
-  const [carForm, setCarForm] = useState<CarEditFormState>({
-    marca: initialCar.marca, modelo: initialCar.modelo,
-    generacion: initialCar.generacion || "", motor: initialCar.motor || "",
-    ano: initialCar.ano ?? "", puertas: 5, km_actuales: initialCar.km_actuales || 0,
-    estado: initialCar.estado || "",
-    fecha_ultima_itv: initialCar.fecha_ultima_itv || "",
-    fecha_vencimiento_seguro: initialCar.fecha_vencimiento_seguro || "",
-  });
 
   // Add expense inline
   const [showForm, setShowForm] = useState(false);
@@ -159,9 +152,6 @@ export default function CarDetailClient({
   // Toast simple
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
-  // Ref al header para hacer scroll desde AlertBanner (Ticket 1.5-fix).
-  const headerRef = useRef<HTMLDivElement | null>(null);
-
   // Ticket 1.6: Map taskId → HTMLElement de la fila correspondiente.
   // MaintenanceSchedule nos llama con `registerTaskRef(task.id, el)` en
   // cada render y con `el=null` al desmontar. Usamos Map (no useRef
@@ -176,15 +166,12 @@ export default function CarDetailClient({
   // Ticket 1.6: id de tarea a flashear (highlight breve al pulsar alerta).
   const [flashTaskId, setFlashTaskId] = useState<number | null>(null);
 
-  // Click en una alerta: el destino depende del AlertTarget que devuelve
-  // classifyAlert (Ticket 1.6: discriminated union con scroll-maintenance
-  // para tareas de mantenimiento, edit-itv/edit-seguro para ITV/Seguro).
+  // Click en una alerta: ITV/Seguro abre el editor del coche en la ruta
+  // dedicada. Mantenimiento hace scroll a la fila + highlight breve.
+  const router = useRouter();
   const handleAlertClick = (target: AlertTarget) => {
     if (target === "edit-itv" || target === "edit-seguro") {
-      setShowEditCar(true);
-      requestAnimationFrame(() => {
-        headerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
+      router.push(`/coches/${carId}/editar`);
       return;
     }
     // scroll-maintenance
@@ -336,19 +323,6 @@ export default function CarDetailClient({
     load();
   };
 
-  const updateCarData = async () => {
-    const res = await fetchJsonWithToast(
-      "/api/cars",
-      { method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: carId, ...carForm }),
-        fallback: "No se pudieron guardar los datos del vehículo. Inténtalo de nuevo." },
-      setToast,
-    );
-    if (!res.ok) return;
-    setShowEditCar(false);
-    load();
-  };
-
   const addNote = async () => {
     if (!noteContent.trim()) return;
     const res = await fetchJsonWithToast(
@@ -442,19 +416,8 @@ export default function CarDetailClient({
         </div>
       )}
 
-      {/* Header — envuelto en un div con ref para que AlertBanner pueda
-          hacer scroll hacia él cuando el usuario pulsa una alerta
-          clicable (Ticket 1.5-fix). */}
-      <div ref={headerRef}>
-        <CarHeader
-          car={car}
-          showEditCar={showEditCar}
-          carForm={carForm}
-          onChangeCarForm={setCarForm}
-          onSave={updateCarData}
-          onCancel={() => setShowEditCar(false)}
-        />
-      </div>
+      {/* Header — solo lectura. Editar vive en /coches/[id]/editar. */}
+      <CarHeader car={car} />
 
       {/* Metrics */}
       <CarStatsGrid metrics={metrics} />
