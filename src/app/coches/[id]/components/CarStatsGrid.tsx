@@ -86,7 +86,7 @@ export default function CarStatsGrid({ metrics }: CarStatsGridProps) {
         label="Consumo medio"
         value={safeL100 !== null ? fmtOrDash(safeL100, 1) : "—"}
         valueSuffix="L/100km"
-        note="rendimiento medio"
+        note=""
       />
 
       {/* 5) Coste por km — gris */}
@@ -164,12 +164,14 @@ function Card({ iconBg, iconFg, icon, label, value, valueSuffix, note }: CardPro
               </span>
             )}
           </p>
-          <p
-            className="text-[11px] leading-tight mt-1 whitespace-normal"
-            style={{ color: TEXT_GRAY }}
-          >
-            {note}
-          </p>
+          {note ? (
+            <p
+              className="text-[11px] leading-tight mt-1 whitespace-normal"
+              style={{ color: TEXT_GRAY }}
+            >
+              {note}
+            </p>
+          ) : null}
         </div>
       </div>
     </div>
