@@ -91,13 +91,13 @@ export default function ExpenseHistory({
                   onChange={onChangeEditForm}
                   onSave={onSaveInline}
                   onCancel={onCancelEdit}
+                  onDelete={onDelete}
                 />
               ) : (
                 <ReadOnlyFields
                   entry={entry}
                   color={color}
                   onStartEdit={onStartEdit}
-                  onDelete={onDelete}
                 />
               )}
             </div>
@@ -143,9 +143,10 @@ interface EditFormFieldsProps {
   onChange: (next: EditExpenseFormState) => void;
   onSave: () => void;
   onCancel: () => void;
+  onDelete: (id: number) => void;
 }
 
-function EditFormFields({ entry, editForm, onChange, onSave, onCancel }: EditFormFieldsProps) {
+function EditFormFields({ entry, editForm, onChange, onSave, onCancel, onDelete }: EditFormFieldsProps) {
   const color = TIPO_COLOR[entry.tipo] || "#6b7280";
   return (
     <div className="flex-1 space-y-3">
@@ -266,12 +267,22 @@ function EditFormFields({ entry, editForm, onChange, onSave, onCancel }: EditFor
           </div>
         </div>
       )}
-      <div className="flex gap-2">
+      <div className="flex gap-2 items-center flex-wrap">
         <button className="btn btn-primary btn-sm text-xs" onClick={onSave}>
           <Save size={12} /> Guardar
         </button>
         <button className="btn btn-secondary btn-sm text-xs" onClick={onCancel}>
           <X size={12} /> Cancelar
+        </button>
+        <button
+          className="btn btn-sm text-xs ml-auto"
+          style={{ color: "#c3423f" }}
+          onClick={() => {
+            if (confirm("Eliminar gasto?")) onDelete(entry.id);
+          }}
+          aria-label={`Borrar gasto ${entry.descripcion ?? entry.tipo}`}
+        >
+          <Trash2 size={12} /> Borrar
         </button>
       </div>
     </div>
@@ -284,15 +295,13 @@ interface ReadOnlyFieldsProps {
   entry: TimelineEntry;
   color: string;
   onStartEdit: (entry: TimelineEntry) => void;
-  onDelete: (id: number) => void;
 }
 
-// Fila del historial (mockup). Ticket 1.5-fix móvil:
-//   - Tap en la fila → onStartEdit (abrir edición inline)
-//   - Kebab MoreVertical (siempre visible) → menú con Editar/Borrar
-//     En escritorio con hover, el kebab se intensifica; sigue siendo
-//     clicable siempre, sin depender de :hover.
-function ReadOnlyFields({ entry, color, onStartEdit, onDelete }: ReadOnlyFieldsProps) {
+// Fila del historial (mockup). Ticket 1.7a: tap en la fila abre edición
+// inline. Ticket 1.11: el borrado vive dentro del modo de edición junto a
+// Guardar/Cancelar para no reintroducir un kebab que ya no encaja con el
+// patrón "fila tocable = editar".
+function ReadOnlyFields({ entry, color, onStartEdit }: ReadOnlyFieldsProps) {
 
   const Icon = entry.tipo === "Carburante" ? Fuel
     : entry.tipo?.includes("DIY") ? Wrench

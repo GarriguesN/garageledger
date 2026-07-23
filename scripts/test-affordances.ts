@@ -244,9 +244,16 @@ async function runExpenseTests() {
   let deleteCalls: number[] = [];
   let editCalls: number[] = [];
 
+  // confirm() se usa como red de seguridad antes de borrar; el nuevo flujo
+  // vive en el modo edición, no en un kebab.
+  const originalConfirm = g.confirm;
+  g.confirm = () => true;
+  (dom.window as any).confirm = () => true;
+
   const container = document.createElement("div");
   document.body.appendChild(container);
 
+  // Primer render: la fila debe ser tocable y abrir edición.
   await act(async () => {
     createRoot(container).render(
       React.createElement(ExpenseHistory, {
@@ -272,21 +279,40 @@ async function runExpenseTests() {
   await act(async () => { row?.click(); });
   expect("Tap en la fila llama onStartEdit(1)", editCalls, [1]);
 
+  // Ticket 1.11: ya no hay kebab ni menú. Borrar vive en el modo edición.
   const kebabBtn = container.querySelector('[aria-label^="Más acciones"]') as HTMLElement | null;
-  expect("Kebab MoreVertical siempre visible sin hover", kebabBtn !== null, true);
+  expect("Sin kebab (Ticket 1.11: borrado en modo edición)", kebabBtn, null);
+  const menu = container.querySelector('[role="menu"]');
+  expect("Sin menú desplegable", menu, null);
 
-  await act(async () => { kebabBtn?.click(); });
-  const menu = container.querySelector('[role="menu"]') as HTMLElement | null;
-  expect("Click en kebab abre menú role=menu", menu !== null, true);
-  const menuItems = menu ? Array.from(menu.querySelectorAll('[role="menuitem"]')) : [];
-  expect("El menú tiene 2 items", menuItems.length, 2);
+  // Segundo render: la fila está ahora en modo edición. El botón Borrar
+  // debe estar visible y debe invocar onDelete al pulsarlo.
+  await act(async () => {
+    createRoot(container).render(
+      React.createElement(ExpenseHistory, {
+        timeline: [fakeEntry],
+        timelineLimit: 10,
+        editingId: 1,
+        editForm: {
+          id: 1, tipo: "Carburante", importe: 50, date: "2026-07-22", descripcion: "",
+        },
+        onStartEdit: (e: any) => editCalls.push(e.id),
+        onChangeEditForm: () => {},
+        onSaveInline: () => {},
+        onCancelEdit: () => {},
+        onDelete: (id: number) => deleteCalls.push(id),
+        onLoadMore: () => {},
+      })
+    );
+  });
 
-  const borrarItem = menuItems.find((el) => (el.textContent || "").trim() === "Borrar") as HTMLElement | undefined;
-  await act(async () => { borrarItem?.click(); });
+  const deleteBtn = container.querySelector('[aria-label^="Borrar gasto"]') as HTMLElement | null;
+  expect("Botón Borrar visible en modo edición", deleteBtn !== null, true);
+
+  await act(async () => { deleteBtn?.click(); });
   expect("Click en Borrar llama onDelete(1)", deleteCalls, [1]);
 
-  const menuClosed = container.querySelector('[role="menu"]');
-  expect("El menú se cierra tras Borrar", menuClosed, null);
+  g.confirm = originalConfirm;
 }
 
 // ── main ──
