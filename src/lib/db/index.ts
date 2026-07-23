@@ -144,3 +144,6 @@ export function getSetting(key: string): string | undefined {
 export function setSetting(key: string, value: string): void {
   getDb().prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(key, value);
 }
+
+// Re-exports para que los tests / API puedan importar desde "@/lib/db".
+export { getKmStats } from "./cars";

@@ -32,6 +32,7 @@ import { isFuel, TIPO_COLOR } from "../lib/format";
 // genérico cuando el servidor no devuelve nada legible.
 import { fetchJsonWithToast } from "../lib/net";
 import { publishMatricula } from "@/components/TopBarContext";
+import type { KmStats } from "@/lib/db/cars";
 import type {
   Car, CarMetrics, TimelineEntry, MaintenanceTask,
   AddExpenseFormState, EditExpenseFormState,
@@ -43,6 +44,7 @@ interface CarDetailClientProps {
   initialMetrics: CarMetrics;
   initialTimeline: TimelineEntry[];
   initialMaintenanceTasks: MaintenanceTask[];
+  initialKmStats: KmStats;
   matricula: string;
 }
 
@@ -52,6 +54,7 @@ export default function CarDetailClient({
   initialMetrics,
   initialTimeline,
   initialMaintenanceTasks,
+  initialKmStats,
   matricula,
 }: CarDetailClientProps) {
   // ── Estado inicial ──
@@ -62,6 +65,7 @@ export default function CarDetailClient({
   const [metrics, setMetrics] = useState<CarMetrics>(initialMetrics);
   const [timeline, setTimeline] = useState<TimelineEntry[]>(initialTimeline);
   const [maintenanceTasks, setMaintenanceTasks] = useState<MaintenanceTask[]>(initialMaintenanceTasks);
+  const [kmStats, setKmStats] = useState<KmStats>(initialKmStats);
 
   // Add expense inline
   const [showForm, setShowForm] = useState(false);
@@ -239,12 +243,13 @@ export default function CarDetailClient({
         if (!r.ok) return;
         const d = r.data as {
           car: Car; metrics: CarMetrics; timeline?: TimelineEntry[];
-          maintenanceTasks?: MaintenanceTask[];
+          maintenanceTasks?: MaintenanceTask[]; kmStats?: KmStats;
         };
         setCar(d.car);
         setMetrics(d.metrics);
         setTimeline(d.timeline || []);
         setMaintenanceTasks(d.maintenanceTasks || []);
+        if (d.kmStats) setKmStats(d.kmStats);
       });
   };
 
@@ -379,7 +384,7 @@ export default function CarDetailClient({
       <CarHeader car={car} />
 
       {/* Metrics */}
-      <CarStatsGrid metrics={metrics} />
+      <CarStatsGrid metrics={metrics} kmStats={kmStats} />
 
       {/* Alerts (informativas: no son botones, no llevan a ningún sitio) */}
       <AlertBanner metrics={metrics} />

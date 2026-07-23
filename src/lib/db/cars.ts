@@ -92,3 +92,55 @@ export function getCarDashboardData(opts: { includeArchived?: boolean } = {}) {
     return { ...car, gastoMensual: row.gasto };
   });
 }
+
+/** Estadísticas de kilometraje de un coche: km totales, km este mes, y
+ *  media de km/mes desde el primer registro con km conocido. Se calcula
+ *  a partir de los gastos con campo km. Devuelve nulls si no hay datos
+ *  suficientes para calcular. */
+export interface KmStats {
+  total: number;
+  thisMonth: number | null;
+  avgPerMonth: number | null;
+  /** Meses transcurridos entre el primer y el último gasto con km. */
+  months: number;
+}
+export function getKmStats(carId: number): KmStats {
+  const car = getCar(carId);
+  const total = car?.km_actuales ?? 0;
+
+  // Recoge los gastos con km no nulo, ordenados por fecha.
+  type Row = { date: string; km: number };
+  const rows = getDb()
+    .prepare("SELECT date, km FROM expenses WHERE car_id=? AND km IS NOT NULL AND km > 0 ORDER BY date ASC, id ASC")
+    .all(carId) as Row[];
+
+  // Km este mes: diferencia entre el último km y el último km anterior
+  // al primer día de este mes. Si sólo hay 1 gasto este mes, se toma
+  // (current - prev) usando el último gasto del mes anterior.
+  const ym = new Date().toISOString().slice(0, 7);
+  const monthStart = `${ym}-01`;
+  const inMonth = rows.filter(r => r.date >= monthStart);
+  const beforeMonth = rows.filter(r => r.date < monthStart);
+  let thisMonth: number | null = null;
+  if (inMonth.length > 0 && beforeMonth.length > 0) {
+    const lastIn = inMonth[inMonth.length - 1].km;
+    const lastBefore = beforeMonth[beforeMonth.length - 1].km;
+    if (lastIn > lastBefore) thisMonth = lastIn - lastBefore;
+  } else if (inMonth.length > 0 && total > 0 && beforeMonth.length === 0) {
+    // Sin histórico previo: usamos total - primer_km del mes como proxy.
+    const firstIn = inMonth[0].km;
+    if (total > firstIn) thisMonth = total - firstIn;
+  }
+
+  // Media mensual: total / meses desde el primer registro.
+  let avgPerMonth: number | null = null;
+  let months = 0;
+  if (rows.length > 0 && total > 0) {
+    const first = new Date(rows[0].date + "T12:00:00");
+    const now = new Date();
+    months = Math.max(1, (now.getFullYear() - first.getFullYear()) * 12 + (now.getMonth() - first.getMonth()) + 1);
+    avgPerMonth = Math.round(total / months);
+  }
+
+  return { total, thisMonth, avgPerMonth, months };
+}

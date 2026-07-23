@@ -8,13 +8,15 @@
 // cálculo: este ticket es SOLO JSX/clases Tailwind.
 
 import {
-  TrendingUp, BarChart3, PiggyBank, Droplet, TrendingDown, Euro, Receipt,
+  TrendingUp, BarChart3, PiggyBank, Droplet, TrendingDown, Euro, Receipt, Gauge,
 } from "lucide-react";
-import { fmtOrDash } from "../lib/format";
+import { fmt0, fmtOrDash } from "../lib/format";
 import type { CarMetrics } from "../lib/types";
+import type { KmStats } from "@/lib/db/cars";
 
 interface CarStatsGridProps {
   metrics: CarMetrics;
+  kmStats: KmStats;
 }
 
 // Paleta local coherente con el rediseño Ticket 1.5 (mismo lenguaje que
@@ -31,7 +33,7 @@ const ICON_FG_GRAY   = "#4a4548"; // text-secondary
 const TEXT_DARK = "#211a1e";
 const TEXT_GRAY = "#8a8588";
 
-export default function CarStatsGrid({ metrics }: CarStatsGridProps) {
+export default function CarStatsGrid({ metrics, kmStats }: CarStatsGridProps) {
   // Helper que distingue número finito real (incluido 0) de null/undefined
   // / NaN / Infinity / strings. Misma idea que el safeNum del Ticket 1.4.
   function safeNum(n: unknown): number | null {
@@ -112,6 +114,61 @@ export default function CarStatsGrid({ metrics }: CarStatsGridProps) {
         value={`${fmtOrDash(safePricePerLiter, 3)}€`}
         note="€/L último repostaje"
       />
+
+      {/* Card ancho completo: kilometraje — totales / este mes / media.
+          Padding más bajo que las 6 cards anteriores para que ocupe
+          menos vertical sin perder legibilidad. */}
+      <div className="col-span-2 card !p-3">
+        <div className="flex items-start gap-2.5">
+          <div
+            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+            style={{ background: ICON_BG_BLUE, color: ICON_FG_BLUE }}
+            aria-hidden
+          >
+            <Gauge size={20} strokeWidth={1.8} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[12px] leading-tight" style={{ color: TEXT_GRAY }}>
+              Kilometraje
+            </p>
+            <div className="grid grid-cols-3 gap-3 mt-2">
+              <KmCell
+                value={fmt0(kmStats.total)}
+                suffix="km"
+                label="Totales"
+              />
+              <KmCell
+                value={kmStats.thisMonth !== null ? fmt0(kmStats.thisMonth) : "—"}
+                suffix="km"
+                label="Este mes"
+              />
+              <KmCell
+                value={kmStats.avgPerMonth !== null ? fmt0(kmStats.avgPerMonth) : "—"}
+                suffix="km/mes"
+                label="Media mensual"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Bloque pequeño dentro de la card de kilometraje: valor grande + label
+ *  pequeño debajo. */
+function KmCell({ value, suffix, label }: { value: string; suffix: string; label: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[18px] font-bold leading-tight truncate" style={{ color: TEXT_DARK }} title={value}>
+        {value}
+        <span className="text-[11px] font-normal ml-1" style={{ color: TEXT_GRAY }}>
+          {suffix}
+        </span>
+      </p>
+      <p className="text-[10px] leading-tight mt-0.5 truncate" style={{ color: TEXT_GRAY }}>
+        {label}
+      </p>
     </div>
   );
 }
