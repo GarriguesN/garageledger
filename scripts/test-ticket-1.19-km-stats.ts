@@ -21,8 +21,8 @@ const initial = safeCall("getKmStats inicial", () => getKmStats(1));
 if (initial) {
   expect("total > 0", initial.total > 0);
   expect("total === car.km_actuales", initial.total === getCar(1)?.km_actuales);
-  expect("months >= 1", initial.months >= 1);
-  expect("avgPerMonth = round(total / months)", initial.avgPerMonth === Math.round(initial.total / initial.months));
+  expect("months >= 1 si hay fecha", initial.months === null || initial.months >= 1);
+  expect("avg = round(total/months) si hay meses", initial.months === null || initial.avgPerMonth === Math.round(initial.total / initial.months));
 }
 
 // Crea un gasto con km alto y verifica que los stats se actualizan.
@@ -34,7 +34,7 @@ const exp = safeCall("createExpense con km alto", () =>
 const after = safeCall("getKmStats after", () => getKmStats(1));
 if (after) {
   expect("total sube tras createExpense", after.total === newKm);
-  expect("months >= 1", after.months >= 1);
+  expect("months >= 1", after.months === null || after.months >= 1);
   if (before.months === after.months) {
     expect("avgPerMonth sube", after.avgPerMonth! >= before.avgPerMonth!);
   }

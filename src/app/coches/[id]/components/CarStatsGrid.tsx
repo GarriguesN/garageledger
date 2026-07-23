@@ -13,8 +13,10 @@ import {
 import { fmt0, fmtOrDash } from "../lib/format";
 import type { CarMetrics } from "../lib/types";
 import type { KmStats } from "@/lib/db/cars";
+import Link from "next/link";
 
 interface CarStatsGridProps {
+  carId: number;
   metrics: CarMetrics;
   kmStats: KmStats;
 }
@@ -33,7 +35,7 @@ const ICON_FG_GRAY   = "#4a4548"; // text-secondary
 const TEXT_DARK = "#211a1e";
 const TEXT_GRAY = "#8a8588";
 
-export default function CarStatsGrid({ metrics, kmStats }: CarStatsGridProps) {
+export default function CarStatsGrid({ carId, metrics, kmStats }: CarStatsGridProps) {
   // Helper que distingue número finito real (incluido 0) de null/undefined
   // / NaN / Infinity / strings. Misma idea que el safeNum del Ticket 1.4.
   function safeNum(n: unknown): number | null {
@@ -146,6 +148,8 @@ export default function CarStatsGrid({ metrics, kmStats }: CarStatsGridProps) {
                 value={kmStats.avgPerMonth !== null ? fmt0(kmStats.avgPerMonth) : "—"}
                 suffix="km/mes"
                 label="Media mensual"
+                sublabel={kmStats.avgPerMonth === null ? "Falta fecha de matriculación o primer registro" : (kmStats.sourceLabel || undefined)}
+                link={kmStats.avgPerMonth === null ? `/coches/${carId}/editar` : undefined}
               />
             </div>
           </div>
@@ -157,7 +161,15 @@ export default function CarStatsGrid({ metrics, kmStats }: CarStatsGridProps) {
 
 /** Bloque pequeño dentro de la card de kilometraje: valor grande + label
  *  pequeño debajo. */
-function KmCell({ value, suffix, label }: { value: string; suffix: string; label: string }) {
+function KmCell({
+  value, suffix, label, sublabel, link,
+}: {
+  value: string;
+  suffix: string;
+  label: string;
+  sublabel?: string;
+  link?: string;
+}) {
   return (
     <div className="min-w-0">
       <p className="text-[18px] font-bold leading-tight truncate" style={{ color: TEXT_DARK }} title={value}>
@@ -169,6 +181,26 @@ function KmCell({ value, suffix, label }: { value: string; suffix: string; label
       <p className="text-[10px] leading-tight mt-0.5 truncate" style={{ color: TEXT_GRAY }}>
         {label}
       </p>
+      {sublabel && (
+        link ? (
+          <Link
+            href={link}
+            className="block text-[9px] leading-tight mt-0.5 truncate underline underline-offset-2"
+            style={{ color: "var(--accent)" }}
+            title={sublabel}
+          >
+            {sublabel} →
+          </Link>
+        ) : (
+          <p
+            className="text-[9px] leading-tight mt-0.5 truncate"
+            style={{ color: TEXT_GRAY, opacity: 0.7 }}
+            title={sublabel}
+          >
+            {sublabel}
+          </p>
+        )
+      )}
     </div>
   );
 }

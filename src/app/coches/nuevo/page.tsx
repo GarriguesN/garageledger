@@ -11,6 +11,7 @@ export default function NuevoCoche() {
   const [form, setForm] = useState({
     marca: '', modelo: '', generacion: '', motor: '',
     ano: '', puertas: '5', km: '',
+    fecha_matriculacion: '', km_origen: 'matriculacion',
     matricula: '', bastidor: '', combustible: 'Gasolina',
   });
   const [photo, setPhoto] = useState<File | null>(null);
@@ -38,6 +39,8 @@ export default function NuevoCoche() {
           ano: form.ano ? parseInt(form.ano) : null,
           puertas: parseInt(form.puertas),
           km: form.km ? parseInt(form.km) : 0,
+          fecha_matriculacion: form.fecha_matriculacion || null,
+          km_origen: form.km_origen || 'matriculacion',
           matricula: form.matricula,
           bastidor: form.bastidor,
           combustible: form.combustible,
@@ -166,6 +169,77 @@ export default function NuevoCoche() {
               <input className="input" placeholder="Ej. JHMFB4600CS123456" value={form.bastidor}
                 onChange={e => setForm({...form, bastidor: e.target.value})} />
             </div>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs text-[var(--text-muted)] mb-1.5">
+            Fecha de matriculación <span className="opacity-60">(opcional)</span>
+          </label>
+          <div className="input-wrapper">
+            <span className="input-icon"><Calendar size={16} /></span>
+            <input
+              className="input"
+              type="date"
+              value={form.fecha_matriculacion}
+              onChange={e => setForm({...form, fecha_matriculacion: e.target.value})}
+            />
+          </div>
+          <p className="text-[11px] text-[var(--text-muted)] mt-1">
+            Cuándo se dio de alta el coche en Tráfico. La usamos para calcular la media mensual real.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-xs text-[var(--text-muted)] mb-1.5">
+            Contar km desde
+          </label>
+          <div className="space-y-2 mt-1">
+            <label className={`flex items-start gap-2 cursor-pointer rounded-lg border p-2.5 transition-colors ${
+              form.km_origen === "matriculacion"
+                ? "border-[var(--accent)] bg-[var(--accent)]/5"
+                : "border-[var(--border-color)] hover:bg-[var(--bg-secondary)]"
+            } ${!form.fecha_matriculacion ? "opacity-60" : ""}`}>
+              <input
+                type="radio"
+                name="km_origen"
+                value="matriculacion"
+                checked={form.km_origen === "matriculacion"}
+                onChange={() => setForm({...form, km_origen: "matriculacion"})}
+                disabled={!form.fecha_matriculacion}
+                className="mt-0.5"
+              />
+              <div className="min-w-0">
+                <div className="text-sm font-medium">Fecha de matriculación</div>
+                <div className="text-[11px] text-[var(--text-muted)] leading-snug mt-0.5">
+                  Calculamos la media mensual dividiendo los km totales entre los meses desde la fecha que indicaste arriba.
+                  {!form.fecha_matriculacion && (
+                    <span className="block mt-0.5 italic">Rellena la fecha para activar esta opción.</span>
+                  )}
+                </div>
+              </div>
+            </label>
+            <label className={`flex items-start gap-2 cursor-pointer rounded-lg border p-2.5 transition-colors ${
+              form.km_origen === "primer_registro"
+                ? "border-[var(--accent)] bg-[var(--accent)]/5"
+                : "border-[var(--border-color)] hover:bg-[var(--bg-secondary)]"
+            }`}>
+              <input
+                type="radio"
+                name="km_origen"
+                value="primer_registro"
+                checked={form.km_origen === "primer_registro"}
+                onChange={() => setForm({...form, km_origen: "primer_registro"})}
+                className="mt-0.5"
+              />
+              <div className="min-w-0">
+                <div className="text-sm font-medium">Primer registro con km</div>
+                <div className="text-[11px] text-[var(--text-muted)] leading-snug mt-0.5">
+                  Calculamos la media mensual desde la fecha de tu primer gasto o mantenimiento que tenga km.
+                  Útil si no conoces la fecha de matriculación.
+                </div>
+              </div>
+            </label>
           </div>
         </div>
 

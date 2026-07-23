@@ -384,7 +384,7 @@ export default function CarDetailClient({
       <CarHeader car={car} />
 
       {/* Metrics */}
-      <CarStatsGrid metrics={metrics} kmStats={kmStats} />
+      <CarStatsGrid carId={carId} metrics={metrics} kmStats={kmStats} />
 
       {/* Alerts (informativas: no son botones, no llevan a ningún sitio) */}
       <AlertBanner metrics={metrics} />
