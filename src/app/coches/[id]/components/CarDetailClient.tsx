@@ -7,12 +7,12 @@ import { useRouter } from "next/navigation";
 import CarHeader          from "./CarHeader";
 import CarStatsGrid       from "./CarStatsGrid";
 import AlertBanner, { AlertTarget } from "./AlertBanner";
-import AddExpenseForm     from "./AddExpenseForm";
+import AddExpenseFormFields from "./AddExpenseFormFields";
 import ActionButtons       from "./ActionButtons";
-import ProgramMaintenanceModal, {
+import ProgramMaintenanceFormBody, {
   emptyProgramMaintenanceForm,
   ProgramMaintenanceFormState,
-} from "./ProgramMaintenanceModal";
+} from "./ProgramMaintenanceFormBody";
 import ExpenseHistory, {
   ReadOnlyFields, EditFormFields,
 } from "./ExpenseHistory";
@@ -20,6 +20,7 @@ import MaintenanceSchedule, {
   MaintenanceRow, sortMaintenanceTasks,
 } from "./MaintenanceSchedule";
 import FullListModal      from "./FullListModal";
+import Modal              from "@/components/Modal";
 
 import { isFuel, TIPO_COLOR } from "../lib/format";
 // Helper de red: fetch con parseo + toast de error unificado.
@@ -354,30 +355,49 @@ export default function CarDetailClient({
           setShowProgramMaintenance((v) => !v);
         }}
       />
-      {showForm && (
-        <AddExpenseForm
+      {/* PUNTO 5 / Ticket 1.13: Añadir gasto y Programar mantenimiento
+          son modales reales (position: fixed). El botón inline y el [+] del
+          navbar contextual del coche abren el mismo modal, así el modal
+          siempre aparece centrado en el viewport visible, no en la posición
+          donde estaba el botón. */}
+      <Modal
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        title="Añadir gasto"
+        mainId="page-main"
+      >
+        <AddExpenseFormFields
           form={form}
           maintenanceTasks={maintenanceTasks}
           saving={saving}
           onChange={setForm}
-          onSubmit={submitForm}
+          onSubmit={() => { submitForm(); }}
           onCancel={() => setShowForm(false)}
         />
-      )}
-      {showProgramMaintenance && (
-        <ProgramMaintenanceModal
+      </Modal>
+      <Modal
+        open={showProgramMaintenance}
+        onClose={() => {
+          setShowProgramMaintenance(false);
+          setProgramForm(emptyProgramMaintenanceForm());
+          setProgramError(null);
+        }}
+        title="Programar mantenimiento"
+        mainId="page-main"
+      >
+        <ProgramMaintenanceFormBody
           form={programForm}
           saving={programSaving}
           error={programError}
           onChange={setProgramForm}
-          onSubmit={submitProgramMaintenance}
+          onSubmit={() => { submitProgramMaintenance(); }}
           onCancel={() => {
             setShowProgramMaintenance(false);
             setProgramForm(emptyProgramMaintenanceForm());
             setProgramError(null);
           }}
         />
-      )}
+      </Modal>
 
       {/* Historial */}
       <ExpenseHistory

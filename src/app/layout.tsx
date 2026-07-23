@@ -42,7 +42,10 @@ export default function RootLayout({
             <PinGate>
               <TopBar />
               <NavBar />
-              <main className="flex-1 max-w-5xl w-full mx-auto px-4 pt-2 pb-[calc(3rem+env(safe-area-inset-bottom))] sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pt-2">
+              <main
+                id="page-main"
+                className="flex-1 max-w-5xl w-full mx-auto px-4 pt-2 pb-[calc(3rem+env(safe-area-inset-bottom))] sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pt-2"
+              >
                 {children}
               </main>
             </PinGate>
