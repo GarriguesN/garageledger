@@ -17,7 +17,7 @@
 
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { Home, Car, Plus } from "lucide-react";
+import { Car, Plus } from "lucide-react";
 import VehicleCard from "@/components/VehicleCard";
 import { getCarDashboardData } from "@/lib/db";
 import { readSessionFromValue } from "@/lib/auth";
@@ -37,33 +37,6 @@ export default async function GaragePage() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <span
-            className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: "rgba(195, 66, 63, 0.10)", color: "var(--accent)" }}
-            aria-hidden
-          >
-            <Home size={22} strokeWidth={2.2} />
-          </span>
-          <div className="min-w-0">
-            <h1 className="text-2xl font-extrabold tracking-tight leading-tight">Garaje</h1>
-            <p className="text-sm text-[var(--text-secondary)] leading-tight">
-              {cars.length} {cars.length === 1 ? "vehículo" : "vehículos"}
-            </p>
-          </div>
-        </div>
-        <Link
-          href="/coches/nuevo"
-          className="btn btn-primary !py-2 !px-3.5 text-sm flex items-center gap-1.5 shadow-sm flex-shrink-0"
-          style={{ background: "var(--accent)" }}
-        >
-          <Plus size={16} />
-          <span>Añadir vehículo</span>
-        </Link>
-      </div>
-
       {/* Empty state */}
       {cars.length === 0 ? (
         <div className="card text-center py-12">

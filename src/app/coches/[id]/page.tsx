@@ -61,14 +61,17 @@ export default async function CarDetailPage({ params }: PageProps) {
   ]);
 
   return (
-    <CarDetailClient
-      carId={carId}
-      initialCar={car}
-      initialMetrics={metrics}
-      initialTimeline={timeline}
-      initialNotes={notes}
-      initialAttachments={attachments}
-      initialMaintenanceTasks={maintenanceTasks}
-    />
+    <div data-page-matricula={car.matricula || ""} className="contents">
+      <CarDetailClient
+        carId={carId}
+        initialCar={car}
+        initialMetrics={metrics}
+        initialTimeline={timeline}
+        initialNotes={notes}
+        initialAttachments={attachments}
+        initialMaintenanceTasks={maintenanceTasks}
+        matricula={car.matricula || ""}
+      />
+    </div>
   );
 }

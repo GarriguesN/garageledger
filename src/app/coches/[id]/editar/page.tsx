@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter } from "next/navigation";
 import { Car, ArrowLeft, Save, X, Gauge, Calendar, Euro, Hash, Wrench, Fuel } from "lucide-react";
+import { publishMatricula } from "@/components/TopBarContext";
 
 const COMBUSTIBLES = ["Gasolina", "Diésel", "Híbrido", "Eléctrico", "GLP"];
 
@@ -42,9 +43,33 @@ export default function EditarCoche() {
         if (c.foto_attachment_id) {
           setPhotoPreview(`/api/attachments/${c.foto_attachment_id}`);
         }
+        publishMatricula(c.matricula || null);
+        // Marca el DOM con la matrícula actual para que el TopBar la lea
+        // sincrónicamente (tanto en SSR como en hidratación cliente).
+        if (typeof document !== "undefined") {
+          let el = document.querySelector("[data-page-matricula]") as HTMLElement | null;
+          if (!el) {
+            el = document.createElement("div");
+            el.setAttribute("data-page-matricula", c.matricula || "");
+            el.style.display = "none";
+            document.body.prepend(el);
+          } else {
+            el.setAttribute("data-page-matricula", c.matricula || "");
+          }
+        }
       })
       .finally(() => setLoading(false));
   }, [carId]);
+
+  useEffect(() => {
+    return () => {
+      publishMatricula(null);
+      if (typeof document !== "undefined") {
+        const el = document.querySelector("[data-page-matricula]");
+        if (el && el.parentElement === document.body) el.remove();
+      }
+    };
+  }, []);
 
   const onPhoto = (file: File | null) => {
     setPhoto(file);
@@ -101,11 +126,6 @@ export default function EditarCoche() {
 
   return (
     <div className="max-w-lg mx-auto space-y-6">
-      <div className="flex items-center gap-3">
-        <Link href={`/coches/${carId}`} className="btn p-2"><ArrowLeft size={20} /></Link>
-        <h1 className="text-xl font-bold">Editar vehículo</h1>
-      </div>
-
       <div className="card space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div>

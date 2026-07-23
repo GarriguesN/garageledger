@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 // Subcomponentes del detalle
 import CarHeader          from "./CarHeader";
@@ -18,6 +18,7 @@ import { isFuel } from "../lib/format";
 // genérico cuando el servidor no devuelve nada legible.
 import { fetchJsonWithToast } from "../lib/net";
 import { MAX_FILE_SIZE_BYTES } from "@/lib/attachments";
+import { publishMatricula } from "@/components/TopBarContext";
 import type {
   Car, CarMetrics, TimelineEntry, Note, Attachment, MaintenanceTask,
   AddExpenseFormState, EditExpenseFormState, CarEditFormState,
@@ -31,6 +32,7 @@ interface CarDetailClientProps {
   initialNotes: Note[];
   initialAttachments: Attachment[];
   initialMaintenanceTasks: MaintenanceTask[];
+  matricula: string;
 }
 
 export default function CarDetailClient({
@@ -41,6 +43,7 @@ export default function CarDetailClient({
   initialNotes,
   initialAttachments,
   initialMaintenanceTasks,
+  matricula,
 }: CarDetailClientProps) {
   // ── Estado inicial ──
   const [car, setCar] = useState<Car>(initialCar);
@@ -136,6 +139,14 @@ export default function CarDetailClient({
       setFlashTaskId((current) => (current === target.taskId ? null : current));
     }, 1700);
   };
+
+  // Ticket: el TopBar muestra la matrícula del coche. Publicamos la
+  // matrícula antes del primer paint para que el TopBar (que también
+  // vive en el mismo árbol cliente) reciba el evento a tiempo.
+  useLayoutEffect(() => {
+    publishMatricula(matricula || null);
+    return () => publishMatricula(null);
+  }, [matricula]);
 
   // ── Loader (refresco tras mutación; la carga inicial viene del servidor) ──
   //

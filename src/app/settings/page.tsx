@@ -70,9 +70,6 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-lg mx-auto space-y-6">
-      <h1 className="text-xl font-bold">Ajustes</h1>
-
-      {/* PIN Protection */}
       <div className="card">
         <h2 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-4">Seguridad</h2>
         <div className="flex items-center justify-between mb-3">

@@ -80,14 +80,6 @@ export default function NuevoCoche() {
 
   return (
     <div className="space-y-6 max-w-lg mx-auto">
-      {/* Header — sin flecha atrás en creación */}
-      <div>
-        <h1 className="text-xl font-bold tracking-tight">Nuevo vehículo</h1>
-        <p className="text-sm text-[var(--text-secondary)] mt-0.5">
-          Añade los datos de tu vehículo
-        </p>
-      </div>
-
       <div className="card space-y-4">
         {/* Marca + Modelo */}
         <div className="grid grid-cols-2 gap-3">
