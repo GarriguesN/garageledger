@@ -12,11 +12,16 @@ import ProgramMaintenanceModal, {
   emptyProgramMaintenanceForm,
   ProgramMaintenanceFormState,
 } from "./ProgramMaintenanceModal";
-import ExpenseHistory     from "./ExpenseHistory";
-import MaintenanceSchedule from "./MaintenanceSchedule";
+import ExpenseHistory, {
+  ReadOnlyFields, EditFormFields,
+} from "./ExpenseHistory";
+import MaintenanceSchedule, {
+  MaintenanceRow, sortMaintenanceTasks,
+} from "./MaintenanceSchedule";
 import GloveBox           from "./GloveBox";
+import FullListModal      from "./FullListModal";
 
-import { isFuel } from "../lib/format";
+import { isFuel, TIPO_COLOR } from "../lib/format";
 // Helper de red: fetch con parseo + toast de error unificado.
 // Ticket 1.4 estandariza el patrón: `res.ok` + `{ error }` en JSON + fallback
 // genérico cuando el servidor no devuelve nada legible.
@@ -142,9 +147,6 @@ export default function CarDetailClient({
     }
   };
 
-  // Timeline pagination
-  const [timelineLimit, setTimelineLimit] = useState(5);
-
   // Notes + uploads
   const [noteContent, setNoteContent] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -218,6 +220,11 @@ export default function CarDetailClient({
     window.addEventListener("garageledger:car-nav-add-expense", handler);
     return () => window.removeEventListener("garageledger:car-nav-add-expense", handler);
   }, []);
+
+  // Modales de "Ver todos" para gastos y mantenimiento. Cada uno abre
+  // FullListModal con la lista completa, sin construir páginas nuevas.
+  const [showAllExpenses, setShowAllExpenses] = useState(false);
+  const [showAllMaintenance, setShowAllMaintenance] = useState(false);
 
   // ── Loader (refresco tras mutación; la carga inicial viene del servidor) ──
   //
@@ -487,7 +494,6 @@ export default function CarDetailClient({
       {/* Historial */}
       <ExpenseHistory
         timeline={timeline}
-        timelineLimit={timelineLimit}
         editingId={editingId}
         editForm={editForm}
         onStartEdit={startEdit}
@@ -495,7 +501,7 @@ export default function CarDetailClient({
         onSaveInline={updateExpenseInline}
         onCancelEdit={() => setEditingId(null)}
         onDelete={deleteExp}
-        onLoadMore={() => setTimelineLimit((n) => n + 20)}
+        onOpenAll={() => setShowAllExpenses(true)}
       />
 
       {/* Mantenimiento */}
@@ -505,6 +511,7 @@ export default function CarDetailClient({
         onCompleteTask={completeTask}
         registerTaskRef={registerTaskRef}
         flashTaskId={flashTaskId}
+        onOpenAll={() => setShowAllMaintenance(true)}
       />
 
       {/* Guantera (notes + attachments) */}
@@ -521,6 +528,60 @@ export default function CarDetailClient({
         onPickFile={() => fileRef.current?.click()}
         onDeleteAttachment={deleteAttachment}
       />
+
+      {/* Modal "Ver todos" — gastos */}
+      <FullListModal
+        open={showAllExpenses}
+        title="Historial completo de gastos"
+        totalCount={timeline.length}
+        onClose={() => setShowAllExpenses(false)}
+      >
+        <div className="space-y-1.5">
+          {timeline.map((entry) => {
+            const color = (TIPO_COLOR as Record<string, string>)[entry.tipo] || "#6b7280";
+            const isEditing = editingId === entry.id;
+            return (
+              <div key={entry.id} className="card !p-3">
+                {isEditing ? (
+                  <EditFormFields
+                    entry={entry}
+                    editForm={editForm}
+                    onChange={setEditForm}
+                    onSave={updateExpenseInline}
+                    onCancel={() => setEditingId(null)}
+                    onDelete={deleteExp}
+                  />
+                ) : (
+                  <ReadOnlyFields
+                    entry={entry}
+                    color={color}
+                    onStartEdit={startEdit}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </FullListModal>
+
+      {/* Modal "Ver todos" — mantenimiento */}
+      <FullListModal
+        open={showAllMaintenance}
+        title="Mantenimientos programados"
+        totalCount={maintenanceTasks.length}
+        onClose={() => setShowAllMaintenance(false)}
+      >
+        <div className="space-y-1.5">
+          {sortMaintenanceTasks(maintenanceTasks, car).map((task) => (
+            <MaintenanceRow
+              key={task.id}
+              task={task}
+              car={car}
+              onComplete={completeTask}
+            />
+          ))}
+        </div>
+      </FullListModal>
     </div>
   );
 }

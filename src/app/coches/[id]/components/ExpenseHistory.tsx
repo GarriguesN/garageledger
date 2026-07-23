@@ -29,7 +29,6 @@ import type {
 
 interface ExpenseHistoryProps {
   timeline: TimelineEntry[];
-  timelineLimit: number;
   editingId: number | null;
   editForm: EditExpenseFormState;
   onStartEdit: (entry: TimelineEntry) => void;
@@ -37,17 +36,20 @@ interface ExpenseHistoryProps {
   onSaveInline: () => void;
   onCancelEdit: () => void;
   onDelete: (id: number) => void;
-  onLoadMore: () => void;
+  /** Abre el modal con la lista completa de gastos. */
+  onOpenAll: () => void;
 }
 
 const TEXT_DARK = "#211a1e";
 const TEXT_GRAY = "#8a8588";
 
+const VISIBLE_LIMIT = 5;
+
 export default function ExpenseHistory({
-  timeline, timelineLimit,
+  timeline,
   editingId, editForm,
   onStartEdit, onChangeEditForm, onSaveInline, onCancelEdit,
-  onDelete, onLoadMore,
+  onDelete, onOpenAll,
 }: ExpenseHistoryProps) {
   const sparkData = timeline
     .filter((e) => e.tipo === "Carburante")
@@ -57,20 +59,19 @@ export default function ExpenseHistory({
   return (
     <div>
       {/* Header con título + sparkline + "Ver todos" (mockup).
-          "Ver todos" pendiente de ruta /coches/[id]/historial. */}
+          "Ver todos" abre un modal con la lista completa. */}
       <div className="flex items-center justify-between mb-3 gap-2">
         <h2 className="text-[15px] font-bold flex items-center gap-2 min-w-0">
           <Receipt size={16} style={{ color: "var(--accent)" }} />
           <span className="truncate">Historial de gastos</span>
           <Sparkline data={sparkData} />
         </h2>
-        {timeline.length > 0 && (
+        {timeline.length > 5 && (
           <button
             type="button"
-            className="text-[12px] font-semibold flex items-center gap-1 flex-shrink-0 opacity-40 cursor-not-allowed"
+            className="text-[12px] font-semibold flex items-center gap-1 flex-shrink-0"
             style={{ color: "var(--accent)" }}
-            disabled
-            title="Pendiente: pantalla de historial completo"
+            onClick={() => onOpenAll()}
           >
             Ver todos <ChevronRight size={12} />
           </button>
@@ -78,7 +79,7 @@ export default function ExpenseHistory({
       </div>
 
       <div className="space-y-1.5">
-        {timeline.slice(0, timelineLimit).map((entry) => {
+        {timeline.slice(0, VISIBLE_LIMIT).map((entry) => {
           const color = TIPO_COLOR[entry.tipo] || "#6b7280";
           const isEditing = editingId === entry.id;
 
@@ -122,12 +123,13 @@ export default function ExpenseHistory({
           </div>
         )}
 
-        {timeline.length > timelineLimit && (
+        {timeline.length > VISIBLE_LIMIT && (
           <button
+            type="button"
             className="btn btn-secondary w-full text-xs mt-1"
-            onClick={onLoadMore}
+            onClick={onOpenAll}
           >
-            Cargar más ({timeline.length - timelineLimit} restantes)
+            Ver los {timeline.length} gastos en una lista completa
           </button>
         )}
       </div>
@@ -146,7 +148,7 @@ interface EditFormFieldsProps {
   onDelete: (id: number) => void;
 }
 
-function EditFormFields({ entry, editForm, onChange, onSave, onCancel, onDelete }: EditFormFieldsProps) {
+export function EditFormFields({ entry, editForm, onChange, onSave, onCancel, onDelete }: EditFormFieldsProps) {
   const color = TIPO_COLOR[entry.tipo] || "#6b7280";
   return (
     <div className="flex-1 space-y-3">
@@ -301,7 +303,7 @@ interface ReadOnlyFieldsProps {
 // inline. Ticket 1.11: el borrado vive dentro del modo de edición junto a
 // Guardar/Cancelar para no reintroducir un kebab que ya no encaja con el
 // patrón "fila tocable = editar".
-function ReadOnlyFields({ entry, color, onStartEdit }: ReadOnlyFieldsProps) {
+export function ReadOnlyFields({ entry, color, onStartEdit }: ReadOnlyFieldsProps) {
 
   const Icon = entry.tipo === "Carburante" ? Fuel
     : entry.tipo?.includes("DIY") ? Wrench
