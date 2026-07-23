@@ -53,7 +53,7 @@ export default function CarStatsGrid({ metrics }: CarStatsGridProps) {
       {/* 1) Gasto mensual — rojo, con flecha vs mes anterior */}
       <Card
         iconBg={ICON_BG_RED} iconFg={ICON_FG_RED}
-        icon={<TrendingDown size={20} strokeWidth={1.8} />}
+        icon={<TrendIcon safeDiff={safeDiff} />}
         label="Gasto mensual"
         value={`${fmtOrDash(safeCurrent, 2)}€`}
         note={
@@ -203,4 +203,10 @@ function DiffNote({ safeDiff }: { safeDiff: number | null }) {
       <span>{sign}{fmtOrDash(abs, 2)}€ vs mes anterior</span>
     </span>
   );
+}
+
+function TrendIcon({ safeDiff }: { safeDiff: number | null }) {
+  return safeDiff !== null && safeDiff < 0
+    ? <TrendingDown size={20} strokeWidth={1.8} />
+    : <TrendingUp size={20} strokeWidth={1.8} />;
 }

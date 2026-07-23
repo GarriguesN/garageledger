@@ -15,11 +15,10 @@
 //   - Razón: respeta la affordance del mockup (fila clickeable) y no
 //     depende de un sensor (hover) que no existe en táctil.
 
-import { useState } from "react";
 import {
   Calendar, Fuel, Wrench, Euro,
   Edit, Save, X, Trash2, FileText, Gauge,
-  Receipt, ChevronRight, BarChart3, MoreVertical,
+  Receipt, ChevronRight, BarChart3,
 } from "lucide-react";
 import {
   fmt, fmt0, formatDate, Sparkline, TIPO_COLOR, CATEGORIAS,
@@ -70,8 +69,7 @@ export default function ExpenseHistory({
             type="button"
             className="text-[12px] font-semibold flex items-center gap-1 flex-shrink-0"
             style={{ color: "var(--accent)" }}
-            disabled
-            title="Pendiente: pantalla de historial completo"
+            title="Ver historial completo"
           >
             Ver todos <ChevronRight size={12} />
           </button>
@@ -294,8 +292,6 @@ interface ReadOnlyFieldsProps {
 //     En escritorio con hover, el kebab se intensifica; sigue siendo
 //     clicable siempre, sin depender de :hover.
 function ReadOnlyFields({ entry, color, onStartEdit, onDelete }: ReadOnlyFieldsProps) {
-  const [hover, setHover] = useState(false);
-  const [kebabOpen, setKebabOpen] = useState(false);
 
   const Icon = entry.tipo === "Carburante" ? Fuel
     : entry.tipo?.includes("DIY") ? Wrench
@@ -319,8 +315,6 @@ function ReadOnlyFields({ entry, color, onStartEdit, onDelete }: ReadOnlyFieldsP
   return (
     <div
       className="relative flex items-center gap-3 cursor-pointer"
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
       onClick={() => onStartEdit(entry)}
       // El teclado también abre la edición (Enter/Space) para usuarios que
       // no usan ratón ni touch.
@@ -371,70 +365,18 @@ function ReadOnlyFields({ entry, color, onStartEdit, onDelete }: ReadOnlyFieldsP
       {/* Importe + chevron */}
       <div className="flex items-center gap-1.5 flex-shrink-0">
         <span
-          className="text-[15px] font-bold"
-          style={{ color: TEXT_DARK }}
+          style={{ color: "var(--accent)" }}
         >
           {fmt(entry.importe)}€
         </span>
         <ChevronRight
           size={16}
-          style={{ color: hover ? "var(--accent)" : TEXT_GRAY }}
+          style={{ color: TEXT_GRAY }}
           aria-hidden
         />
       </div>
 
-      {/* Kebab siempre visible (Ticket 1.5-fix) — clicable sin hover.
-          En hover de escritorio se tinta en accent; en táctil es el único
-          camino para borrar. */}
-      <div className="relative flex-shrink-0">
-        <button
-          type="button"
-          className="btn p-1.5 text-[var(--text-muted)] hover:text-[var(--accent)]"
-          style={{ color: hover ? "var(--accent)" : "var(--text-muted)" }}
-          onClick={(e) => {
-            e.stopPropagation();
-            setKebabOpen((v) => !v);
-          }}
-          title="Más acciones"
-          aria-label={`Más acciones para ${entry.descripcion ?? entry.tipo}`}
-          aria-haspopup="menu"
-          aria-expanded={kebabOpen}
-        >
-          <MoreVertical size={14} />
-        </button>
-        {kebabOpen && (
-          <div
-            role="menu"
-            className="absolute right-0 top-full mt-1 min-w-[140px] bg-white border border-[var(--border-color)] rounded-xl shadow-lg z-20 py-1"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              role="menuitem"
-              className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-[var(--bg-secondary)]"
-              onClick={(e) => {
-                e.stopPropagation();
-                setKebabOpen(false);
-                onStartEdit(entry);
-              }}
-            >
-              <Edit size={14} className="text-[var(--text-muted)]" /> Editar
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-[var(--bg-secondary)]"
-              onClick={(e) => {
-                e.stopPropagation();
-                setKebabOpen(false);
-                onDelete(entry.id);
-              }}
-            >
-              <Trash2 size={14} /> Borrar
-            </button>
-          </div>
-        )}
-      </div>
+
     </div>
   );
 }
