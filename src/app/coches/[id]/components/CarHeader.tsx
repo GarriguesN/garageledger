@@ -75,11 +75,17 @@ export default function CarHeader({
         <ArrowLeft size={20} />
       </Link>
 
-      {/* Icono del coche en cuadro redondeado (mockup) */}
-      <div
+      <Link
+        href="/"
+        aria-label="Volver al Garaje"
         className="w-14 h-14 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0"
         style={{ background: HEADER_ICON_BG }}
       >
+        <CarIcon size={22} style={{ color: HEADER_ICON_FG }} />
+      </Link>
+
+      {/* Icono del coche en cuadro redondeado (mockup) */}
+      <div className="hidden">
         <CarIcon size={22} style={{ color: HEADER_ICON_FG }} />
       </div>
 
@@ -187,7 +193,7 @@ export default function CarHeader({
             >
               {[car.generacion, car.ano, car.motor].filter(Boolean).join(" · ")}
             </p>
-            {/* Chips de Matrícula y Bastidor con icono (mockup) */}
+      {/* Chips de Matrícula y Bastidor con icono (mockup) */}
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               {car.matricula && (
                 <Chip icon={<CreditCard size={13} strokeWidth={2.2} />} text={car.matricula} />

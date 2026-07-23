@@ -1,6 +1,7 @@
-const CACHE_NAME = "garageledger-v2";
+// Increment CACHE_NAME on every significant frontend change to evict stale PWA assets.
+const CACHE_NAME = "garageledger-v3";
 const STATIC_ASSETS = [
-  "/",
+
   "/manifest.json",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
@@ -34,7 +35,15 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static assets: cache first
+  // HTML navigations and Next bundles must prefer fresh network content.
+  if (request.mode === "navigate" || url.pathname.startsWith("/_next/")) {
+    event.respondWith(
+      fetch(request).catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // Immutable app shell assets: cache first
   event.respondWith(
     caches.match(request).then((cached) => {
       return (

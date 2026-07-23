@@ -8,7 +8,7 @@
 // cálculo: este ticket es SOLO JSX/clases Tailwind.
 
 import {
-  TrendingUp, BarChart3, PiggyBank, Droplet, TrendingDown, Fuel,
+  TrendingUp, BarChart3, PiggyBank, Droplet, TrendingDown, Euro, Receipt,
 } from "lucide-react";
 import { fmtOrDash } from "../lib/format";
 import type { CarMetrics } from "../lib/types";
@@ -53,7 +53,7 @@ export default function CarStatsGrid({ metrics }: CarStatsGridProps) {
       {/* 1) Gasto mensual — rojo, con flecha vs mes anterior */}
       <Card
         iconBg={ICON_BG_RED} iconFg={ICON_FG_RED}
-        icon={<TrendIcon safeDiff={safeDiff} />}
+        icon={<Euro size={20} strokeWidth={1.8} />}
         label="Gasto mensual"
         value={`${fmtOrDash(safeCurrent, 2)}€`}
         note={
@@ -106,7 +106,7 @@ export default function CarStatsGrid({ metrics }: CarStatsGridProps) {
       {/* 6) Precio gasolina — gris */}
       <Card
         iconBg={ICON_BG_GRAY} iconFg={ICON_FG_GRAY}
-        icon={<Fuel size={20} strokeWidth={1.8} />}
+        icon={<Receipt size={20} strokeWidth={1.8} />}
         label="Precio gasolina"
         value={`${fmtOrDash(safePricePerLiter, 3)}€`}
         note="€/L último repostaje"
@@ -154,7 +154,7 @@ function Card({ iconBg, iconFg, icon, label, value, note }: CardProps) {
             {value}
           </p>
           <p
-            className="text-[11px] leading-tight mt-1 truncate"
+            className="text-[11px] leading-tight mt-1 whitespace-normal"
             style={{ color: TEXT_GRAY }}
           >
             {note}

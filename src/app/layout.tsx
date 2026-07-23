@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import NavBar from "@/components/NavBar";
+import TopBar from "@/components/TopBar";
 import ThemeProvider from "@/components/ThemeProvider";
 import PinGate from "@/components/PinGate";
 
@@ -39,6 +40,7 @@ export default function RootLayout({
         <div className="app-container">
           <ThemeProvider>
             <PinGate>
+              <TopBar />
               <NavBar />
               <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6 pb-[calc(3rem+env(safe-area-inset-bottom))] sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
                 {children}

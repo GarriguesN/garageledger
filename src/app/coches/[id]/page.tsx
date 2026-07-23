@@ -58,10 +58,9 @@ export default async function CarDetailPage({ params }: PageProps) {
     Promise.resolve(getCarNotes(carId)),
     Promise.resolve(getAttachments(carId)),
     Promise.resolve(getMaintenanceTasks(carId)),
-  ]);
+    ]);
 
-
-  return (
+    return (
     <CarDetailClient
       carId={carId}
       initialCar={car}
