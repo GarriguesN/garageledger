@@ -8,6 +8,10 @@ import CarStatsGrid       from "./CarStatsGrid";
 import AlertBanner, { AlertTarget } from "./AlertBanner";
 import AddExpenseForm     from "./AddExpenseForm";
 import ActionButtons       from "./ActionButtons";
+import ProgramMaintenanceModal, {
+  emptyProgramMaintenanceForm,
+  ProgramMaintenanceFormState,
+} from "./ProgramMaintenanceModal";
 import ExpenseHistory     from "./ExpenseHistory";
 import MaintenanceSchedule from "./MaintenanceSchedule";
 import GloveBox           from "./GloveBox";
@@ -79,6 +83,56 @@ export default function CarDetailClient({
     tipo: "Carburante", importe: 0, date: "", descripcion: "",
   });
 
+  // PUNTO 5: modal "Programar mantenimiento"
+  const [showProgramMaintenance, setShowProgramMaintenance] = useState(false);
+  const [programForm, setProgramForm] = useState<ProgramMaintenanceFormState>(
+    emptyProgramMaintenanceForm()
+  );
+  const [programSaving, setProgramSaving] = useState(false);
+  const [programError, setProgramError] = useState<string | null>(null);
+
+  const submitProgramMaintenance = async () => {
+    setProgramError(null);
+    const part_name = programForm.part_name.trim();
+    if (!part_name) {
+      setProgramError("Introduce el nombre de la pieza.");
+      return;
+    }
+    const hasKm = programForm.next_km.trim() !== "";
+    const hasDate = programForm.next_date.trim() !== "";
+    if (!hasKm && !hasDate) {
+      setProgramError("Indica al menos un próximo km o una próxima fecha.");
+      return;
+    }
+    setProgramSaving(true);
+    try {
+      const body: Record<string, unknown> = {
+        carId,
+        part_name,
+        part_brand: programForm.part_brand.trim() || null,
+        next_km: hasKm ? parseInt(programForm.next_km) : null,
+        next_date: hasDate ? programForm.next_date : null,
+        interval_km: programForm.interval_km.trim()
+          ? parseInt(programForm.interval_km)
+          : null,
+      };
+      const res = await fetchJsonWithToast(
+        "/api/maintenance",
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+          fallback: "No se pudo programar el mantenimiento. Inténtalo de nuevo." },
+        setToast,
+      );
+      if (!res.ok) return;
+      setShowProgramMaintenance(false);
+      setProgramForm(emptyProgramMaintenanceForm());
+      setToast({ msg: `${part_name} programado`, type: "success" });
+      setTimeout(() => setToast(null), 2500);
+      load();
+    } finally {
+      setProgramSaving(false);
+    }
+  };
+
   // Timeline pagination
   const [timelineLimit, setTimelineLimit] = useState(5);
 
@@ -147,6 +201,14 @@ export default function CarDetailClient({
     publishMatricula(matricula || null);
     return () => publishMatricula(null);
   }, [matricula]);
+
+  // PUNTO 7: el navbar contextual del coche ([+] rojo) envía este evento
+  // para abrir el formulario de añadir gasto desde el navbar inferior.
+  useEffect(() => {
+    const handler = () => setShowForm((v) => !v);
+    window.addEventListener("garageledger:car-nav-add-expense", handler);
+    return () => window.removeEventListener("garageledger:car-nav-add-expense", handler);
+  }, []);
 
   // ── Loader (refresco tras mutación; la carga inicial viene del servidor) ──
   //
@@ -381,7 +443,13 @@ export default function CarDetailClient({
       <AlertBanner metrics={metrics} />
 
       {/* Add expense */}
-      <ActionButtons onAddExpense={() => setShowForm(!showForm)} />
+      <ActionButtons
+        onAddExpense={() => setShowForm(!showForm)}
+        onProgramMaintenance={() => {
+          setProgramError(null);
+          setShowProgramMaintenance((v) => !v);
+        }}
+      />
       {showForm && (
         <AddExpenseForm
           form={form}
@@ -390,6 +458,20 @@ export default function CarDetailClient({
           onChange={setForm}
           onSubmit={submitForm}
           onCancel={() => setShowForm(false)}
+        />
+      )}
+      {showProgramMaintenance && (
+        <ProgramMaintenanceModal
+          form={programForm}
+          saving={programSaving}
+          error={programError}
+          onChange={setProgramForm}
+          onSubmit={submitProgramMaintenance}
+          onCancel={() => {
+            setShowProgramMaintenance(false);
+            setProgramForm(emptyProgramMaintenanceForm());
+            setProgramError(null);
+          }}
         />
       )}
 

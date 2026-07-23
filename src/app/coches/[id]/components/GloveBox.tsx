@@ -24,7 +24,7 @@ export default function GloveBox({
   onUploadFile, onPickFile, onDeleteAttachment,
 }: GloveBoxProps) {
   return (
-    <div>
+    <div data-glovebox-anchor>
       <h2 className="text-base font-bold mb-3 flex items-center gap-2">
         <FileText size={16} style={{ color: "var(--accent)" }} /> Guantera
       </h2>

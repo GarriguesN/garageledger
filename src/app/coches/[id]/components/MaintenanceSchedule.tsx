@@ -134,7 +134,7 @@ export default function MaintenanceSchedule({
               </div>
 
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 min-w-0">
                   <span
                     className="text-[14px] font-semibold truncate"
                     style={{ color: TEXT_DARK }}
@@ -143,45 +143,59 @@ export default function MaintenanceSchedule({
                   </span>
                   {task.part_brand && (
                     <span
-                      className="badge text-[11px]"
+                      className="badge text-[11px] flex-shrink-0"
                       style={{ background: "#f2f2f3", color: TEXT_GRAY }}
                     >
                       {task.part_brand}
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] mt-0.5 truncate" style={{ color: TEXT_GRAY }}>
-                  {task.next_km !== null && (
-                    <>Próximo: <strong style={{ color: TEXT_DARK }}>{fmt0(task.next_km)} km</strong></>
-                  )}
-                  {task.next_date && (
-                    <> · {formatLongMonthYear(task.next_date)}</>
-                  )}
-                  {task.current_km !== null && (
-                    <> · Realizado: <strong style={{ color: TEXT_DARK }}>{fmt0(task.current_km)} km</strong></>
-                  )}
+                {/* PUNTO 6: dos líneas explícitas para que ningún dato
+                    importante quede cortado a media palabra. */}
+                <p className="text-[11px] mt-0.5 whitespace-normal" style={{ color: TEXT_GRAY }}>
+                  <span className="block">
+                    Próximo:{" "}
+                    <strong style={{ color: TEXT_DARK }}>
+                      {task.next_km !== null ? `${fmt0(task.next_km)} km` : "—"}
+                    </strong>
+                    {task.next_date && (
+                      <> · {formatLongMonthYear(task.next_date)}</>
+                    )}
+                  </span>
+                  <span className="block">
+                    Realizado:{" "}
+                    <strong style={{ color: TEXT_DARK }}>
+                      {task.current_km !== null ? `${fmt0(task.current_km)} km` : "—"}
+                    </strong>
+                    {task.interval_km !== null && task.interval_km !== undefined && (
+                      <> · cada {fmt0(task.interval_km)} km</>
+                    )}
+                  </span>
                 </p>
               </div>
 
               {restantes !== null && progressPct !== null && (
                 <div className="flex flex-col items-end gap-1 flex-shrink-0 min-w-[120px]">
                   <span
-                    className="text-[11px] font-semibold"
+                    className="text-[12px] font-semibold"
                     style={{ color: overdue ? "#c3423f" : TEXT_DARK }}
                   >
                     {fmt0(restantes)} km restantes
                   </span>
+                  {/* PUNTO 6: barra de progreso más visible — track gris
+                      claro + relleno rojo opaco con esquinas redondeadas. */}
                   <div
-                    className="h-1 w-28 rounded-full overflow-hidden"
-                    style={{ background: "#f2f2f3" }}
+                    className="h-1.5 w-28 rounded-full overflow-hidden"
+                    style={{ background: "#e5e5ea" }}
                     role="progressbar"
                     aria-valuenow={progressPct}
                     aria-valuemin={0}
                     aria-valuemax={100}
+                    aria-label={`${fmt0(restantes)} kilómetros restantes`}
                   >
                     <div
-                      className="h-full rounded-full"
-                      style={{ width: `${progressPct}%`, background: barColor }}
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${progressPct}%`, background: "#c3423f" }}
                     />
                   </div>
                 </div>

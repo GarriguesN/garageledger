@@ -66,11 +66,12 @@ export default function CarHeader({
 
   return (
     <div className="flex items-start gap-3">
-      {/* Back arrow — solo desktop (móvil usa bottom navbar). El mockup no lo
-          muestra en móvil, lo mantenemos solo en sm+ como antes. */}
+      {/* PUNTO 7: back arrow visible también en móvil como redundancia
+          junto al bloque icono+nombre (que también vuelve a /). */}
       <Link
         href="/"
-        className="max-sm:hidden sm:flex items-center justify-center p-2 mt-1 rounded-md hover:bg-[var(--bg-secondary)] transition-colors"
+        className="flex items-center justify-center p-2 mt-1 rounded-md hover:bg-[var(--bg-secondary)] transition-colors"
+        aria-label="Volver al Garaje"
       >
         <ArrowLeft size={20} />
       </Link>

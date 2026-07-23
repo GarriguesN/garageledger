@@ -1,30 +1,44 @@
 "use client";
 
 // Botones de acción principales del detalle del coche.
-// Rediseño Ticket 1.5: "+ Añadir gasto" (rojo, ancho flexible).
 //
-// El mockup también muestra "Programar mantenimiento" (outline, al lado),
-// pero no existe pantalla / ruta / endpoint para crear tareas de
-// mantenimiento en esta fase. Cuando exista la acción (futuro ticket),
-// se añadirá el segundo botón aquí reutilizando exactamente el mismo
-// patrón visual.
+// Mockup: dos botones en la misma fila — "+ Añadir gasto" (primary,
+// rojo, ancho flexible) y "Programar mantenimiento" (outline, mismo
+// tamaño, borde gris). El outline usa border + texto del accent y fondo
+// transparente, para diferenciarlo del primary sin pelear con él.
 
-import { Plus } from "lucide-react";
+import { Plus, Calendar } from "lucide-react";
 
 interface ActionButtonsProps {
   onAddExpense: () => void;
+  onProgramMaintenance: () => void;
 }
 
-export default function ActionButtons({ onAddExpense }: ActionButtonsProps) {
+export default function ActionButtons({
+  onAddExpense,
+  onProgramMaintenance,
+}: ActionButtonsProps) {
   return (
-    <div className="flex gap-3">
+    <div className="grid grid-cols-2 gap-3">
       <button
         type="button"
-        className="btn flex-1 h-11 rounded-xl text-sm font-semibold"
+        className="btn h-11 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5"
         style={{ background: "var(--accent)", color: "#fff" }}
         onClick={onAddExpense}
       >
         <Plus size={16} strokeWidth={2.2} /> Añadir gasto
+      </button>
+      <button
+        type="button"
+        className="btn h-11 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5"
+        style={{
+          background: "transparent",
+          color: "var(--text-secondary)",
+          border: "1px solid var(--border-color)",
+        }}
+        onClick={onProgramMaintenance}
+      >
+        <Calendar size={16} strokeWidth={2.2} /> Programar mantenimiento
       </button>
     </div>
   );
