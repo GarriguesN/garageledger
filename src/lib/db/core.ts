@@ -80,6 +80,13 @@ function migrateSchema(db: Database.Database) {
   const expCols = db.prepare("PRAGMA table_info(expenses)").all() as { name: string }[];
   const expNames = expCols.map(c => c.name);
   if (!expNames.includes("referencia")) db.exec("ALTER TABLE expenses ADD COLUMN referencia TEXT NOT NULL DEFAULT ''");
+
+  // Maintenance presets: icon_key stores the preset key selected when
+  // creating a task (e.g. "engine_oil_filter"). Idempotent — only adds
+  // the column if it doesn't already exist.
+  const mtCols = db.prepare("PRAGMA table_info(maintenance_tasks)").all() as { name: string }[];
+  const mtNames = mtCols.map(c => c.name);
+  if (!mtNames.includes("icon_key")) db.exec("ALTER TABLE maintenance_tasks ADD COLUMN icon_key TEXT");
 }
 
 function seedIfEmpty(db: Database.Database) {

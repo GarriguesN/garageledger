@@ -71,33 +71,50 @@ expect("null → fallback Wrench", typeof IconFallback === "object" || typeof Ic
 
 console.log("\n=== Presets: end-to-end con BD ===");
 
-// Limpia tareas previas de esta suite para que el orden sea determinista.
-for (const t of getMaintenanceTasks(1, true)) {
-  if (t.part_name === "Aceite de motor y filtro"
-   || t.part_name === "Filtro de aire del motor"
-   || t.part_name === "Bujías") {
-    deleteMaintenanceTask(t.id);
-  }
+/** Wrapper helper para evitar crash del proceso por SqliteError. */
+function safeCall<T>(label: string, fn: () => T): T | undefined {
+  try { return fn(); }
+  catch (err: any) { fail++; console.log(`  ❌ ${label}: ${err?.message || err}`); return undefined; }
 }
 
-const preset = findPresetByKey("engine_oil_filter")!;
-const created = createMaintenanceTask(1, preset.part_name, {
-  part_brand: "Castrol",
-  current_km: 100000,
-  next_km: 110000,
-  interval_km: preset.interval_km,
-  interval_months: preset.interval_months,
-  icon_key: preset.icon_key,
+// Limpia tareas previas de esta suite.
+safeCall("limpiar tareas previas", () => {
+  for (const t of getMaintenanceTasks(1, true)) {
+    if (t.part_name === "Aceite de motor y filtro"
+     || t.part_name === "Filtro de aire del motor"
+     || t.part_name === "Bujías") {
+      deleteMaintenanceTask(t.id);
+    }
+  }
 });
-expect("Tarea creada con icon_key del preset", created.icon_key === "engine_oil");
-expect("Tarea creada con interval_km del preset", created.interval_km === 10000);
-expect("Tarea creada con interval_months del preset", created.interval_months === 12);
-expect("Tarea creada con part_name del preset", created.part_name === "Aceite de motor y filtro");
 
-const after = getMaintenanceTasks(1);
-const found = after.find((t) => t.id === created.id);
-expect("Tarea aparece en getMaintenanceTasks", !!found);
-expect("Tarea recuperada preserva icon_key", found?.icon_key === "engine_oil");
+const preset = findPresetByKey("engine_oil_filter")!;
+const created = safeCall("createMaintenanceTask con preset", () =>
+  createMaintenanceTask(1, preset.part_name, {
+    part_brand: "Castrol",
+    current_km: 100000,
+    next_km: 110000,
+    interval_km: preset.interval_km,
+    interval_months: preset.interval_months,
+    icon_key: preset.icon_key,
+  }),
+);
+
+if (created) {
+  expect("Tarea creada con icon_key del preset", created.icon_key === "engine_oil");
+  expect("Tarea creada con interval_km del preset", created.interval_km === 10000);
+  expect("Tarea creada con interval_months del preset", created.interval_months === 12);
+  expect("Tarea creada con part_name del preset", created.part_name === "Aceite de motor y filtro");
+
+  const after = safeCall("getMaintenanceTasks after preset create", () => getMaintenanceTasks(1));
+  if (after) {
+    const found = after.find((t) => t.id === created.id);
+    expect("Tarea aparece en getMaintenanceTasks", !!found);
+    expect("Tarea recuperada preserva icon_key", found?.icon_key === "engine_oil");
+  }
+
+  safeCall(`deleteMaintenanceTask ${created.id}`, () => deleteMaintenanceTask(created.id));
+}
 
 console.log(`\nMaintenance presets: Passed ${pass} / ${pass + fail}`);
 if (fail) process.exit(1);
