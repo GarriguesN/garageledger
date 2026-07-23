@@ -67,9 +67,10 @@ export default function ExpenseHistory({
         {timeline.length > 0 && (
           <button
             type="button"
-            className="text-[12px] font-semibold flex items-center gap-1 flex-shrink-0"
+            className="text-[12px] font-semibold flex items-center gap-1 flex-shrink-0 opacity-40 cursor-not-allowed"
             style={{ color: "var(--accent)" }}
-            title="Ver historial completo"
+            disabled
+            title="Pendiente: pantalla de historial completo"
           >
             Ver todos <ChevronRight size={12} />
           </button>

@@ -48,7 +48,7 @@ export default function MaintenanceSchedule({
         {!isEmpty && (
           <button
             type="button"
-            className="text-[12px] font-semibold flex items-center gap-1 flex-shrink-0"
+            className="text-[12px] font-semibold flex items-center gap-1 flex-shrink-0 opacity-40 cursor-not-allowed"
             style={{ color: "var(--accent)" }}
             disabled
             title="Pendiente: pantalla de mantenimiento completo"

@@ -60,6 +60,7 @@ export default async function CarDetailPage({ params }: PageProps) {
     Promise.resolve(getMaintenanceTasks(carId)),
   ]);
 
+
   return (
     <CarDetailClient
       carId={carId}
