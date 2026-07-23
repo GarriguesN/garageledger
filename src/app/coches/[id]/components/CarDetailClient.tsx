@@ -106,10 +106,19 @@ export default function CarDetailClient({
     }
     setProgramSaving(true);
     try {
+      // current_km es opcional. Si el usuario no lo rellena, usamos
+      // el km actual del coche para que la fila "Realizado: X km" no
+      // quede huérfana. En cualquier caso, lo mandamos al backend para
+      // que se registre en maintenance_tasks.current_km.
+      const currentKmRaw = programForm.current_km.trim();
+      const currentKm = currentKmRaw === ""
+        ? (car?.km_actuales ?? null)
+        : parseInt(currentKmRaw);
       const body: Record<string, unknown> = {
         carId,
         part_name,
         part_brand: programForm.part_brand.trim() || null,
+        current_km: currentKm,
         next_km: hasKm ? parseInt(programForm.next_km) : null,
         next_date: hasDate ? programForm.next_date : null,
         interval_km: programForm.interval_km.trim()

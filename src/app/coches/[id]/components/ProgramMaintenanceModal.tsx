@@ -15,11 +15,12 @@
 // (`CarDetailClient`) — este componente sólo gestiona el formulario.
 
 import {
-  Calendar, Wrench, Hash, FileText, Gauge, Clock,
+  Calendar, Wrench, Hash, FileText, Gauge, Clock, History,
 } from "lucide-react";
 
 export interface ProgramMaintenanceFormState {
   part_name: string;
+  current_km: string;
   next_km: string;
   next_date: string;
   interval_km: string;
@@ -59,6 +60,26 @@ export default function ProgramMaintenanceModal({
             placeholder="Ej. Pastillas de freno"
             value={form.part_name}
             onChange={(e) => onChange({ ...form, part_name: e.target.value })}
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs text-[var(--text-muted)] mb-1">
+          Km realizado
+          <span className="ml-1 text-[10px] text-[var(--text-muted)]">
+            (a qué km se hizo esta intervención)
+          </span>
+        </label>
+        <div className="input-wrapper">
+          <span className="input-icon"><History size={16} /></span>
+          <input
+            className="input"
+            type="number"
+            min="0"
+            placeholder="Ej. 100000"
+            value={form.current_km}
+            onChange={(e) => onChange({ ...form, current_km: e.target.value })}
           />
         </div>
       </div>
@@ -161,6 +182,7 @@ export default function ProgramMaintenanceModal({
 export function emptyProgramMaintenanceForm(): ProgramMaintenanceFormState {
   return {
     part_name: "",
+    current_km: "",
     next_km: "",
     next_date: "",
     interval_km: "",
