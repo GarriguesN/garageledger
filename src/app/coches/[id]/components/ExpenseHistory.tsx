@@ -116,16 +116,6 @@ export default function ExpenseHistory({
             </p>
           </div>
         )}
-
-        {timeline.length > VISIBLE_LIMIT && (
-          <button
-            type="button"
-            className="btn btn-secondary w-full text-xs mt-1"
-            onClick={onOpenAll}
-          >
-            Ver los {timeline.length} gastos en una lista completa
-          </button>
-        )}
       </div>
     </div>
   );

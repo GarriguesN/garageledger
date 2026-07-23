@@ -19,7 +19,6 @@ import ExpenseHistory, {
 import MaintenanceSchedule, {
   MaintenanceRow, sortMaintenanceTasks,
 } from "./MaintenanceSchedule";
-import GloveBox           from "./GloveBox";
 import FullListModal      from "./FullListModal";
 
 import { isFuel, TIPO_COLOR } from "../lib/format";
@@ -27,10 +26,9 @@ import { isFuel, TIPO_COLOR } from "../lib/format";
 // Ticket 1.4 estandariza el patrón: `res.ok` + `{ error }` en JSON + fallback
 // genérico cuando el servidor no devuelve nada legible.
 import { fetchJsonWithToast } from "../lib/net";
-import { MAX_FILE_SIZE_BYTES } from "@/lib/attachments";
 import { publishMatricula } from "@/components/TopBarContext";
 import type {
-  Car, CarMetrics, TimelineEntry, Note, Attachment, MaintenanceTask,
+  Car, CarMetrics, TimelineEntry, MaintenanceTask,
   AddExpenseFormState, EditExpenseFormState,
 } from "../lib/types";
 
@@ -39,8 +37,6 @@ interface CarDetailClientProps {
   initialCar: Car;
   initialMetrics: CarMetrics;
   initialTimeline: TimelineEntry[];
-  initialNotes: Note[];
-  initialAttachments: Attachment[];
   initialMaintenanceTasks: MaintenanceTask[];
   matricula: string;
 }
@@ -50,8 +46,6 @@ export default function CarDetailClient({
   initialCar,
   initialMetrics,
   initialTimeline,
-  initialNotes,
-  initialAttachments,
   initialMaintenanceTasks,
   matricula,
 }: CarDetailClientProps) {
@@ -62,8 +56,6 @@ export default function CarDetailClient({
   const [car, setCar] = useState<Car>(initialCar);
   const [metrics, setMetrics] = useState<CarMetrics>(initialMetrics);
   const [timeline, setTimeline] = useState<TimelineEntry[]>(initialTimeline);
-  const [notes, setNotes] = useState<Note[]>(initialNotes);
-  const [attachments, setAttachments] = useState<Attachment[]>(initialAttachments);
   const [maintenanceTasks, setMaintenanceTasks] = useState<MaintenanceTask[]>(initialMaintenanceTasks);
 
   // Add expense inline
@@ -143,11 +135,6 @@ export default function CarDetailClient({
       setProgramSaving(false);
     }
   };
-
-  // Notes + uploads
-  const [noteContent, setNoteContent] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
 
   // Toast simple
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
@@ -233,13 +220,11 @@ export default function CarDetailClient({
         if (!r.ok) return;
         const d = r.data as {
           car: Car; metrics: CarMetrics; timeline?: TimelineEntry[];
-          notes?: Note[]; attachments?: Attachment[]; maintenanceTasks?: MaintenanceTask[];
+          maintenanceTasks?: MaintenanceTask[];
         };
         setCar(d.car);
         setMetrics(d.metrics);
         setTimeline(d.timeline || []);
-        setNotes(d.notes || []);
-        setAttachments(d.attachments || []);
         setMaintenanceTasks(d.maintenanceTasks || []);
       });
   };
@@ -320,70 +305,6 @@ export default function CarDetailClient({
     if (!res.ok) return;
     setToast({ msg: "Gasto eliminado", type: "success" });
     setTimeout(() => setToast(null), 2500);
-    load();
-  };
-
-  const addNote = async () => {
-    if (!noteContent.trim()) return;
-    const res = await fetchJsonWithToast(
-      "/api/notes",
-      { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ carId, content: noteContent }),
-        fallback: "No se pudo guardar la nota. Inténtalo de nuevo." },
-      setToast,
-    );
-    if (!res.ok) return;
-    setNoteContent("");
-    load();
-  };
-
-  const deleteNote = async (id: number) => {
-    if (!confirm("Eliminar nota?")) return;
-    const res = await fetchJsonWithToast(
-      `/api/notes?id=${id}`,
-      { method: "DELETE",
-        fallback: "No se pudo eliminar la nota. Inténtalo de nuevo." },
-      setToast,
-    );
-    if (!res.ok) return;
-    load();
-  };
-
-  const uploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      // Doble check cliente/servidor: cliente evita round-trip; servidor es la verdad.
-      setToast({ msg: `Archivo demasiado grande (máx ${MAX_FILE_SIZE_BYTES / 1024 / 1024}MB)`, type: "error" });
-      setTimeout(() => setToast(null), 3000);
-      if (fileRef.current) fileRef.current.value = "";
-      return;
-    }
-    setUploading(true);
-    const fd = new FormData();
-    fd.append("car_id", String(carId));
-    fd.append("file", file);
-    const res = await fetchJsonWithToast(
-      "/api/attachments",
-      { method: "POST", body: fd,
-        fallback: "No se pudo subir el archivo. Inténtalo de nuevo." },
-      setToast,
-    );
-    setUploading(false);
-    if (fileRef.current) fileRef.current.value = "";
-    if (!res.ok) return;
-    load();
-  };
-
-  const deleteAttachment = async (id: number) => {
-    if (!confirm("Eliminar archivo?")) return;
-    const res = await fetchJsonWithToast(
-      `/api/attachments?id=${id}`,
-      { method: "DELETE",
-        fallback: "No se pudo eliminar el archivo. Inténtalo de nuevo." },
-      setToast,
-    );
-    if (!res.ok) return;
     load();
   };
 
@@ -479,21 +400,6 @@ export default function CarDetailClient({
         registerTaskRef={registerTaskRef}
         flashTaskId={flashTaskId}
         onOpenAll={() => setShowAllMaintenance(true)}
-      />
-
-      {/* Guantera (notes + attachments) */}
-      <GloveBox
-        notes={notes}
-        attachments={attachments}
-        noteContent={noteContent}
-        uploading={uploading}
-        fileInputRef={fileRef}
-        onNoteContentChange={setNoteContent}
-        onAddNote={addNote}
-        onDeleteNote={deleteNote}
-        onUploadFile={uploadFile}
-        onPickFile={() => fileRef.current?.click()}
-        onDeleteAttachment={deleteAttachment}
       />
 
       {/* Modal "Ver todos" — gastos */}

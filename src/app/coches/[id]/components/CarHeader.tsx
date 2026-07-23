@@ -51,19 +51,28 @@ export default function CarHeader({ car }: CarHeaderProps) {
   }, [menuOpen]);
 
   return (
-    <div className="flex items-start gap-3">
-      {/* Mockup 1:1 — sin flecha atrás. El bloque icono+nombre también
-          vuelve a / (Link), por lo que la flecha era redundante. */}
+    // El contenedor padre es flex con items-stretch para que las tres
+    // columnas (icono, texto, kebab) tengan SIEMPRE la misma altura.
+    // El icono del coche ocupa el 100% de esa altura con h-full + flex
+    // interno centrado, así el cuadrado gris del coche se iguala
+    // verticalmente al bloque de texto (nombre + subtítulo + chips).
+    <div className="flex items-stretch gap-3">
+      {/* Cuadrado del coche: ocupa toda la altura de la fila, borde
+          marcado para destacar la card. */}
       <Link
         href="/"
         aria-label="Volver al Garaje"
-        className="w-16 h-16 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
-        style={{ background: HEADER_ICON_BG }}
+        className="flex-0 flex items-center justify-center w-auto px-3 rounded-2xl self-stretch"
+        style={{
+          background: HEADER_ICON_BG,
+          border: "2px solid var(--border-color)",
+          minWidth: "64px",
+        }}
       >
-        <CarIcon size={28} strokeWidth={1.8} style={{ color: HEADER_ICON_FG }} />
+        <CarIcon size={32} strokeWidth={1.8} style={{ color: HEADER_ICON_FG }} />
       </Link>
 
-      <div className="flex-1 min-w-0 pt-0.5">
+      <div className="flex-1 min-w-0 py-0.5">
         {/* Fila 1: nombre grande en negrita */}
         <h1
           className="text-[22px] sm:text-2xl font-extrabold tracking-tight leading-tight"
@@ -136,7 +145,7 @@ export default function CarHeader({ car }: CarHeaderProps) {
 }
 
 // Chip pequeño con icono a la izquierda (estilo mockup):
-// fondo gris claro, icono gris oscuro, texto gris medio. Mismo tamaño en
+// fondo gris claro, icono gris oscuro, texto gris oscuro. Mismo tamaño en
 // móvil y escritorio (no escala con sm: como el resto de la card).
 function Chip({
   icon,
@@ -144,11 +153,11 @@ function Chip({
 }: { icon: React.ReactNode; text: string }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[12px] font-medium"
-      style={{ background: HEADER_ICON_BG, color: TEXT_GRAY }}
+      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-medium"
+      style={{ background: HEADER_ICON_BG, color: "#211a1e" }}
     >
-      <span style={{ color: "#4a4548" }} aria-hidden>{icon}</span>
-      <span className="truncate max-w-[140px]" title={text}>{text}</span>
+      <span style={{ color: "#211a1e" }} aria-hidden>{icon}</span>
+      <span className="truncate max-w-[180px]" title={text}>{text}</span>
     </span>
   );
 }
