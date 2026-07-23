@@ -20,7 +20,7 @@ export default function NavBar() {
   return (
     <>
       {/* Top navbar — desktop only */}
-      <nav className="hidden sm:block sticky top-0 z-50 bg-[var(--bg-primary)] border-b border-[var(--border-color)]">
+      <nav className="hidden sm:block sticky top-12 z-20 bg-[var(--bg-primary)] border-b border-[var(--border-color)]">
         <div className="max-w-5xl mx-auto px-4 flex items-center justify-between h-12">
           <Link href="/" className="font-bold text-lg tracking-tight flex items-center gap-2" style={{ color: 'var(--accent)' }}>
             <Car size={18} />

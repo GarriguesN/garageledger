@@ -75,9 +75,11 @@ export default function TopBar() {
   }
 
   return <>
-    <header className="sticky top-0 z-40 h-12 flex items-center justify-between px-4 sm:hidden bg-transparent">
+    <header className="sticky top-0 z-30 h-12 flex items-center justify-between px-4 bg-transparent">
       <button aria-label="Abrir menú" onClick={() => setOpen(true)}><Menu size={22}/></button>
-      <span className="text-sm font-semibold truncate px-2" data-testid="topbar-title">{title}</span>
+      {/* suppressHydrationWarning: el servidor no conoce la matrícula,
+          así que el primer render del cliente puede diferir del SSR. */}
+      <span className="text-sm font-semibold truncate px-2" suppressHydrationWarning data-testid="topbar-title">{title}</span>
       <button aria-label="Notificaciones" onClick={() => setNotifications(true)}><Bell size={20}/></button>
     </header>
     {open && <div className="fixed inset-0 z-[60] bg-black/30" onClick={() => setOpen(false)}><aside className="h-full w-72 bg-white p-5 space-y-4" onClick={e => e.stopPropagation()}><div className="flex justify-between"><b>Menú</b><button aria-label="Cerrar menú" onClick={() => setOpen(false)}><X/></button></div><Link className="flex gap-3 py-3" href="/" onClick={() => setOpen(false)}><Car/> Garaje</Link><Link className="flex gap-3 py-3" href="/settings" onClick={() => setOpen(false)}><Settings/> Ajustes</Link></aside></div>}
