@@ -51,22 +51,19 @@ export default function CarHeader({ car }: CarHeaderProps) {
   }, [menuOpen]);
 
   return (
-    // El contenedor padre es flex con items-stretch para que las tres
-    // columnas (icono, texto, kebab) tengan SIEMPRE la misma altura.
-    // El icono del coche ocupa el 100% de esa altura con h-full + flex
-    // interno centrado, así el cuadrado gris del coche se iguala
-    // verticalmente al bloque de texto (nombre + subtítulo + chips).
-    <div className="flex items-stretch gap-3">
-      {/* Cuadrado del coche: ocupa toda la altura de la fila, borde
-          marcado para destacar la card. */}
+    // Contenedor flex: 3 columnas (icono, texto, kebab). El icono es
+    // SIEMPRE cuadrado (w-20 h-20 con flex-shrink-0) — no se estira por
+    // el bloque de texto. Si el texto crece, el icono se queda cuadrado
+    // y el texto sigue su flujo natural.
+    <div className="flex items-start gap-3">
+      {/* Cuadrado del coche: cuadrado fijo, borde marcado. */}
       <Link
         href="/"
         aria-label="Volver al Garaje"
-        className="flex-0 flex items-center justify-center w-auto px-3 rounded-2xl self-stretch"
+        className="flex-shrink-0 w-20 h-20 rounded-2xl flex items-center justify-center"
         style={{
           background: HEADER_ICON_BG,
           border: "2px solid var(--border-color)",
-          minWidth: "64px",
         }}
       >
         <CarIcon size={32} strokeWidth={1.8} style={{ color: HEADER_ICON_FG }} />
@@ -145,19 +142,21 @@ export default function CarHeader({ car }: CarHeaderProps) {
 }
 
 // Chip pequeño con icono a la izquierda (estilo mockup):
-// fondo gris claro, icono gris oscuro, texto gris oscuro. Mismo tamaño en
-// móvil y escritorio (no escala con sm: como el resto de la card).
+// fondo gris claro, icono gris oscuro, texto gris oscuro. Se dimensiona
+// por su contenido (no width fija). truncate evita que un VIN demasiado
+// largo rompa el grid.
 function Chip({
   icon,
   text,
 }: { icon: React.ReactNode; text: string }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-medium"
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium whitespace-nowrap"
       style={{ background: HEADER_ICON_BG, color: "#211a1e" }}
+      title={text}
     >
-      <span style={{ color: "#211a1e" }} aria-hidden>{icon}</span>
-      <span className="truncate max-w-[180px]" title={text}>{text}</span>
+      <span style={{ color: "#211a1e", flexShrink: 0 }} aria-hidden>{icon}</span>
+      <span className="truncate" style={{ maxWidth: "140px" }}>{text}</span>
     </span>
   );
 }
