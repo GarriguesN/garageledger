@@ -242,11 +242,13 @@ export default function ProgramMaintenanceFormBody({
   );
 }
 
-// Helper exportado: estado inicial vacío.
-export function emptyProgramMaintenanceForm(): ProgramMaintenanceFormState {
+// Helper exportado: estado inicial vacío. Acepta `defaultKm` para que
+// el padre (CarDetailClient) pase car.km_actuales y el form se
+// pre-rellene con el valor actual de BD, no con un valor cacheado.
+export function emptyProgramMaintenanceForm(defaultKm?: number): ProgramMaintenanceFormState {
   return {
     part_name: "",
-    current_km: "",
+    current_km: defaultKm !== undefined && defaultKm !== null ? String(defaultKm) : "",
     next_km: "",
     next_date: "",
     interval_km: "",

@@ -65,11 +65,11 @@ export default function CarDetailClient({
 
   // Add expense inline
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<AddExpenseFormState>({
+  const [form, setForm] = useState<AddExpenseFormState>(() => ({
     tipo: "Carburante", importe: "", date: new Date().toISOString().split("T")[0],
     descripcion: "", referencia: "", litros: "", km: String(initialCar.km_actuales || ""),
     costeTaller: "", selectedTask: "",
-  });
+  }));
   const [saving, setSaving] = useState(false);
 
   // Edit existing expense inline
@@ -81,7 +81,7 @@ export default function CarDetailClient({
   // PUNTO 5: modal "Programar mantenimiento"
   const [showProgramMaintenance, setShowProgramMaintenance] = useState(false);
   const [programForm, setProgramForm] = useState<ProgramMaintenanceFormState>(
-    emptyProgramMaintenanceForm()
+    emptyProgramMaintenanceForm(initialCar.km_actuales)
   );
   const [programSaving, setProgramSaving] = useState(false);
   const [programError, setProgramError] = useState<string | null>(null);
@@ -103,11 +103,11 @@ export default function CarDetailClient({
     try {
       // current_km es opcional. Si el usuario no lo rellena, usamos
       // el km actual del coche para que la fila "Realizado: X km" no
-      // quede huérfana. En cualquier caso, lo mandamos al backend para
-      // que se registre en maintenance_tasks.current_km.
+      // quede huérfana.
+      const carKm = car?.km_actuales ?? initialCar.km_actuales ?? 0;
       const currentKmRaw = programForm.current_km.trim();
       const currentKm = currentKmRaw === ""
-        ? (car?.km_actuales ?? null)
+        ? (carKm > 0 ? carKm : null)
         : parseInt(currentKmRaw);
       const body: Record<string, unknown> = {
         carId,
@@ -132,7 +132,9 @@ export default function CarDetailClient({
       );
       if (!res.ok) return;
       setShowProgramMaintenance(false);
-      setProgramForm(emptyProgramMaintenanceForm());
+      // El form se reiniciará con el car.km_actuales actual cuando el
+      // usuario vuelva a abrir el modal.
+      setProgramForm(emptyProgramMaintenanceForm(car?.km_actuales ?? initialCar.km_actuales));
       setToast({ msg: `${part_name} programado`, type: "success" });
       setTimeout(() => setToast(null), 2500);
       load();
@@ -198,11 +200,16 @@ export default function CarDetailClient({
 
   // PUNTO 7: el navbar contextual del coche ([+] rojo) envía este evento
   // para abrir el formulario de añadir gasto desde el navbar inferior.
+  // Usamos openExpenseForm para que el form se inicialice con el
+  // car.km_actuales actual, no con el valor cacheado al mount.
   useEffect(() => {
-    const handler = () => setShowForm((v) => !v);
+    const handler = () => {
+      if (showForm) setShowForm(false);
+      else openExpenseForm();
+    };
     window.addEventListener("garageledger:car-nav-add-expense", handler);
     return () => window.removeEventListener("garageledger:car-nav-add-expense", handler);
-  }, []);
+  }, [showForm]);
 
   // Modales de "Ver todos" para gastos y mantenimiento. Cada uno abre
   // FullListModal con la lista completa, sin construir páginas nuevas.
@@ -241,15 +248,27 @@ export default function CarDetailClient({
       });
   };
 
-  // Auto-fill km al abrir el form de gasto (mantiene el comportamiento del SC).
-  // Como car ya está inicializado con initialCar (no null), podemos dejar el form
-  // con el km actual de entrada; este effect re-sync cuando el usuario hace load().
-  useEffect(() => {
-    if (showForm && car) {
-      setForm((f) => ({ ...f, km: String(car.km_actuales || "") }));
-    }
-    /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [showForm, car?.km_actuales]);
+  // Open expense form: reset km to current car.km_actuales so the user
+  // always sees the latest odometer, not a stale value from a previous
+  // session or earlier load. Ticket 1.14 follow-up.
+  const openExpenseForm = () => {
+    setForm({
+      tipo: "Carburante", importe: "", date: new Date().toISOString().split("T")[0],
+      descripcion: "", referencia: "", litros: "",
+      km: String(car?.km_actuales ?? initialCar.km_actuales ?? ""),
+      costeTaller: "", selectedTask: "",
+    });
+    setShowForm(true);
+  };
+  const openProgramMaintenance = () => {
+    setProgramError(null);
+    setProgramForm(emptyProgramMaintenanceForm(car?.km_actuales ?? initialCar.km_actuales));
+    setShowProgramMaintenance((v) => !v);
+  };
+  const closeProgramMaintenance = () => {
+    setShowProgramMaintenance(false);
+    setProgramError(null);
+  };
 
   // ── Handlers (idénticos a los del orquestador anterior) ──
   const submitForm = async () => {
@@ -272,14 +291,9 @@ export default function CarDetailClient({
 
     if (!res.ok) return;          // el toast ya se disparó dentro del helper
     setShowForm(false);
-    setForm({
-      tipo: "Carburante", importe: "", date: new Date().toISOString().split("T")[0],
-      descripcion: "", referencia: "", litros: "", km: String(car.km_actuales || ""),
-      costeTaller: "", selectedTask: "",
-    });
     setToast({ msg: "Gasto guardado", type: "success" });
     setTimeout(() => setToast(null), 2500);
-    load();      // si falla, fetchJsonWithToast ya muestra el toast de error
+    load();      // refresca car.km_actuales; el form se reinicia al reabrir via openExpenseForm
   };
 
   const startEdit = (entry: TimelineEntry) => {
@@ -372,11 +386,11 @@ export default function CarDetailClient({
 
       {/* Add expense */}
       <ActionButtons
-        onAddExpense={() => setShowForm(!showForm)}
-        onProgramMaintenance={() => {
-          setProgramError(null);
-          setShowProgramMaintenance((v) => !v);
+        onAddExpense={() => {
+          if (showForm) setShowForm(false);
+          else openExpenseForm();
         }}
+        onProgramMaintenance={openProgramMaintenance}
       />
       {/* PUNTO 5 / Ticket 1.13: Añadir gasto y Programar mantenimiento
           son modales reales (position: fixed). El botón inline y el [+] del
@@ -400,11 +414,7 @@ export default function CarDetailClient({
       </Modal>
       <Modal
         open={showProgramMaintenance}
-        onClose={() => {
-          setShowProgramMaintenance(false);
-          setProgramForm(emptyProgramMaintenanceForm());
-          setProgramError(null);
-        }}
+        onClose={closeProgramMaintenance}
         title="Programar mantenimiento"
         mainId="page-main"
       >
@@ -414,11 +424,7 @@ export default function CarDetailClient({
           error={programError}
           onChange={setProgramForm}
           onSubmit={() => { submitProgramMaintenance(); }}
-          onCancel={() => {
-            setShowProgramMaintenance(false);
-            setProgramForm(emptyProgramMaintenanceForm());
-            setProgramError(null);
-          }}
+          onCancel={closeProgramMaintenance}
         />
       </Modal>
 
