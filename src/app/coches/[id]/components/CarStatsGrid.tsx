@@ -84,8 +84,9 @@ export default function CarStatsGrid({ metrics }: CarStatsGridProps) {
         iconBg={ICON_BG_BLUE} iconFg={ICON_FG_BLUE}
         icon={<Droplet size={20} strokeWidth={1.8} />}
         label="Consumo medio"
-        value={fmtOrDash(safeL100, 1)}
-        note="L/100km"
+        value={safeL100 !== null ? fmtOrDash(safeL100, 1) : "—"}
+        valueSuffix="L/100km"
+        note="rendimiento medio"
       />
 
       {/* 5) Coste por km — gris */}
@@ -123,12 +124,14 @@ interface CardProps {
   icon: React.ReactNode;
   label: string;
   value: string;
+  /** Texto a mostrar al lado del valor principal en la misma línea. */
+  valueSuffix?: React.ReactNode;
   note: React.ReactNode;
 }
 
 // Tarjeta del mockup: icono circular arriba-izquierda, label pequeño
 // debajo, valor grande, nota pequeña gris.
-function Card({ iconBg, iconFg, icon, label, value, note }: CardProps) {
+function Card({ iconBg, iconFg, icon, label, value, valueSuffix, note }: CardProps) {
   return (
     <div className="card !p-3.5">
       <div className="flex items-start gap-2.5">
@@ -152,6 +155,14 @@ function Card({ iconBg, iconFg, icon, label, value, note }: CardProps) {
             title={value}
           >
             {value}
+            {valueSuffix && (
+              <span
+                className="text-[12px] font-normal ml-1"
+                style={{ color: TEXT_GRAY }}
+              >
+                {valueSuffix}
+              </span>
+            )}
           </p>
           <p
             className="text-[11px] leading-tight mt-1 whitespace-normal"

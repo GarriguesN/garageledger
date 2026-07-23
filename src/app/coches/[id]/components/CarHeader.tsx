@@ -13,7 +13,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft, Car as CarIcon, Edit, Download, Save, X,
+  Car as CarIcon, Edit, Download, Save, X,
   CreditCard, Barcode, MoreHorizontal,
 } from "lucide-react";
 import type { Car, CarEditFormState } from "../lib/types";
@@ -66,29 +66,16 @@ export default function CarHeader({
 
   return (
     <div className="flex items-start gap-3">
-      {/* PUNTO 7: back arrow visible también en móvil como redundancia
-          junto al bloque icono+nombre (que también vuelve a /). */}
-      <Link
-        href="/"
-        className="flex items-center justify-center p-2 mt-1 rounded-md hover:bg-[var(--bg-secondary)] transition-colors"
-        aria-label="Volver al Garaje"
-      >
-        <ArrowLeft size={20} />
-      </Link>
-
+      {/* Mockup 1:1 — sin flecha atrás. El bloque icono+nombre también
+          vuelve a / (Link), por lo que la flecha era redundante. */}
       <Link
         href="/"
         aria-label="Volver al Garaje"
-        className="w-14 h-14 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+        className="w-16 h-16 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
         style={{ background: HEADER_ICON_BG }}
       >
-        <CarIcon size={22} style={{ color: HEADER_ICON_FG }} />
+        <CarIcon size={28} strokeWidth={1.8} style={{ color: HEADER_ICON_FG }} />
       </Link>
-
-      {/* Icono del coche en cuadro redondeado (mockup) */}
-      <div className="hidden">
-        <CarIcon size={22} style={{ color: HEADER_ICON_FG }} />
-      </div>
 
       <div className="flex-1 min-w-0 pt-0.5">
         {showEditCar ? (
@@ -141,7 +128,7 @@ export default function CarHeader({
               <input
                 className="input w-24 text-sm"
                 value={carForm.puertas}
-                onChange={(e) => onChangeCarForm({ ...carForm, puertas: e.target.value })}
+                onChange={(e) => onChangeCarForm({ ...carForm, puertas: parseInt(e.target.value) || 5 })}
                 placeholder="Ptas"
               />
               <input
@@ -182,27 +169,31 @@ export default function CarHeader({
           </div>
         ) : (
           <>
+            {/* Fila 1: nombre grande en negrita */}
             <h1
-              className="text-[20px] sm:text-xl font-bold tracking-tight leading-tight"
+              className="text-[22px] sm:text-2xl font-extrabold tracking-tight leading-tight"
               style={{ color: TEXT_DARK }}
             >
               {car.marca} {car.modelo}
             </h1>
+            {/* Fila 2: subtítulo (generación · año · motor) */}
             <p
-              className="text-[13px] sm:text-sm leading-tight mt-0.5 truncate"
+              className="text-[13px] sm:text-sm leading-tight mt-1 truncate"
               style={{ color: TEXT_GRAY }}
             >
               {[car.generacion, car.ano, car.motor].filter(Boolean).join(" · ")}
             </p>
-      {/* Chips de Matrícula y Bastidor con icono (mockup) */}
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              {car.matricula && (
-                <Chip icon={<CreditCard size={13} strokeWidth={2.2} />} text={car.matricula} />
-              )}
-              {car.bastidor && (
-                <Chip icon={<Barcode size={13} strokeWidth={2.2} />} text={car.bastidor} />
-              )}
-            </div>
+            {/* Fila 3: chips de matrícula y bastidor en grid 2 columnas */}
+            {(car.matricula || car.bastidor) && (
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                {car.matricula && (
+                  <Chip icon={<CreditCard size={13} strokeWidth={2.2} />} text={car.matricula} />
+                )}
+                {car.bastidor && (
+                  <Chip icon={<Barcode size={13} strokeWidth={2.2} />} text={car.bastidor} />
+                )}
+              </div>
+            )}
           </>
         )}
       </div>

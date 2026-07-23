@@ -32,7 +32,7 @@ export default function ActionButtons({
         type="button"
         className="btn h-11 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5"
         style={{
-          background: "transparent",
+          background: "#fff",
           color: "var(--text-secondary)",
           border: "1px solid var(--border-color)",
         }}

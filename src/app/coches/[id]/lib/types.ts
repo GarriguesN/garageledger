@@ -2,6 +2,10 @@
 // no tengan que andar duplicando `any`. Origen de verdad: src/lib/db/* pero
 // afinamos los shapes que el detalle usa.
 
+// Re-exportamos MaintenanceTask desde su definición de BD. Lo centralizamos
+// para que no haya dos interfaces incompatibles en el código.
+export type { MaintenanceTask } from "@/lib/db/maintenance";
+
 export interface Car {
   id: number;
   marca: string;
@@ -18,64 +22,19 @@ export interface Car {
   bastidor: string;
   combustible: string;
   foto_attachment_id: number | null;
+  archivado?: number;
 }
 
 export interface TimelineEntry {
   id: number;
+  date: string;
   tipo: string;
   importe: number;
-  date: string;
   descripcion: string | null;
-  referencia: string | null;
-  litros: number | null;
-  km: number | null;
-  coste_estimado_taller: number | null;
-}
-
-export interface Note {
-  id: number;
-  content: string;
-}
-
-export interface Attachment {
-  id: number;
-  original_name: string;
-  file_size: number;
-  mime_type: string;
-}
-
-export interface MaintenanceTask {
-  id: number;
-  part_name: string;
-  part_brand: string;
-  part_model: string;
-  next_km: number | null;
-  next_date: string | null;
-  current_km: number | null;
-  interval_km: number | null;
-  interval_months: number | null;
-  notes: string;
-  completed: number;
-}
-
-export interface CarMetrics {
-  monthly: { current: number; previous: number };
-  projectedAnnual: number;
-  diy: number;
-  totalCostPerKm: number | null;
-  fuel: {
-    l100km: number | null;
-    costPerKm: number | null;
-    pricePerLiter: number | null;
-  };
-  alerts: {
-    type: "critical" | "warning" | "info";
-    message: string;
-    // Ticket 1.6: presente solo en alertas de mantenimiento. Identifica
-    // la fila exacta de maintenance_tasks que disparó la alerta para
-    // scroll + highlight desde el AlertBanner.
-    task_id?: number;
-  }[];
+  referencia?: string | null;
+  litros?: number | null;
+  km?: number | null;
+  coste_estimado_taller?: number | null;
 }
 
 export interface AddExpenseFormState {
@@ -91,11 +50,12 @@ export interface AddExpenseFormState {
 }
 
 export interface EditExpenseFormState {
-  id?: number;
+  id: number;
   tipo: string;
   importe: number;
   date: string;
   descripcion: string;
+  referencia?: string | null;
   litros?: number | null;
   km?: number | null;
   coste_estimado_taller?: number | null;
@@ -107,9 +67,38 @@ export interface CarEditFormState {
   generacion: string;
   motor: string;
   ano: string | number;
-  puertas: string | number;
-  km_actuales: string | number;
+  puertas: number;
+  km_actuales: number;
   estado: string;
   fecha_ultima_itv: string;
   fecha_vencimiento_seguro: string;
+}
+
+export interface Note {
+  id: number;
+  content: string;
+}
+
+export interface Attachment {
+  id: number;
+  original_name: string;
+  file_size: number;
+  mime_type: string;
+}
+
+export interface CarMetrics {
+  monthly: { current: number; previous: number };
+  projectedAnnual: number;
+  diy: number;
+  totalCostPerKm: number | null;
+  fuel: {
+    l100km: number | null;
+    costPerKm: number | null;
+    pricePerLiter: number | null;
+  };
+  alerts: {
+    type: "critical" | "warning" | "info";
+    message: string;
+    task_id?: number;
+  }[];
 }

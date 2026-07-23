@@ -34,6 +34,7 @@ export interface MaintenanceTask {
   current_km: number | null; current_date: string | null;
   next_km: number | null; next_date: string | null;
   interval_km: number | null; interval_months: number | null;
+  icon_key: string | null;
   notes: string; completed: number; created_at: string;
 }
 
@@ -46,13 +47,15 @@ export function getMaintenanceTasks(carId: number, includeCompleted = false): Ma
 
 export function createMaintenanceTask(carId: number, part_name: string, opts: {
   part_brand?: string; part_model?: string; current_km?: number; current_date?: string;
-  next_km?: number; next_date?: string; interval_km?: number; interval_months?: number; notes?: string;
+  next_km?: number; next_date?: string; interval_km?: number; interval_months?: number;
+  icon_key?: string; notes?: string;
 } = {}): MaintenanceTask {
   const r = getDb().prepare(`
-    INSERT INTO maintenance_tasks (car_id, part_name, part_brand, part_model, current_km, current_date, next_km, next_date, interval_km, interval_months, notes)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?)
+    INSERT INTO maintenance_tasks (car_id, part_name, part_brand, part_model, current_km, current_date, next_km, next_date, interval_km, interval_months, icon_key, notes)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(carId, part_name, opts.part_brand || "", opts.part_model || "", opts.current_km || null, opts.current_date || null,
-    opts.next_km || null, opts.next_date || null, opts.interval_km || null, opts.interval_months || null, opts.notes || "");
+    opts.next_km || null, opts.next_date || null, opts.interval_km || null, opts.interval_months || null,
+    opts.icon_key || null, opts.notes || "");
   return getDb().prepare("SELECT * FROM maintenance_tasks WHERE id=?").get(r.lastInsertRowid) as MaintenanceTask;
 }
 

@@ -9,8 +9,9 @@
 //     mantenimiento. También acepta `flashTaskId` para aplicar la clase
 //     `flash-task` a la fila exacta.
 
-import { Clock, ClipboardList, Wrench, ChevronRight } from "lucide-react";
+import { Clock, ClipboardList, ChevronRight } from "lucide-react";
 import { fmt0, formatLongMonthYear } from "../lib/format";
+import { getIconForKey } from "@/lib/maintenance/presets";
 import type { Car, MaintenanceTask } from "../lib/types";
 
 interface MaintenanceScheduleProps {
@@ -138,6 +139,7 @@ export function MaintenanceRow({
           )
         )
       : null;
+  const Icon = getIconForKey(task.icon_key);
 
   return (
     <div
@@ -149,7 +151,7 @@ export function MaintenanceRow({
         style={{ background: "#f2f2f3", color: "#4a4548" }}
         aria-hidden
       >
-        <Wrench size={18} strokeWidth={1.8} />
+        <Icon size={18} strokeWidth={1.8} />
       </div>
 
       <div className="flex-1 min-w-0">
@@ -186,8 +188,8 @@ export function MaintenanceRow({
             <strong style={{ color: TEXT_DARK }}>
               {task.current_km !== null ? `${fmt0(task.current_km)} km` : "—"}
             </strong>
-            {task.interval_km !== null && task.interval_km !== undefined && (
-              <> · cada {fmt0(task.interval_km)} km</>
+            {task.interval_km !== null && task.interval_km !== undefined && task.interval_km > 0 && (
+              <> · c/{fmt0(task.interval_km)} km</>
             )}
           </span>
         </p>

@@ -83,6 +83,7 @@ function initSchema(db: Database.Database) {
       interval_km INTEGER,
       interval_months INTEGER,
       notes TEXT NOT NULL DEFAULT '',
+      icon_key TEXT,
       completed INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (car_id) REFERENCES cars(id) ON DELETE CASCADE
@@ -99,6 +100,15 @@ function migrateSchema(db: Database.Database) {
   const colNames = cols.map(c => c.name);
   if (!colNames.includes("fecha_ultima_itv")) db.exec("ALTER TABLE cars ADD COLUMN fecha_ultima_itv TEXT");
   if (!colNames.includes("mantenimiento_config")) db.exec("ALTER TABLE cars ADD COLUMN mantenimiento_config TEXT");
+
+  // maintenance_tasks.icon_key: clave del preset seleccionado al crear la
+  // tarea (e.g. "engine_oil_filter"). La columna ya existe en el schema
+  // inicial, pero las BD anteriores no la tienen — la creamos aditiva.
+  const mtCols = db.prepare("PRAGMA table_info(maintenance_tasks)").all() as { name: string }[];
+  const mtColNames = mtCols.map(c => c.name);
+  if (!mtColNames.includes("icon_key")) {
+    db.exec("ALTER TABLE maintenance_tasks ADD COLUMN icon_key TEXT");
+  }
 
   // Migrate legacy plaintext PIN to scrypt hash in-place.
   // Idempotent: only fires when stored value is not already a scrypt blob.

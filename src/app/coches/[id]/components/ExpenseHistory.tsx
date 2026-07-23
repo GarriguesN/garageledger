@@ -21,7 +21,7 @@ import {
   Receipt, ChevronRight, BarChart3,
 } from "lucide-react";
 import {
-  fmt, fmt0, formatDate, Sparkline, TIPO_COLOR, CATEGORIAS,
+  fmt, fmt0, formatDate, TIPO_COLOR, CATEGORIAS,
 } from "../lib/format";
 import type {
   TimelineEntry, EditExpenseFormState,
@@ -51,20 +51,14 @@ export default function ExpenseHistory({
   onStartEdit, onChangeEditForm, onSaveInline, onCancelEdit,
   onDelete, onOpenAll,
 }: ExpenseHistoryProps) {
-  const sparkData = timeline
-    .filter((e) => e.tipo === "Carburante")
-    .reverse()
-    .map((e) => e.importe);
-
   return (
     <div>
-      {/* Header con título + sparkline + "Ver todos" (mockup).
+      {/* Header con título + "Ver todos" (mockup).
           "Ver todos" abre un modal con la lista completa. */}
       <div className="flex items-center justify-between mb-3 gap-2">
         <h2 className="text-[15px] font-bold flex items-center gap-2 min-w-0">
           <Receipt size={16} style={{ color: "var(--accent)" }} />
           <span className="truncate">Historial de gastos</span>
-          <Sparkline data={sparkData} />
         </h2>
         {timeline.length > 5 && (
           <button

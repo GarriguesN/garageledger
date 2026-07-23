@@ -85,7 +85,7 @@ export default function CarDetailClient({
   // Edit existing expense inline
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<EditExpenseFormState>({
-    tipo: "Carburante", importe: 0, date: "", descripcion: "",
+    id: 0, tipo: "Carburante", importe: 0, date: "", descripcion: "",
   });
 
   // PUNTO 5: modal "Programar mantenimiento"
@@ -129,6 +129,10 @@ export default function CarDetailClient({
         interval_km: programForm.interval_km.trim()
           ? parseInt(programForm.interval_km)
           : null,
+        interval_months: programForm.interval_months.trim()
+          ? parseInt(programForm.interval_months)
+          : null,
+        icon_key: programForm.preset_key.trim() || null,
       };
       const res = await fetchJsonWithToast(
         "/api/maintenance",
