@@ -136,7 +136,7 @@ export function getCarMetrics(carId: number) {
 }
 
 export function getTimeline(carId: number, limit = 50): any[] {
-  return getDb().prepare("SELECT id, date, tipo, importe, descripcion, litros, km, coste_estimado_taller, 'expense' as entry_type FROM expenses WHERE car_id=? ORDER BY date DESC, id DESC LIMIT ?").all(carId, limit) as any[];
+  return getDb().prepare("SELECT id, date, tipo, tipo_id, importe, descripcion, referencia, litros, km, coste_estimado_taller, maintenance_task_id, preset_key, 'expense' as entry_type FROM expenses WHERE car_id=? ORDER BY date DESC, id DESC LIMIT ?").all(carId, limit) as any[];
 }
 
 export function getMonthlyHistory(carId: number, months = 6): { month: string; total: number }[] {

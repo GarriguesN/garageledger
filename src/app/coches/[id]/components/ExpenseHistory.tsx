@@ -412,6 +412,24 @@ export function ReadOnlyFields({
         }}
       >
         <div className="px-3 py-3 space-y-1.5 text-[12px]" style={{ color: TEXT_DARK }}>
+          {/* Ticket 1.17: el acordeón SIEMPRE muestra fecha completa,
+              km y referencia/ticket. Categoría-específico se añade debajo. */}
+          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+            <p>
+              <strong>Fecha:</strong>{" "}
+              {new Date(entry.date).toLocaleDateString("es-ES", {
+                day: "2-digit", month: "2-digit", year: "numeric",
+              })}
+            </p>
+            {entry.km != null && entry.km > 0 && (
+              <p><strong>Km:</strong> {fmt0(entry.km)}</p>
+            )}
+            {entry.referencia && (
+              <p className="col-span-2 break-words">
+                <strong>Referencia / Ticket:</strong> {entry.referencia}
+              </p>
+            )}
+          </div>
           {/* Banner informativo para ITV/Seguro/Impuestos: explica al
               usuario que esta fecha actualiza automáticamente la del coche. */}
           {_annual && (
@@ -432,36 +450,25 @@ export function ReadOnlyFields({
           {entry.descripcion && (
             <p className="break-words"><strong>Descripción:</strong> {entry.descripcion}</p>
           )}
-          {/* Detalles carburante (en fila cerrada solo mostramos fecha+litros;
-              aquí añadimos €/L, km, referencia). */}
+          {/* Detalles carburante. */}
           {_fuel && (
             <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
               {entry.litros != null && <p><strong>Litros:</strong> {entry.litros} L</p>}
-              {entry.km != null && entry.km > 0 && <p><strong>Km:</strong> {fmt0(entry.km)}</p>}
               {entry.litros && entry.litros > 0 && (
                 <p><strong>Precio:</strong> {(entry.importe / entry.litros).toFixed(3)} €/L</p>
               )}
-              {entry.referencia && <p><strong>Referencia:</strong> {entry.referencia}</p>}
             </div>
           )}
-          {/* DIY: mostramos coste_estimado_taller sólo si es DIY (Ticket 1.16).
-              Para "Mantenimiento (Taller)" no aplica, ya tienes el importe real. */}
+          {/* DIY: mostramos coste_estimado_taller y el ahorro real. */}
           {_diy && entry.coste_estimado_taller != null && entry.coste_estimado_taller > 0 && (
             <p>
               <strong>Coste estimado taller:</strong>{" "}
               {fmt(entry.coste_estimado_taller)} €
-              <span className="block text-[11px] mt-0.5" style={{ color: TEXT_GRAY }}>
+              <span className="block text-[11px] mt-0.5" style={{ color: "var(--shamrock)" }}>
                 Tu ahorro: {fmt(entry.coste_estimado_taller - entry.importe)} €
               </span>
             </p>
           )}
-          {/* Taller: nada extra. El importe ya está visible en la cabecera
-              del panel y no hay referencia cruzada (no es DIY). */}
-          {_taller && entry.referencia && (
-            <p><strong>Referencia:</strong> {entry.referencia}</p>
-          )}
-          {/* Notas — la entrada de BD no tiene campo notes todavía; si lo
-              añadimos en el futuro, se mostrará aquí. */}
           {/* Acciones: Editar + Borrar */}
           <div className="flex items-center justify-end gap-2 pt-2">
             <button
