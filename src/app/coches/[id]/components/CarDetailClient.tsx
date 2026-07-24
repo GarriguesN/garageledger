@@ -8,6 +8,8 @@ import CarHeader          from "./CarHeader";
 import CarStatsGrid       from "./CarStatsGrid";
 import AlertBanner, { AlertTarget } from "./AlertBanner";
 import AddExpenseFormFields from "./AddExpenseFormFields";
+import ExpenseHistoryRow from "./ExpenseHistoryRow";
+import MaintenanceRowWithState from "./MaintenanceRowWithState";
 import ActionButtons       from "./ActionButtons";
 import ProgramMaintenanceFormBody, {
   emptyProgramMaintenanceForm,
@@ -703,24 +705,17 @@ const deleteExpWithUndo = async (id: number) => {
         onClose={() => setShowAllExpenses(false)}
       >
         <div className="space-y-1.5">
-          {timeline.map((entry) => {
-            const color = (TIPO_COLOR as Record<string, string>)[entry.tipo] || "#6b7280";
-            return (
-              <div key={entry.id} className="card !p-3">
-                <ReadOnlyFields
-                  entry={entry}
-                  color={color}
-                  isExpanded={false}
-                  onToggle={() => {}}
-                  onStartEdit={() => {
-                    setShowAllExpenses(false);
-                    startEdit(entry);
-                  }}
-                  onDelete={() => deleteExp(entry.id)}
-                />
-              </div>
-            );
-          })}
+          {timeline.map((entry) => (
+            <ExpenseHistoryRow
+              key={entry.id}
+              entry={entry}
+              onStartEdit={() => {
+                setShowAllExpenses(false);
+                startEdit(entry);
+              }}
+              onDelete={() => deleteExpWithUndo(entry.id)}
+            />
+          ))}
         </div>
       </FullListModal>
 
@@ -733,13 +728,19 @@ const deleteExpWithUndo = async (id: number) => {
       >
         <div className="space-y-1.5">
           {sortMaintenanceTasks(maintenanceTasks, car).map((task) => (
-            <MaintenanceRow
+            <MaintenanceRowWithState
               key={task.id}
               task={task}
               car={car}
-              onComplete={openCompleteTask}
-              isExpanded={false}
-              onToggle={() => {}}
+              onComplete={() => {
+                setShowAllMaintenance(false);
+                openCompleteTask(task);
+              }}
+              onEdit={() => {
+                setShowAllMaintenance(false);
+                editMaintenanceTask(task);
+              }}
+              onDelete={() => deleteMaintenanceTaskWithUndo(task)}
             />
           ))}
         </div>

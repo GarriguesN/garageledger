@@ -31,6 +31,7 @@ import type {
   TimelineEntry, EditExpenseFormState,
 } from "../lib/types";
 import { useState } from "react";
+import SwipeableRow from "./SwipeableRow";
 
 interface ExpenseHistoryProps {
   timeline: TimelineEntry[];
@@ -92,28 +93,33 @@ export default function ExpenseHistory({
 
           return (
             <div key={entry.id} className="card !p-0 overflow-hidden">
-              {isEditing ? (
-                <EditFormFields
-                  entry={entry}
-                  editForm={editForm}
-                  onChange={onChangeEditForm}
-                  onSave={onSaveInline}
-                  onCancel={onCancelEdit}
-                  onDelete={onDelete}
-                />
-              ) : (
-                <ReadOnlyFields
-                  entry={entry}
-                  color={color}
-                  isExpanded={isExpanded}
-                  onToggle={() => toggleExpanded(entry.id)}
-                  onStartEdit={() => {
-                    setExpandedId(entry.id);
-                    onStartEdit(entry);
-                  }}
-                  onDelete={() => onDelete(entry.id)}
-                />
-              )}
+              <SwipeableRow
+                onEdit={() => onStartEdit(entry)}
+                onDelete={() => onDelete(entry.id)}
+              >
+                {isEditing ? (
+                  <EditFormFields
+                    entry={entry}
+                    editForm={editForm}
+                    onChange={onChangeEditForm}
+                    onSave={onSaveInline}
+                    onCancel={onCancelEdit}
+                    onDelete={onDelete}
+                  />
+                ) : (
+                  <ReadOnlyFields
+                    entry={entry}
+                    color={color}
+                    isExpanded={isExpanded}
+                    onToggle={() => toggleExpanded(entry.id)}
+                    onStartEdit={() => {
+                      setExpandedId(entry.id);
+                      onStartEdit(entry);
+                    }}
+                    onDelete={() => onDelete(entry.id)}
+                  />
+                )}
+              </SwipeableRow>
             </div>
           );
         })}
