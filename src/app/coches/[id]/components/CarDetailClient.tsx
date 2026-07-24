@@ -179,7 +179,26 @@ export default function CarDetailClient({
   };
 
   // Toast simple
-  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const [toast, setToast] = useState<{ msg: string; type: "success" | "error"; undo?: () => void } | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Ticket 1.16: helper para mostrar un toast con opción de "Deshacer"
+  // durante 5 segundos. La función `restore` se ejecuta si el usuario
+  // pulsa el botón antes de que se acabe el tiempo. La entrada se
+  // guarda en memoria (no en BD) hasta que se confirma la eliminación.
+  const showUndoToast = (msg: string, restore: () => Promise<void>) => {
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setToast({
+      msg,
+      type: "success",
+      undo: async () => {
+        await restore();
+        setToast({ msg: "Restaurado", type: "success" });
+        setTimeout(() => setToast(null), 1800);
+      },
+    });
+    undoTimer.current = setTimeout(() => setToast(null), 5000);
+  };
 
   // Ticket 1.6: Map taskId → HTMLElement de la fila correspondiente.
   // MaintenanceSchedule nos llama con `registerTaskRef(task.id, el)` en
@@ -326,6 +345,12 @@ export default function CarDetailClient({
 
   const deleteMaintenanceTask = async (task: MaintenanceTask) => {
     if (!confirm(`Eliminar tarea "${task.part_name}"?`)) return;
+    await deleteMaintenanceTaskWithUndo(task);
+  };
+
+const deleteMaintenanceTaskWithUndo = async (task: MaintenanceTask) => {
+    // Capturamos la tarea ANTES de borrarla para poder restaurarla.
+    const snapshot = { ...task };
     const res = await fetchJsonWithToast(
       `/api/maintenance?id=${task.id}`,
       { method: "DELETE", headers: { "Content-Type": "application/json" },
@@ -333,8 +358,29 @@ export default function CarDetailClient({
       setToast,
     );
     if (!res.ok) return;
-    setToast({ msg: "Tarea eliminada", type: "success" });
-    setTimeout(() => setToast(null), 2500);
+    // Ticket 1.16: undo real — recreamos vía POST con los datos originales.
+    showUndoToast("Tarea eliminada", async () => {
+      await fetch("/api/maintenance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          carId: carId,
+          part_name: snapshot.part_name,
+          part_brand: snapshot.part_brand || null,
+          part_model: snapshot.part_model || null,
+          current_km: snapshot.current_km,
+          current_date: snapshot.current_date,
+          next_km: snapshot.next_km,
+          next_date: snapshot.next_date,
+          interval_km: snapshot.interval_km,
+          interval_months: snapshot.interval_months,
+          notes: snapshot.notes || "",
+          icon_key: snapshot.icon_key || null,
+          preset_key: snapshot.preset_key || null,
+        }),
+      });
+      load();
+    });
     load();
   };
   const closeProgramMaintenance = () => {
@@ -472,8 +518,22 @@ export default function CarDetailClient({
     // Mantenemos el stub vacío para no romper referencias en ExpenseHistory
     // hasta que migremos ese componente también.
   };
-  const deleteExp = async (id: number) => {
+  // Ticket 1.16: dos variantes de borrado de gasto.
+// - deleteExp: borrado con confirm() (usado por el botón "Eliminar" del
+//   panel expandido). Mantiene el comportamiento de "diálogo de
+//   confirmación" porque es un solo tap deliberado.
+// - deleteExpWithUndo: borrado SIN confirm (usado por swipe). Muestra
+//   inmediatamente un toast con "Deshacer" durante 5s. La entrada se
+//   guarda localmente y se recrea vía POST si el usuario deshace.
+const deleteExp = async (id: number) => {
     if (!confirm("Eliminar gasto?")) return;
+    await deleteExpWithUndo(id);
+  };
+
+const deleteExpWithUndo = async (id: number) => {
+    // Capturamos la entrada ANTES de borrarla para poder restaurarla.
+    const entry = timeline.find((t) => t.id === id);
+    if (!entry) return;
     const res = await fetchJsonWithToast(
       `/api/expenses?id=${id}`,
       { method: "DELETE", headers: { "Content-Type": "application/json" },
@@ -481,8 +541,27 @@ export default function CarDetailClient({
       setToast,
     );
     if (!res.ok) return;
-    setToast({ msg: "Gasto eliminado", type: "success" });
-    setTimeout(() => setToast(null), 2500);
+    // Ticket 1.16: undo real — recreamos vía POST con los datos
+    // originales. Excluimos maintenance_task_id y preset_key para no
+    // disparar completeMaintenanceTask al restaurar.
+    showUndoToast("Gasto eliminado", async () => {
+      await fetch("/api/expenses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          carId: carId,
+          tipo: entry.tipo,
+          importe: entry.importe,
+          date: entry.date,
+          descripcion: entry.descripcion || "",
+          referencia: entry.referencia || "",
+          litros: entry.litros ?? null,
+          km: entry.km ?? null,
+          costeTaller: entry.coste_estimado_taller ?? null,
+        }),
+      });
+      load();
+    });
     load();
   };
   // Ticket 1.14: modal de completar tarea. Abre el modal con km_actuales
@@ -519,10 +598,22 @@ export default function CarDetailClient({
     <div className="space-y-6">
       {/* Toast */}
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 px-4 py-2 rounded-lg text-sm font-medium shadow-lg transition-all ${
+        <div className={`fixed top-4 right-4 z-50 px-4 py-2 rounded-lg text-sm font-medium shadow-lg transition-all flex items-center gap-3 ${
           toast.type === "success" ? "bg-green-600 text-white" : "bg-red-600 text-white"
         }`}>
-          {toast.msg}
+          <span>{toast.msg}</span>
+          {toast.undo && (
+            <button
+              type="button"
+              onClick={() => {
+                if (undoTimer.current) clearTimeout(undoTimer.current);
+                toast.undo!();
+              }}
+              className="ml-2 px-2 py-1 bg-white/20 hover:bg-white/30 rounded text-xs font-bold uppercase tracking-wide"
+            >
+              Deshacer
+            </button>
+          )}
         </div>
       )}
 
@@ -585,7 +676,7 @@ export default function CarDetailClient({
       <ExpenseHistory
         timeline={timeline}
         onStartEdit={startEdit}
-        onDelete={deleteExp}
+        onDelete={deleteExpWithUndo}
         onOpenAll={() => setShowAllExpenses(true)}
       />
 
@@ -600,7 +691,7 @@ export default function CarDetailClient({
         onEdit={editMaintenanceTask}
         onDelete={(taskId) => {
           const t = maintenanceTasks.find(x => x.id === taskId);
-          if (t) deleteMaintenanceTask(t);
+          if (t) deleteMaintenanceTaskWithUndo(t);
         }}
       />
 

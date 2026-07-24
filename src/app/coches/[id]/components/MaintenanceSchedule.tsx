@@ -14,6 +14,7 @@ import { fmt0, formatLongMonthYear } from "../lib/format";
 import { getIconForKey } from "@/lib/maintenance/presets";
 import type { Car, MaintenanceTask } from "../lib/types";
 import { useState } from "react";
+import SwipeableRow from "./SwipeableRow";
 
 interface MaintenanceScheduleProps {
   tasks: MaintenanceTask[];
@@ -106,18 +107,23 @@ export default function MaintenanceSchedule({
         )}
 
         {visibleTasks.map((task) => (
-          <MaintenanceRow
+          <SwipeableRow
             key={task.id}
-            task={task}
-            car={car}
-            onComplete={onCompleteTask}
-            flashing={flashTaskId === task.id}
-            registerRef={(el) => registerTaskRef?.(task.id, el)}
-            isExpanded={expandedId === task.id}
-            onToggle={() => toggle(task.id)}
             onEdit={onEdit ? () => onEdit(task) : undefined}
             onDelete={onDelete ? () => onDelete(task.id) : undefined}
-          />
+          >
+            <MaintenanceRow
+              task={task}
+              car={car}
+              onComplete={onCompleteTask}
+              flashing={flashTaskId === task.id}
+              registerRef={(el) => registerTaskRef?.(task.id, el)}
+              isExpanded={expandedId === task.id}
+              onToggle={() => toggle(task.id)}
+              onEdit={onEdit ? () => onEdit(task) : undefined}
+              onDelete={onDelete ? () => onDelete(task.id) : undefined}
+            />
+          </SwipeableRow>
         ))}
       </div>
     </div>
