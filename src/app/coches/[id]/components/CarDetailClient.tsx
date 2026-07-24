@@ -26,7 +26,28 @@ import CompleteMaintenanceModal, {
   CompleteMaintenanceForm,
 } from "./CompleteMaintenanceModal";
 
+
 import { isFuel, TIPO_COLOR } from "../lib/format";
+
+// Ticket 1.23: helper para mapear label → id semántico. Usado al editar
+// gastos antiguos que sólo tienen el label persistido.
+function tipoIdFromLabel(label: string): string {
+  const m: Record<string, string> = {
+    "Carburante": "carburante",
+    "Mantenimiento (Taller)": "mantenimiento",
+    "Mantenimiento (DIY)": "mantenimiento_diy",
+    "Tuning": "tuning",
+    "Seguro": "seguro",
+    "ITV": "itv",
+    "Impuestos": "impuestos",
+    "Parking": "parking",
+    "Peajes": "peajes",
+    "Lavado": "lavado",
+    "Otros": "otros",
+  };
+  return m[label] || "otros";
+}
+
 // Helper de red: fetch con parseo + toast de error unificado.
 // Ticket 1.4 estandariza el patrón: `res.ok` + `{ error }` en JSON + fallback
 // genérico cuando el servidor no devuelve nada legible.
@@ -71,7 +92,7 @@ export default function CarDetailClient({
   // Add expense inline
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<AddExpenseFormState>(() => ({
-    tipo: "Carburante", importe: "", date: new Date().toISOString().split("T")[0],
+    tipo: "Carburante", tipoId: "carburante", importe: "", date: new Date().toISOString().split("T")[0],
     descripcion: "", referencia: "", litros: "", km: String(initialCar.km_actuales || ""),
     costeTaller: "", selectedTask: "", scheduleNext: false, presetKey: "",
     impuesto_circulacion: false,
@@ -272,7 +293,7 @@ export default function CarDetailClient({
     submittingRef.current = false;
     setEditingId(null);   // nuevo gasto, no edición
     setForm({
-      tipo: "Carburante", importe: "", date: new Date().toISOString().split("T")[0],
+      tipo: "Carburante", tipoId: "carburante", importe: "", date: new Date().toISOString().split("T")[0],
       descripcion: "", referencia: "", litros: "",
       km: String(car?.km_actuales ?? initialCar.km_actuales ?? ""),
       costeTaller: "", selectedTask: "", scheduleNext: false, presetKey: "",
@@ -342,11 +363,12 @@ export default function CarDetailClient({
     };
     if (form.litros) body.litros = parseFloat(form.litros);
     if (form.km) body.km = parseInt(form.km);
-    if (form.tipo.includes("DIY") && form.costeTaller) body.costeTaller = parseFloat(form.costeTaller);
+    if (form.tipoId === "mantenimiento_diy" && form.costeTaller) body.costeTaller = parseFloat(form.costeTaller);
     // Ticket 1.17: si el usuario eligió un preset del catálogo, lo
     // mandamos al backend para que guarde el preset_key y permita la
     // detección automática de tareas pendientes (Ticket 1.16-fix-b).
     if (form.presetKey) body.presetKey = form.presetKey;
+    if (form.tipoId) body.tipoId = form.tipoId;
     // Ticket 1.16: si el usuario eligió una tarea abierta en el form de
     // gasto, el backend la cierra con los datos del gasto y crea la
     // siguiente automáticamente (Ticket 1.16 + 1.14 cadena).
@@ -394,7 +416,7 @@ export default function CarDetailClient({
     }
     // Ticket 1.20: si es Impuestos y el checkbox está marcado, el backend
     // actualiza cars.fecha_impuesto_circulacion con la fecha del gasto.
-    if (form.tipo === "Impuestos" && form.impuesto_circulacion) {
+    if (form.tipoId === "impuestos" && form.impuesto_circulacion) {
       body.impuesto_circulacion = true;
     }
 
@@ -427,11 +449,10 @@ export default function CarDetailClient({
   };
 
   const startEdit = (entry: TimelineEntry) => {
-    // Abre el modal de gasto con los datos del entry precargados.
-    // Al guardar, usamos PUT /api/expenses si editingId está seteado.
     setEditingId(entry.id);
     setForm({
       tipo: entry.tipo,
+      tipoId: (entry as any).tipo_id || tipoIdFromLabel(entry.tipo),
       importe: String(entry.importe),
       date: entry.date,
       descripcion: entry.descripcion || "",

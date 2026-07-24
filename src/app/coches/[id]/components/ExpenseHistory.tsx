@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import {
   fmt, fmt0, formatDate, TIPO_COLOR, CATEGORIAS,
+  isFuel, isDiy, isTaller, isMaintenance, isAnnual,
 } from "../lib/format";
 import type {
   TimelineEntry, EditExpenseFormState,
@@ -310,25 +311,22 @@ export function ReadOnlyFields({
   entry, color, isExpanded, onToggle, onStartEdit, onDelete,
 }: ReadOnlyFieldsProps) {
 
-  const Icon = entry.tipo === "Carburante" ? Fuel
-    : entry.tipo?.includes("DIY") ? Wrench
-    : entry.tipo === "Mantenimiento (Taller)" ? Wrench
-    : entry.tipo === "Seguro" ? BarChart3
+  // Ticket 1.23: usamos tipo_id semántico (estable) si está; fallback al
+  // label (legible) si no. Toda la lógica pasa por los helpers de format.tsx.
+  const entryForm = { tipo: entry.tipo, tipoId: (entry as any).tipo_id ?? null };
+  // Aliases para evitar shadow del import dentro del JSX.
+  const _fuel = isFuel(entryForm);
+  const _diy = isDiy(entryForm);
+  const _taller = isTaller(entryForm);
+  const _annual = isAnnual(entryForm);
+
+  const Icon = _fuel ? Fuel
+    : _diy ? Wrench
+    : _taller ? Wrench
+    : _annual ? BarChart3
     : Euro;
 
-  // Ticket 1.16: fila cerrada muestra lo mínimo. Carburante → fecha +
-  // litros. Resto → fecha + importe. El resto (€/L, km, descripción,
-  // referencia, coste_taller, banner ITV/Seguro/Impuestos) va en el
-  // panel expandido.
-  const isFuel = entry.tipo === "Carburante";
-  const isItv = entry.tipo === "ITV";
-  const isSeguro = entry.tipo === "Seguro";
-  const isImpuestos = entry.tipo === "Impuestos";
-  const isAnnual = isItv || isSeguro || isImpuestos;
-
   const panelId = `expense-panel-${entry.id}`;
-  const isDiy = entry.tipo?.startsWith("DIY") ?? false;
-  const isTaller = entry.tipo === "Mantenimiento (Taller)";
 
   return (
     <div>
@@ -358,7 +356,7 @@ export function ReadOnlyFields({
           </div>
           <p className="text-[11px] mt-0.5 truncate" style={{ color: TEXT_GRAY }}>
             {formatDate(entry.date)}
-            {isFuel && entry.litros ? ` · ${entry.litros} L` : ""}
+            {_fuel && entry.litros ? ` · ${entry.litros} L` : ""}
           </p>
         </div>
 
@@ -407,7 +405,7 @@ export function ReadOnlyFields({
         <div className="px-3 py-3 space-y-1.5 text-[12px]" style={{ color: TEXT_DARK }}>
           {/* Banner informativo para ITV/Seguro/Impuestos: explica al
               usuario que esta fecha actualiza automáticamente la del coche. */}
-          {isAnnual && (
+          {_annual && (
             <p
               className="rounded-md px-2 py-1 text-[11px]"
               style={{ background: "#e7eef7", color: "#1d4ed8" }}
@@ -427,7 +425,7 @@ export function ReadOnlyFields({
           )}
           {/* Detalles carburante (en fila cerrada solo mostramos fecha+litros;
               aquí añadimos €/L, km, referencia). */}
-          {isFuel && (
+          {_fuel && (
             <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
               {entry.litros != null && <p><strong>Litros:</strong> {entry.litros} L</p>}
               {entry.km != null && entry.km > 0 && <p><strong>Km:</strong> {fmt0(entry.km)}</p>}
@@ -439,7 +437,7 @@ export function ReadOnlyFields({
           )}
           {/* DIY: mostramos coste_estimado_taller sólo si es DIY (Ticket 1.16).
               Para "Mantenimiento (Taller)" no aplica, ya tienes el importe real. */}
-          {isDiy && entry.coste_estimado_taller != null && entry.coste_estimado_taller > 0 && (
+          {_diy && entry.coste_estimado_taller != null && entry.coste_estimado_taller > 0 && (
             <p>
               <strong>Coste estimado taller:</strong>{" "}
               {fmt(entry.coste_estimado_taller)} €
@@ -450,7 +448,7 @@ export function ReadOnlyFields({
           )}
           {/* Taller: nada extra. El importe ya está visible en la cabecera
               del panel y no hay referencia cruzada (no es DIY). */}
-          {isTaller && entry.referencia && (
+          {_taller && entry.referencia && (
             <p><strong>Referencia:</strong> {entry.referencia}</p>
           )}
           {/* Notas — la entrada de BD no tiene campo notes todavía; si lo

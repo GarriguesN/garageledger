@@ -15,12 +15,19 @@ export function getMonthlySpend(carId: number): { current: number; previous: num
 }
 
 export function getDiySavings(carId: number): number {
-  const row = getDb().prepare("SELECT COALESCE(SUM(coste_estimado_taller-importe),0) as savings FROM expenses WHERE car_id=? AND tipo='Mantenimiento (DIY)' AND coste_estimado_taller IS NOT NULL").get(carId) as any;
+  // Ticket 1.23: usamos tipo_id en vez de tipo (label) cuando está disponible.
+  const row = getDb().prepare(
+    "SELECT COALESCE(SUM(coste_estimado_taller-importe),0) as savings FROM expenses " +
+    "WHERE car_id=? AND (tipo_id='mantenimiento_diy' OR (tipo_id IS NULL AND tipo='Mantenimiento (DIY)')) AND coste_estimado_taller IS NOT NULL"
+  ).get(carId) as any;
   return row.savings;
 }
 
 export function getFuelConsumption(carId: number): { l100km: number | null; costPerKm: number | null; pricePerLiter: number | null } {
-  const refuels = getDb().prepare("SELECT date, importe, litros, km FROM expenses WHERE car_id=? AND tipo='Carburante' AND km IS NOT NULL AND litros IS NOT NULL ORDER BY date ASC").all(carId) as any[];
+  const refuels = getDb().prepare(
+    "SELECT date, importe, litros, km FROM expenses " +
+    "WHERE car_id=? AND (tipo_id='carburante' OR (tipo_id IS NULL AND tipo='Carburante')) AND km IS NOT NULL AND litros IS NOT NULL ORDER BY date ASC"
+  ).all(carId) as any[];
   if (refuels.length < 2) return { l100km: null, costPerKm: null, pricePerLiter: null };
   const first = refuels[0], last = refuels[refuels.length - 1];
   const diffKm = last.km - first.km;

@@ -9,9 +9,9 @@
 import {
   Euro, Calendar, FileText, Hash, Fuel, Gauge, Wrench,
 } from "lucide-react";
-import {
-  CATEGORIAS, isFuel, isDiy, isTaller,
+import { CATEGORIAS, isFuel, isDiy, isTaller,
 } from "../lib/format";
+import { CATEGORIES } from "@/lib/constants";
 import type { AddExpenseFormState, MaintenanceTask } from "../lib/types";
 import { MAINTENANCE_PRESETS } from "@/lib/maintenance/presets";
 import { useEffect, useState } from "react";
@@ -65,9 +65,20 @@ export default function AddExpenseForm({
         <select
           className="input"
           value={form.tipo}
-          onChange={(e) =>
-            onChange({ ...form, tipo: e.target.value, costeTaller: "", selectedTask: "" })
-          }
+          onChange={(e) => {
+            // Ticket 1.23: sincronizamos tipo (label) y tipoId (id
+            // semántico del catálogo) en el mismo cambio. El option
+            // value pasa a ser el id, y mostramos el label.
+            const newLabel = e.target.value;
+            const cat = CATEGORIES.find(c => c.label === newLabel);
+            onChange({
+              ...form,
+              tipo: newLabel,
+              tipoId: cat?.id ?? "",
+              costeTaller: "",
+              selectedTask: "",
+            });
+          }}
         >
           {CATEGORIAS.map((c) => (
             <option key={c} value={c}>{c}</option>

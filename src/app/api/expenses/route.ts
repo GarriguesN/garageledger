@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     body.descripcion || "", body.referencia || "",
     body.litros || null, body.km || null, body.costeTaller || null,
     {
-      impuestoCirculacion: body.tipo === "Impuestos" && body.impuesto_circulacion === true,
+      impuestoCirculacion: (body.tipoId === "impuestos" || body.tipo === "Impuestos") && body.impuesto_circulacion === true,
       maintenanceTaskId: body.maintenanceTaskId || undefined,
       // Ticket 1.16-fix: el frontend envía scheduleNext explícitamente.
       // Default true (compatibilidad) si la tarea tiene intervalos; el
@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
       scheduleNext: body.scheduleNext !== false,
       // Ticket 1.17: clave del preset elegido en el form de gasto.
       presetKey: body.presetKey || undefined,
+      tipoId: body.tipoId || undefined,
     }
   );
   return NextResponse.json(exp, { status: 201 });

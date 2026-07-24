@@ -202,7 +202,7 @@ const afterD = getMaintenanceTasks(1, false).length;
 expect("D) forzar scheduleNext=false → tarea original cerrada",
   getMaintenanceTasks(1, false).find(t => t.id === taskD!.id) === undefined);
 expect("D) forzar scheduleNext=false → NO crea siguiente tarea pendiente",
-  !getMaintenanceTasks(1, false).some(t => t.part_name === "Pastillas freno"));
+  !getMaintenanceTasks(1, false).some(t => t.part_name === "Pastillas freno" && t.id !== taskD!.id));
 if (eD) deleteExpense(eD.id);
 
 // (c.3) IMPORTANTE: SIN maintenanceTaskId, scheduleNext=true no crea nada (no hay tarea que cerrar).

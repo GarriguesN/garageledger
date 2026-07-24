@@ -139,6 +139,9 @@ function migrateSchema(db: Database.Database) {
   if (!expNames.includes("preset_key")) {
     db.exec("ALTER TABLE expenses ADD COLUMN preset_key TEXT");
   }
+  if (!expNames.includes("tipo_id")) {
+    db.exec("ALTER TABLE expenses ADD COLUMN tipo_id TEXT");
+  }
   // Backfill automático: tareas antiguas no tenían preset_key. Mapeamos
   // part_name → preset_key del catálogo para que la detección por
   // preset_key funcione en BD existentes (Ticket 1.17).
@@ -183,6 +186,27 @@ function migrateSchema(db: Database.Database) {
     ["Presión de neumáticos", "tire_pressure"],
     ["Presion de neumaticos", "tire_pressure"],
   ];
+  // Backfill tipo_id para expenses existentes: mapeamos el label al id
+  // del catálogo. UPDATE idempotente (solo filas con tipo_id IS NULL).
+  const tipoIdMap: Record<string, string> = {
+    "Carburante": "carburante",
+    "Mantenimiento (Taller)": "mantenimiento",
+    "Mantenimiento (DIY)": "mantenimiento_diy",
+    "Tuning": "tuning",
+    "Seguro": "seguro",
+    "ITV": "itv",
+    "Impuestos": "impuestos",
+    "Parking": "parking",
+    "Peajes": "peajes",
+    "Lavado": "lavado",
+    "Otros": "otros",
+  };
+  for (const [label, id] of Object.entries(tipoIdMap)) {
+    db.prepare(
+      "UPDATE expenses SET tipo_id=? WHERE tipo=? AND (tipo_id IS NULL OR tipo_id='')"
+    ).run(id, label);
+  }
+
   for (const [partName, presetKey] of presets) {
     db.prepare(
       "UPDATE maintenance_tasks SET preset_key=? WHERE part_name=? AND (preset_key IS NULL OR preset_key='')",

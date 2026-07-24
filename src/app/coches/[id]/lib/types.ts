@@ -40,6 +40,8 @@ export interface TimelineEntry {
 
 export interface AddExpenseFormState {
   tipo: string;
+  /** Ticket 1.23: id semántico estable del catálogo. */
+  tipoId?: string;
   importe: string;
   date: string;
   descripcion: string;

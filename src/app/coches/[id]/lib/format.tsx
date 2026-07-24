@@ -59,24 +59,44 @@ export function Sparkline({ data }: { data: number[] }): React.ReactElement | nu
 }
 
 // audit:M-9 — CATEGORIAS y TIPO_COLOR derivados de @/lib/constants (origen único).
+export { CATEGORIES };
 export const CATEGORIAS = CATEGORIES.map(c => c.label);
 export const TIPO_COLOR = Object.fromEntries(CATEGORIES.map(c => [c.label, c.color])) as Record<string, string>;
 
-// Funciones puras de cálculo derivadas — útiles para que varios
-// subcomponentes tengan el mismo cálculo sin duplicar.
-export function isFuel(form: { tipo: string }) {
-  return form.tipo === "Carburante";
+// Ticket 1.23: funciones puras de check por tipo. Usan `tipoId` cuando
+// está disponible (fuente de verdad estable) y caen al `tipo` (label
+// legible) como fallback. Esto evita comparaciones literales dispersas
+// por el código que se rompen cuando alguien añade un typo o renombra
+// una categoría.
+
+/** Acepta (tipo) o (tipo, tipoId). Devuelve true si es el id semántico o
+ *  si el label matchea (case-insensitive). */
+function matches(form: { tipo: string; tipoId?: string | null | undefined }, id: string, label: string): boolean {
+  if (form.tipoId) return form.tipoId === id;
+  return form.tipo.toLowerCase() === label.toLowerCase();
+}
+
+export function isFuel(form: { tipo: string; tipoId?: string | null | undefined }) {
+  return matches(form, "carburante", "Carburante");
 }
 // DIY: solo el gasto hecho por el usuario (no Taller). Es donde tiene
 // sentido comparar contra "coste_estimado_taller".
-export function isDiy(form: { tipo: string }) {
-  return form.tipo === "Mantenimiento (DIY)";
+export function isDiy(form: { tipo: string; tipoId?: string | null | undefined }) {
+  return matches(form, "mantenimiento_diy", "Mantenimiento (DIY)");
 }
 // Taller: gasto pagado al mecánico. NO muestra coste_estimado_taller
 // (Ticket 1.16) porque ya tienes el importe real.
-export function isTaller(form: { tipo: string }) {
-  return form.tipo === "Mantenimiento (Taller)";
+export function isTaller(form: { tipo: string; tipoId?: string | null | undefined }) {
+  return matches(form, "mantenimiento", "Mantenimiento (Taller)");
 }
-export function isMaintenance(form: { tipo: string }) {
+export function isMaintenance(form: { tipo: string; tipoId?: string | null | undefined }) {
   return isFuel(form) || isDiy(form) || isTaller(form);
+}
+
+/** ITV/Seguro/Impuestos son los tipos con cadencia anual y auto-actualizan
+ *  la fecha del coche. Ticket 1.23. */
+export function isAnnual(form: { tipo: string; tipoId?: string | null | undefined }) {
+  return matches(form, "itv", "ITV")
+      || matches(form, "seguro", "Seguro")
+      || matches(form, "impuestos", "Impuestos");
 }
