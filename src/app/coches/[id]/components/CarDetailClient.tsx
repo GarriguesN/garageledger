@@ -501,6 +501,7 @@ export default function CarDetailClient({
           form={programForm}
           saving={programSaving}
           error={programError}
+          carKm={car?.km_actuales ?? initialCar.km_actuales ?? 0}
           onChange={setProgramForm}
           onSubmit={() => { submitProgramMaintenance(); }}
           onCancel={closeProgramMaintenance}

@@ -33,10 +33,20 @@ interface ProgramMaintenanceFormBodyProps {
   onChange: (next: ProgramMaintenanceFormState) => void;
   onSubmit: () => void;
   onCancel: () => void;
+  /** Km actuales del coche. Si el usuario elige un preset y no ha
+   *  rellenado current_km manualmente, lo usamos como base para
+   *  calcular next_km. */
+  carKm: number;
+}
+
+function addMonthsToDate(date: string, months: number): string {
+  const d = new Date(date + "T12:00:00");
+  d.setMonth(d.getMonth() + months);
+  return d.toISOString().split("T")[0];
 }
 
 export default function ProgramMaintenanceFormBody({
-  form, saving, error, onChange, onSubmit, onCancel,
+  form, saving, error, carKm, onChange, onSubmit, onCancel,
 }: ProgramMaintenanceFormBodyProps) {
   const groups = groupPresetsByCategory();
 
@@ -47,12 +57,18 @@ export default function ProgramMaintenanceFormBody({
     }
     const preset = findPresetByKey(key);
     if (!preset) return;
+    const today = new Date().toISOString().split("T")[0];
+    const hasKm = parseInt(form.current_km) || carKm;
+    const hasIntervalKm = preset.interval_km > 0;
+    const hasIntervalMonths = preset.interval_months > 0;
     onChange({
       ...form,
       preset_key: key,
       part_name: preset.part_name,
       interval_km: preset.interval_km ? String(preset.interval_km) : form.interval_km,
       interval_months: preset.interval_months ? String(preset.interval_months) : form.interval_months,
+      next_km: hasKm && hasIntervalKm ? String(hasKm + preset.interval_km) : form.next_km,
+      next_date: hasIntervalMonths ? addMonthsToDate(today, preset.interval_months) : form.next_date,
     });
   }
 
@@ -122,7 +138,21 @@ export default function ProgramMaintenanceFormBody({
             min="0"
             placeholder="Ej. 100000"
             value={form.current_km}
-            onChange={(e) => onChange({ ...form, current_km: e.target.value })}
+            onChange={(e) => {
+              const currentKm = e.target.value;
+              const intervalKm = parseInt(form.interval_km) || 0;
+              const intervalMonths = parseInt(form.interval_months || "0");
+              onChange({
+                ...form,
+                current_km: currentKm,
+                next_km: intervalKm > 0 && currentKm ? String(parseInt(currentKm) + intervalKm) : form.next_km,
+                // Auto-rellenar next_date si hay interval_months y el
+                // usuario no ha puesto fecha manualmente todavía.
+                next_date: !form.next_date && intervalMonths > 0
+                  ? addMonthsToDate(new Date().toISOString().split("T")[0], intervalMonths)
+                  : form.next_date,
+              });
+            }}
           />
         </div>
       </div>
