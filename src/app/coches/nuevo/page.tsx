@@ -14,6 +14,7 @@ export default function NuevoCoche() {
     fecha_matriculacion: '', km_origen: 'matriculacion',
     matricula: '', bastidor: '', combustible: 'Gasolina',
     potencia_cv: '', cilindrada_cc: '', peso_kg: '', plazas: '', color: '',
+    fecha_ivtm: '', fecha_ultima_itv: '', fecha_vencimiento_seguro: '',
   });
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -42,6 +43,9 @@ export default function NuevoCoche() {
           km: form.km ? parseInt(form.km) : 0,
           fecha_matriculacion: form.fecha_matriculacion || null,
           km_origen: form.km_origen || 'matriculacion',
+          fecha_ivtm: form.fecha_ivtm || null,
+          fecha_ultima_itv: form.fecha_ultima_itv || null,
+          fecha_vencimiento_seguro: form.fecha_vencimiento_seguro || null,
           potencia_cv: form.potencia_cv ? parseInt(form.potencia_cv) : null,
           cilindrada_cc: form.cilindrada_cc ? parseInt(form.cilindrada_cc) : null,
           peso_kg: form.peso_kg ? parseInt(form.peso_kg) : null,
@@ -88,8 +92,9 @@ export default function NuevoCoche() {
   };
 
   return (
-    <div className="space-y-6 max-w-lg mx-auto">
-      <div className="card space-y-4">
+    /* Ticket 1.22: form sin card wrapper — mobile-first, aprovecha todo el ancho. */
+    <div className="space-y-6 px-3 sm:px-4 py-4">
+      <div className="space-y-4">
         {/* Marca + Modelo */}
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -246,6 +251,48 @@ export default function NuevoCoche() {
                 </div>
               </div>
             </label>
+          </div>
+        </div>
+
+        {/* Fechas legales (ITV, seguro, IVTM) — Ticket 1.22 */}
+        <div>
+          <p className="text-xs text-[var(--text-muted)] mb-1.5 font-semibold">Fechas legales</p>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs text-[var(--text-muted)] mb-1">Última ITV</label>
+              <div className="input-wrapper">
+                <span className="input-icon"><Calendar size={16} /></span>
+                <input className="input" type="date"
+                  value={form.fecha_ultima_itv}
+                  onChange={e => setForm({...form, fecha_ultima_itv: e.target.value})}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--text-muted)] mb-1">Vencimiento seguro</label>
+              <div className="input-wrapper">
+                <span className="input-icon"><Calendar size={16} /></span>
+                <input className="input" type="date"
+                  value={form.fecha_vencimiento_seguro}
+                  onChange={e => setForm({...form, fecha_vencimiento_seguro: e.target.value})}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--text-muted)] mb-1">
+                Fecha del último pago del IVTM
+              </label>
+              <div className="input-wrapper">
+                <span className="input-icon"><Calendar size={16} /></span>
+                <input className="input" type="date"
+                  value={form.fecha_ivtm}
+                  onChange={e => setForm({...form, fecha_ivtm: e.target.value})}
+                />
+              </div>
+              <p className="text-[11px] text-[var(--text-muted)] mt-1">
+                Los plazos municipales varían (lo más común: mayo-junio). Lo usamos para alertarte antes de que caduque.
+              </p>
+            </div>
           </div>
         </div>
 

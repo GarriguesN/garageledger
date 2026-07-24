@@ -31,7 +31,7 @@ function initSchema(db: Database.Database) {
       matricula TEXT NOT NULL DEFAULT '', bastidor TEXT NOT NULL DEFAULT '', combustible TEXT NOT NULL DEFAULT 'Gasolina',
       foto_attachment_id INTEGER, archivado INTEGER NOT NULL DEFAULT 0,
       fecha_matriculacion TEXT, km_origen TEXT NOT NULL DEFAULT 'matriculacion',
-      fecha_impuesto_circulacion TEXT,
+      fecha_impuesto_circulacion TEXT, fecha_ivtm TEXT,
       potencia_cv INTEGER, cilindrada_cc INTEGER, peso_kg INTEGER, plazas INTEGER, color TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -86,6 +86,13 @@ function migrateSchema(db: Database.Database) {
   // (impuesto de circulación municipal anual), se actualiza aquí.
   if (!colNames.includes("fecha_impuesto_circulacion")) {
     db.exec("ALTER TABLE cars ADD COLUMN fecha_impuesto_circulacion TEXT");
+  }
+
+  // Ticket 1.22 — fecha_ivtm: fecha del último pago del IVTM, editable
+  // por el usuario (los plazos municipales varían; el usuario sabe mejor
+  // cuándo pagó). Usada por metrics.ts para alertas anuales.
+  if (!colNames.includes("fecha_ivtm")) {
+    db.exec("ALTER TABLE cars ADD COLUMN fecha_ivtm TEXT");
   }
 
   // Ticket 1.20 — datos completos del vehículo. Caballos fiscales (CV),

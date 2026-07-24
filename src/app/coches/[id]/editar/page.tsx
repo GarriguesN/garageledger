@@ -18,6 +18,7 @@ export default function EditarCoche() {
     fecha_matriculacion: '', km_origen: 'matriculacion',
     matricula: '', bastidor: '', combustible: 'Gasolina',
     potencia_cv: '', cilindrada_cc: '', peso_kg: '', plazas: '', color: '',
+    fecha_ivtm: '',
   });
   const [existingFotoId, setExistingFotoId] = useState<number | null>(null);
   const [photo, setPhoto] = useState<File | null>(null);
@@ -47,6 +48,7 @@ export default function EditarCoche() {
           peso_kg: c.peso_kg?.toString() || '',
           plazas: c.plazas?.toString() || '',
           color: c.color || '',
+          fecha_ivtm: c.fecha_ivtm || '',
         });
         setExistingFotoId(c.foto_attachment_id ?? null);
         if (c.foto_attachment_id) {
@@ -107,6 +109,7 @@ export default function EditarCoche() {
           peso_kg: form.peso_kg ? parseInt(form.peso_kg) : null,
           plazas: form.plazas ? parseInt(form.plazas) : null,
           color: form.color || null,
+          fecha_ivtm: form.fecha_ivtm || null,
           matricula: form.matricula,
           bastidor: form.bastidor,
           combustible: form.combustible,
@@ -141,8 +144,9 @@ export default function EditarCoche() {
   if (loading) return <div className="space-y-3"><div className="skeleton h-96" /></div>;
 
   return (
-    <div className="max-w-lg mx-auto space-y-6">
-      <div className="card space-y-4">
+    /* Ticket 1.22: form sin card wrapper — mobile-first, aprovecha todo el ancho. */
+    <div className="px-3 sm:px-4 py-4 space-y-6">
+      <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-[var(--text-muted)] mb-1">Marca</label>
@@ -201,6 +205,79 @@ export default function EditarCoche() {
           </div>
         </div>
 
+        
+        {/* Ticket 1.20: Fecha de matriculación + Contar km desde */}
+        <div>
+          <label className="block text-xs text-[var(--text-muted)] mb-1.5">
+            Fecha de matriculación <span className="opacity-60">(opcional)</span>
+          </label>
+          <div className="input-wrapper">
+            <span className="input-icon"><Calendar size={16} /></span>
+            <input
+              className="input"
+              type="date"
+              value={form.fecha_matriculacion}
+              onChange={e => setForm({...form, fecha_matriculacion: e.target.value})}
+            />
+          </div>
+          <p className="text-[11px] text-[var(--text-muted)] mt-1">
+            Cuándo se dio de alta el coche en Tráfico. La usamos para calcular la media mensual real.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-xs text-[var(--text-muted)] mb-1.5">
+            Contar km desde
+          </label>
+          <div className="space-y-2 mt-1">
+            <label className={`flex items-start gap-2 cursor-pointer rounded-lg border p-2.5 transition-colors ${
+              form.km_origen === "matriculacion"
+                ? "border-[var(--accent)] bg-[var(--accent)]/5"
+                : "border-[var(--border-color)] hover:bg-[var(--bg-secondary)]"
+            } ${!form.fecha_matriculacion ? "opacity-60" : ""}`}>
+              <input
+                type="radio"
+                name="km_origen"
+                value="matriculacion"
+                checked={form.km_origen === "matriculacion"}
+                onChange={() => setForm({...form, km_origen: "matriculacion"})}
+                disabled={!form.fecha_matriculacion}
+                className="mt-0.5"
+              />
+              <div className="min-w-0">
+                <div className="text-sm font-medium">Fecha de matriculación</div>
+                <div className="text-[11px] text-[var(--text-muted)] leading-snug mt-0.5">
+                  Calculamos la media mensual dividiendo los km totales entre los meses desde la fecha que indicaste arriba.
+                  {!form.fecha_matriculacion && (
+                    <span className="block mt-0.5 italic">Rellena la fecha para activar esta opción.</span>
+                  )}
+                </div>
+              </div>
+            </label>
+            <label className={`flex items-start gap-2 cursor-pointer rounded-lg border p-2.5 transition-colors ${
+              form.km_origen === "primer_registro"
+                ? "border-[var(--accent)] bg-[var(--accent)]/5"
+                : "border-[var(--border-color)] hover:bg-[var(--bg-secondary)]"
+            }`}>
+              <input
+                type="radio"
+                name="km_origen"
+                value="primer_registro"
+                checked={form.km_origen === "primer_registro"}
+                onChange={() => setForm({...form, km_origen: "primer_registro"})}
+                className="mt-0.5"
+              />
+              <div className="min-w-0">
+                <div className="text-sm font-medium">Primer registro con km</div>
+                <div className="text-[11px] text-[var(--text-muted)] leading-snug mt-0.5">
+                  Calculamos la media mensual desde la fecha de tu primer gasto o mantenimiento que tenga km.
+                  Útil si no conoces la fecha de matriculación.
+                </div>
+              </div>
+            </label>
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-[var(--text-muted)] mb-1">Matrícula</label>
@@ -244,6 +321,20 @@ export default function EditarCoche() {
               <input className="input" type="date" value={form.fecha_vencimiento_seguro} onChange={e => setForm({...form, fecha_vencimiento_seguro: e.target.value})} />
             </div>
           </div>
+        </div>
+
+        {/* Ticket 1.22 — Fecha del último pago del IVTM (en fila aparte) */}
+        <div>
+          <label className="block text-xs text-[var(--text-muted)] mb-1">
+            Fecha del último pago del IVTM
+          </label>
+          <div className="input-wrapper">
+            <span className="input-icon"><Calendar size={16} /></span>
+            <input className="input" type="date" value={form.fecha_ivtm} onChange={e => setForm({...form, fecha_ivtm: e.target.value})} />
+          </div>
+          <p className="text-[11px] text-[var(--text-muted)] mt-1">
+            Los plazos municipales varían (lo más común: mayo-junio). Lo usamos para alertarte antes de que caduque.
+          </p>
         </div>
 
         {/* Datos técnicos del vehículo — Ticket 1.20 */}

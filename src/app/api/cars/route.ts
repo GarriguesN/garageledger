@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
     fecha_matriculacion: body.fecha_matriculacion ?? null,
     km_origen: body.km_origen ?? "matriculacion",
     fecha_impuesto_circulacion: body.fecha_impuesto_circulacion ?? null,
+    fecha_ivtm: body.fecha_ivtm ?? null,
     potencia_cv: body.potencia_cv ?? null,
     cilindrada_cc: body.cilindrada_cc ?? null,
     peso_kg: body.peso_kg ?? null,

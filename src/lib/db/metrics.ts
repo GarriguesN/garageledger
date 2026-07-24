@@ -101,7 +101,10 @@ export function getCarMetrics(carId: number) {
       }
     }
 
-    // Impuesto de circulación (IVTM) — anual, misma lógica que ITV.
+    // Impuesto de circulación (IVTM) — anual, dos formas:
+    //   - fecha_impuesto_circulacion: la pone el auto-update al marcar el
+    //     checkbox del IVTM en un gasto. La alerta sale si < hace 1 año.
+    //   - fecha_ivtm: la rellena el usuario directamente en el form.
     if (car.fecha_impuesto_circulacion) {
       const lastTax = new Date(car.fecha_impuesto_circulacion + "T12:00:00");
       const dueTax = new Date(lastTax.getTime() + 365 * 24 * 60 * 60 * 1000);
@@ -109,6 +112,15 @@ export function getCarMetrics(carId: number) {
         alerts.push({ type: 'critical', message: `Impuesto de circulación caducado (${car.fecha_impuesto_circulacion})` });
       } else if ((dueTax.getTime() - Date.now()) < 30 * 24 * 60 * 60 * 1000) {
         alerts.push({ type: 'warning', message: `Impuesto de circulación próximo: ${dueTax.toLocaleDateString("es-ES")}` });
+      }
+    }
+    if (car.fecha_ivtm) {
+      const lastIvtm = new Date(car.fecha_ivtm + "T12:00:00");
+      const dueIvtm = new Date(lastIvtm.getTime() + 365 * 24 * 60 * 60 * 1000);
+      if (dueIvtm < new Date()) {
+        alerts.push({ type: 'critical', message: `IVTM caducado (${car.fecha_ivtm})` });
+      } else if ((dueIvtm.getTime() - Date.now()) < 30 * 24 * 60 * 60 * 1000) {
+        alerts.push({ type: 'warning', message: `IVTM próximo: ${dueIvtm.toLocaleDateString("es-ES")}` });
       }
     }
   }

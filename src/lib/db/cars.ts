@@ -20,6 +20,11 @@ export interface Car {
    *  actualiza automáticamente al guardar un gasto de tipo "Impuestos".
    *  La alerta se dispara si la fecha es < hace 1 año. */
   fecha_impuesto_circulacion: string | null;
+  /** Fecha del último pago del IVTM, editable directamente en el form de
+   *  crear/editar coche. Los plazos municipales varían (1 mayo-30 jun en
+   *  la mayoría; algunos ayuntamientos reparten por matrículas, otros
+   *  anual). El usuario rellena esta fecha; metrics.ts alerta si >365 días. */
+  fecha_ivtm: string | null;
   /** Caballos fiscales (potencia administrativa del coche). */
   potencia_cv: number | null;
   /** Cilindrada del motor en cc. */
@@ -56,6 +61,7 @@ export interface CreateCarInput {
   fecha_matriculacion?: string | null;
   km_origen?: "matriculacion" | "primer_registro";
   fecha_impuesto_circulacion?: string | null;
+  fecha_ivtm?: string | null;
   potencia_cv?: number | null;
   cilindrada_cc?: number | null;
   peso_kg?: number | null;
@@ -65,8 +71,8 @@ export interface CreateCarInput {
 
 export function createCar(input: CreateCarInput): Car {
   const r = getDb().prepare(`INSERT INTO cars
-    (marca, modelo, generacion, motor, ano, puertas, km_actuales, matricula, bastidor, combustible, foto_attachment_id, fecha_matriculacion, km_origen, fecha_impuesto_circulacion, potencia_cv, cilindrada_cc, peso_kg, plazas, color)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+    (marca, modelo, generacion, motor, ano, puertas, km_actuales, matricula, bastidor, combustible, foto_attachment_id, fecha_matriculacion, km_origen, fecha_impuesto_circulacion, fecha_ivtm, potencia_cv, cilindrada_cc, peso_kg, plazas, color, notes)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
       input.marca,
       input.modelo,
       input.generacion || "",
@@ -81,11 +87,13 @@ export function createCar(input: CreateCarInput): Car {
       input.fecha_matriculacion ?? null,
       input.km_origen ?? "matriculacion",
       input.fecha_impuesto_circulacion ?? null,
+      input.fecha_ivtm ?? null,
       input.potencia_cv ?? null,
       input.cilindrada_cc ?? null,
       input.peso_kg ?? null,
       input.plazas ?? null,
       input.color ?? null,
+      "",  // notes (lo escribe el usuario desde /api/notes; default vacío)
     );
   return getCar(r.lastInsertRowid as number)!;
 }
@@ -97,7 +105,8 @@ export function updateCar(id: number, fields: Record<string, any>): Car | undefi
     "fecha_ultima_itv","fecha_vencimiento_seguro","mantenimiento_config","notes",
     "matricula","bastidor","combustible","foto_attachment_id","archivado",
     "fecha_matriculacion","km_origen",
-    "fecha_impuesto_circulacion","potencia_cv","cilindrada_cc","peso_kg","plazas","color",
+    "fecha_impuesto_circulacion","fecha_ivtm",
+    "potencia_cv","cilindrada_cc","peso_kg","plazas","color",
   ];
   const sets: string[] = []; const vals: any[] = [];
   for (const k of allowed) { if (k in fields) { sets.push(`${k}=?`); vals.push(fields[k]); } }
