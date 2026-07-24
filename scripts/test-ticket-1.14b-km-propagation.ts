@@ -3,6 +3,8 @@
 
 import { createExpense, getCar, getExpense, deleteExpense } from "../src/lib/db";
 import { bumpKmIfHigher } from "../src/lib/db/cars";
+import * as fs from "fs";
+import * as path from "path";
 
 let pass = 0, fail = 0;
 function expect(label: string, cond: boolean) {
@@ -37,12 +39,10 @@ expect("car.km_actuales refleja el km del gasto", carAfter?.km_actuales === newK
 // El form de Añadir gasto en el frontend lee car.km_actuales al abrirse:
 // Confirmamos en código fuente que se usa car?.km_actuales ?? initialCar.km_actuales
 // en el path de "abrir modal", no solo al mount.
-const ccdSource = safeCall("leer CarDetailClient.tsx", () => "") ?? "";
-const fs = require("fs");
-const ccdContent = fs.readFileSync(
-  "/root/work/garageledger/src/app/coches/[id]/components/CarDetailClient.tsx",
-  "utf-8",
-);
+// Ruta relativa al repo (no absoluta de mi sandbox). __dirname es el
+// directorio del script (scripts/), así que .. va al root del repo.
+const CCD_PATH = path.join(__dirname, "..", "src", "app", "coches", "[id]", "components", "CarDetailClient.tsx");
+const ccdContent = fs.readFileSync(CCD_PATH, "utf-8");
 expect("CarDetailClient tiene openExpenseForm que usa car?.km_actuales",
   ccdContent.includes("openExpenseForm") &&
   /openExpenseForm[\s\S]{0,500}car\?\.km_actuales/.test(ccdContent));

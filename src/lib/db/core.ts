@@ -82,6 +82,15 @@ function migrateSchema(db: Database.Database) {
   if (!colNames.includes("foto_attachment_id")) db.exec("ALTER TABLE cars ADD COLUMN foto_attachment_id INTEGER");
   if (!colNames.includes("archivado")) db.exec("ALTER TABLE cars ADD COLUMN archivado INTEGER NOT NULL DEFAULT 0");
 
+  // Ticket 1.19 — fecha_matriculacion + km_origen: editable por el usuario
+  // desde el form de crear/editar coche. Idempotente — solo añade si faltan.
+  if (!colNames.includes("fecha_matriculacion")) {
+    db.exec("ALTER TABLE cars ADD COLUMN fecha_matriculacion TEXT");
+  }
+  if (!colNames.includes("km_origen")) {
+    db.exec("ALTER TABLE cars ADD COLUMN km_origen TEXT NOT NULL DEFAULT 'matriculacion'");
+  }
+
   // Ticket 1.19 — fecha_impuesto_circulacion: cuando se paga el IVTM
   // (impuesto de circulación municipal anual), se actualiza aquí.
   if (!colNames.includes("fecha_impuesto_circulacion")) {
