@@ -93,7 +93,9 @@ export default function CarDetailClient({
   const [programSaving, setProgramSaving] = useState(false);
   const [programError, setProgramError] = useState<string | null>(null);
 
+  const programSubmittingRef = { current: false };
   const submitProgramMaintenance = async () => {
+    if (programSubmittingRef.current) return;
     setProgramError(null);
     const part_name = programForm.part_name.trim();
     if (!part_name) {
@@ -106,6 +108,7 @@ export default function CarDetailClient({
       setProgramError("Indica al menos un próximo km o una próxima fecha.");
       return;
     }
+    programSubmittingRef.current = true;
     setProgramSaving(true);
     try {
       // current_km es opcional. Si el usuario no lo rellena, usamos
@@ -150,6 +153,7 @@ export default function CarDetailClient({
       load();
     } finally {
       setProgramSaving(false);
+      programSubmittingRef.current = false;
     }
   };
 
@@ -389,6 +393,7 @@ export default function CarDetailClient({
       body.impuesto_circulacion = true;
     }
 
+    console.log("[submitForm]", { type: form.tipo, selectedTask: form.selectedTask, scheduleNext: form.scheduleNext, presetKey: form.presetKey, body });
     const method = editingId ? "PUT" : "POST";
     const url = editingId ? `/api/expenses?id=${editingId}` : "/api/expenses";
     const res = await fetchJsonWithToast(
