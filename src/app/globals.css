@@ -235,14 +235,3 @@ body {
 	color: var(--accent);
 }
 
-/* Ticket 1.23-fix: inputs date en movil hacen overflow.
-   Tamaño proporcional al grid: ni muy pequeño (140px se veia chico)
-   ni muy grande (deja overflow). min-width garantiza minimo 130px
-   y el input ocupa el wrapper sin desbordar. */
-input[type="date"] {
-/* Ticket 1.23-fix: inputs date en movil hacen overflow. Tamaño proporcional. */
-input[type="date"] {
-	min-width: 130px;
-	width: 100%;
-	box-sizing: border-box;
-}
