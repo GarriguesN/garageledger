@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import {
   fmt, fmt0, formatDate, TIPO_COLOR, CATEGORIAS,
-  isFuel, isDiy, isTaller, isMaintenance, isAnnual,
+  isFuel, isDiy, isTaller, isMaintenance, isAnnual, isItv, isSeguro, isImpuestos,
 } from "../lib/format";
 import type {
   TimelineEntry, EditExpenseFormState,
@@ -319,6 +319,9 @@ export function ReadOnlyFields({
   const _diy = isDiy(entryForm);
   const _taller = isTaller(entryForm);
   const _annual = isAnnual(entryForm);
+  const _itv = isItv(entryForm);
+  const _seguro = isSeguro(entryForm);
+  const _impuestos = isImpuestos(entryForm);
 
   const Icon = _fuel ? Fuel
     : _diy ? Wrench
@@ -412,9 +415,9 @@ export function ReadOnlyFields({
             >
               ℹ️ Esta fecha actualiza automáticamente{" "}
               <strong>
-                {isItv && "fecha_ultima_itv"}
-                {isSeguro && "fecha_vencimiento_seguro"}
-                {isImpuestos && "fecha_impuesto_circulacion"}
+                {_itv && "fecha_ultima_itv"}
+                {_seguro && "fecha_vencimiento_seguro"}
+                {_impuestos && "fecha_impuesto_circulacion"}
               </strong>{" "}
               del coche.
             </p>

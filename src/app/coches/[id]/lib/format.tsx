@@ -95,6 +95,15 @@ export function isMaintenance(form: { tipo: string; tipoId?: string | null | und
 
 /** ITV/Seguro/Impuestos son los tipos con cadencia anual y auto-actualizan
  *  la fecha del coche. Ticket 1.23. */
+export function isItv(form: { tipo: string; tipoId?: string | null | undefined }) {
+  return matches(form, "itv", "ITV");
+}
+export function isSeguro(form: { tipo: string; tipoId?: string | null | undefined }) {
+  return matches(form, "seguro", "Seguro");
+}
+export function isImpuestos(form: { tipo: string; tipoId?: string | null | undefined }) {
+  return matches(form, "impuestos", "Impuestos");
+}
 export function isAnnual(form: { tipo: string; tipoId?: string | null | undefined }) {
   return matches(form, "itv", "ITV")
       || matches(form, "seguro", "Seguro")
