@@ -40,12 +40,15 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
   let body: any;
   try { body = await req.json(); } catch {
     return NextResponse.json({ error: "Cuerpo JSON inválido" }, { status: 400 });
   }
-  const { id, ...fields } = body;
+  // El frontend envía el id como query param (?id=37) y los campos en el body.
+  const id = body.id ?? searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+  const { id: _, ...fields } = body;
   const updated = updateExpense(parseInt(id), fields);
   return updated
     ? NextResponse.json(updated)

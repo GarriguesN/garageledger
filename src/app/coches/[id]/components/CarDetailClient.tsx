@@ -266,6 +266,7 @@ export default function CarDetailClient({
     // Reset del ref cada vez que abrimos el modal. Sin esto, un segundo
     // open tras un error previo quedaría bloqueado por submittingRef=true.
     submittingRef.current = false;
+    setEditingId(null);   // nuevo gasto, no edición
     setForm({
       tipo: "Carburante", importe: "", date: new Date().toISOString().split("T")[0],
       descripcion: "", referencia: "", litros: "",
