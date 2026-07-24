@@ -67,15 +67,24 @@ export function getOpenMaintenanceTasksByName(carId: number, partName: string): 
   ).all(carId, partName) as MaintenanceTask[];
   if (exact.length > 0) return exact;
   // 2) Fuzzy: extraemos palabras clave (≥4 chars) y buscamos con OR.
-  //    "Aceite de motor y filtro" → LIKE '%aceite%' OR LIKE '%filtro%' → 
-  //    encuentra "Aceite y filtro".
+  //    Ordenamos por score (más palabras coincidentes = más arriba) y luego
+  //    por next_km. Esto evita que "Cambio de aceite y filtro" se matchee
+  //    con "Filtro de habitáculo" porque ambos contienen "filtro".
   const words = partName.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 4);
   if (words.length === 0) return [];
-  const likes = words.map(() => "LOWER(part_name) LIKE ?").join(" OR ");
-  const params = words.map((w: string) => `%${w}%`);
-  return getDb().prepare(
-    `SELECT * FROM maintenance_tasks WHERE car_id=? AND completed=0 AND (${likes}) ORDER BY next_km ASC`,
-  ).all(carId, ...params) as MaintenanceTask[];
+  // Calcular score por tarea: número de palabras coincidentes
+  const allTasks = getDb().prepare(
+    "SELECT * FROM maintenance_tasks WHERE car_id=? AND completed=0 ORDER BY next_km ASC",
+  ).all(carId) as MaintenanceTask[];
+  const scored = allTasks
+    .map((t) => {
+      const tname = t.part_name.toLowerCase();
+      const matched = words.filter((w) => tname.includes(w)).length;
+      return { task: t, score: matched };
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score || a.task.next_km! - b.task.next_km!);
+  return scored.map((x) => x.task);
 }
 export function createMaintenanceTask(carId: number, part_name: string, opts: {
   part_brand?: string; part_model?: string;
