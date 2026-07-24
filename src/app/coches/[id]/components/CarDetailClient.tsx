@@ -33,6 +33,7 @@ import { isFuel, TIPO_COLOR } from "../lib/format";
 import { fetchJsonWithToast } from "../lib/net";
 import { publishMatricula } from "@/components/TopBarContext";
 import type { KmStats } from "@/lib/db/cars";
+import { MAINTENANCE_PRESETS } from "@/lib/maintenance/presets";
 import type {
   Car, CarMetrics, TimelineEntry, MaintenanceTask,
   AddExpenseFormState, EditExpenseFormState,
@@ -310,9 +311,39 @@ export default function CarDetailClient({
     // Ticket 1.16-fix: el checkbox "Programar el siguiente" controla si
     // queremos que completeMaintenanceTask cree la tarea recurrente o
     // sólo cierre la actual sin dejar tarea fantasma.
+    // Ticket 1.16-fix-b: si selectedTask === "__new__", primero creamos la
+    // tarea nueva con los datos del preset y del form, y después pasamos
+    // su id como maintenanceTaskId.
     if (form.selectedTask) {
-      body.maintenanceTaskId = parseInt(form.selectedTask);
-      body.scheduleNext = form.scheduleNext;
+      if (form.selectedTask === "__new__") {
+        const preset = MAINTENANCE_PRESETS.find(
+          (p) => p.key === form.presetKey,
+        );
+        if (preset) {
+          const createBody: Record<string, unknown> = {
+            carId, part_name: preset.part_name,
+            icon_key: preset.icon_key, preset_key: preset.key,
+            interval_km: preset.interval_km, interval_months: preset.interval_months,
+            current_km: parseInt(form.km) || null,
+            current_date: form.date,
+            next_km: preset.interval_km ? (parseInt(form.km) || 0) + preset.interval_km : null,
+          };
+          const tr = await fetchJsonWithToast(
+            "/api/maintenance",
+            { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(createBody),
+              fallback: "No se pudo crear la tarea de mantenimiento." },
+            setToast,
+          );
+          if (tr.ok) {
+            const newTask = tr.data as { id: number };
+            body.maintenanceTaskId = newTask.id;
+            body.scheduleNext = form.scheduleNext;
+          }
+        }
+      } else {
+        body.maintenanceTaskId = parseInt(form.selectedTask);
+        body.scheduleNext = form.scheduleNext;
+      }
     }
     // Ticket 1.20: si es Impuestos y el checkbox está marcado, el backend
     // actualiza cars.fecha_impuesto_circulacion con la fecha del gasto.
@@ -451,6 +482,7 @@ export default function CarDetailClient({
         mainId="page-main"
       >
         <AddExpenseFormFields
+          carId={carId}
           form={form}
           maintenanceTasks={maintenanceTasks}
           saving={saving}
