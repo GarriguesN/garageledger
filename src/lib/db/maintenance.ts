@@ -58,11 +58,24 @@ export function getOpenMaintenanceTasksByPreset(carId: number, presetKey: string
 }
 
 /** Busca tareas abiertas por nombre de pieza (fallback cuando no hay
- *  preset_key en las tareas antiguas). */
+ *  preset_key en las tareas antiguas). Usa LIKE para ser tolerante
+ *  a variaciones (ej. "Aceite y filtro" vs "Aceite de motor y filtro"). */
 export function getOpenMaintenanceTasksByName(carId: number, partName: string): MaintenanceTask[] {
-  return getDb().prepare(
+  // 1) Búsqueda exacta (la mayoría de casos)
+  const exact = getDb().prepare(
     "SELECT * FROM maintenance_tasks WHERE car_id=? AND part_name=? AND completed=0 ORDER BY next_km ASC",
   ).all(carId, partName) as MaintenanceTask[];
+  if (exact.length > 0) return exact;
+  // 2) Fuzzy: extraemos palabras clave (≥4 chars) y buscamos con OR.
+  //    "Aceite de motor y filtro" → LIKE '%aceite%' OR LIKE '%filtro%' → 
+  //    encuentra "Aceite y filtro".
+  const words = partName.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 4);
+  if (words.length === 0) return [];
+  const likes = words.map(() => "LOWER(part_name) LIKE ?").join(" OR ");
+  const params = words.map((w: string) => `%${w}%`);
+  return getDb().prepare(
+    `SELECT * FROM maintenance_tasks WHERE car_id=? AND completed=0 AND (${likes}) ORDER BY next_km ASC`,
+  ).all(carId, ...params) as MaintenanceTask[];
 }
 export function createMaintenanceTask(carId: number, part_name: string, opts: {
   part_brand?: string; part_model?: string;
