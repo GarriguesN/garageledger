@@ -311,14 +311,14 @@ export default function EditarCoche() {
             <label className="block text-xs text-[var(--text-muted)] mb-1">Última ITV</label>
             <div className="input-wrapper">
               <span className="input-icon"><Calendar size={16} /></span>
-              <input className="input" type="date" value={form.fecha_ultima_itv} onChange={e => setForm({...form, fecha_ultima_itv: e.target.value})} />
+              <input className="input" type="date" placeholder="dd/mm/aaaa" value={form.fecha_ultima_itv} onChange={e => setForm({...form, fecha_ultima_itv: e.target.value})} />
             </div>
           </div>
           <div>
             <label className="block text-xs text-[var(--text-muted)] mb-1">Vencimiento seguro</label>
             <div className="input-wrapper">
               <span className="input-icon"><Calendar size={16} /></span>
-              <input className="input" type="date" value={form.fecha_vencimiento_seguro} onChange={e => setForm({...form, fecha_vencimiento_seguro: e.target.value})} />
+              <input className="input" type="date" placeholder="dd/mm/aaaa" value={form.fecha_vencimiento_seguro} onChange={e => setForm({...form, fecha_vencimiento_seguro: e.target.value})} />
             </div>
           </div>
         </div>
@@ -330,7 +330,7 @@ export default function EditarCoche() {
           </label>
           <div className="input-wrapper">
             <span className="input-icon"><Calendar size={16} /></span>
-            <input className="input" type="date" value={form.fecha_ivtm} onChange={e => setForm({...form, fecha_ivtm: e.target.value})} />
+            <input className="input" type="date" placeholder="dd/mm/aaaa" value={form.fecha_ivtm} onChange={e => setForm({...form, fecha_ivtm: e.target.value})} />
           </div>
           <p className="text-[11px] text-[var(--text-muted)] mt-1">
             Los plazos municipales varían (lo más común: mayo-junio). Lo usamos para alertarte antes de que caduque.
