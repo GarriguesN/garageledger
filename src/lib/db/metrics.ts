@@ -100,8 +100,19 @@ export function getCarMetrics(carId: number) {
         alerts.push({ type: 'warning', message: `Seguro vence en ${daysLeft} días (${car.fecha_vencimiento_seguro})` });
       }
     }
+
+    // Impuesto de circulación (IVTM) — anual, misma lógica que ITV.
+    if (car.fecha_impuesto_circulacion) {
+      const lastTax = new Date(car.fecha_impuesto_circulacion + "T12:00:00");
+      const dueTax = new Date(lastTax.getTime() + 365 * 24 * 60 * 60 * 1000);
+      if (dueTax < new Date()) {
+        alerts.push({ type: 'critical', message: `Impuesto de circulación caducado (${car.fecha_impuesto_circulacion})` });
+      } else if ((dueTax.getTime() - Date.now()) < 30 * 24 * 60 * 60 * 1000) {
+        alerts.push({ type: 'warning', message: `Impuesto de circulación próximo: ${dueTax.toLocaleDateString("es-ES")}` });
+      }
+    }
   }
-  const estado = car ? computeCarEstado(car, tasks) : null;
+  const estado = car ? computeCarEstado(car) : null;
   return { monthly, diy, fuel, totalCostPerKm, projectedAnnual, alerts, estado };
 }
 

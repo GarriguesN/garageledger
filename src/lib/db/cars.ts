@@ -16,6 +16,20 @@ export interface Car {
    *  'matriculacion' → desde la fecha de matriculación (default).
    *  'primer_registro' → desde el primer gasto/mantenimiento con km. */
   km_origen: "matriculacion" | "primer_registro";
+  /** Fecha del último pago del impuesto de circulación (IVTM). Se
+   *  actualiza automáticamente al guardar un gasto de tipo "Impuestos".
+   *  La alerta se dispara si la fecha es < hace 1 año. */
+  fecha_impuesto_circulacion: string | null;
+  /** Caballos fiscales (potencia administrativa del coche). */
+  potencia_cv: number | null;
+  /** Cilindrada del motor en cc. */
+  cilindrada_cc: number | null;
+  /** Peso en orden de marcha (kg), tara + conductor aprox. */
+  peso_kg: number | null;
+  /** Número de plazas del vehículo. */
+  plazas: number | null;
+  /** Color del coche. */
+  color: string | null;
 }
 
 export function getCars(includeArchived = false): Car[] {
@@ -39,12 +53,20 @@ export interface CreateCarInput {
   bastidor?: string;
   combustible?: string;
   foto_attachment_id?: number | null;
+  fecha_matriculacion?: string | null;
+  km_origen?: "matriculacion" | "primer_registro";
+  fecha_impuesto_circulacion?: string | null;
+  potencia_cv?: number | null;
+  cilindrada_cc?: number | null;
+  peso_kg?: number | null;
+  plazas?: number | null;
+  color?: string | null;
 }
 
 export function createCar(input: CreateCarInput): Car {
   const r = getDb().prepare(`INSERT INTO cars
-    (marca, modelo, generacion, motor, ano, puertas, km_actuales, matricula, bastidor, combustible, foto_attachment_id)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(
+    (marca, modelo, generacion, motor, ano, puertas, km_actuales, matricula, bastidor, combustible, foto_attachment_id, fecha_matriculacion, km_origen, fecha_impuesto_circulacion, potencia_cv, cilindrada_cc, peso_kg, plazas, color)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
       input.marca,
       input.modelo,
       input.generacion || "",
@@ -56,6 +78,14 @@ export function createCar(input: CreateCarInput): Car {
       input.bastidor || "",
       input.combustible || "Gasolina",
       input.foto_attachment_id ?? null,
+      input.fecha_matriculacion ?? null,
+      input.km_origen ?? "matriculacion",
+      input.fecha_impuesto_circulacion ?? null,
+      input.potencia_cv ?? null,
+      input.cilindrada_cc ?? null,
+      input.peso_kg ?? null,
+      input.plazas ?? null,
+      input.color ?? null,
     );
   return getCar(r.lastInsertRowid as number)!;
 }
@@ -67,6 +97,7 @@ export function updateCar(id: number, fields: Record<string, any>): Car | undefi
     "fecha_ultima_itv","fecha_vencimiento_seguro","mantenimiento_config","notes",
     "matricula","bastidor","combustible","foto_attachment_id","archivado",
     "fecha_matriculacion","km_origen",
+    "fecha_impuesto_circulacion","potencia_cv","cilindrada_cc","peso_kg","plazas","color",
   ];
   const sets: string[] = []; const vals: any[] = [];
   for (const k of allowed) { if (k in fields) { sets.push(`${k}=?`); vals.push(fields[k]); } }
@@ -116,6 +147,9 @@ export interface KmStats {
   total: number;
   thisMonth: number | null;
   avgPerMonth: number | null;
+  /** Media anual (km/año). Se calcula igual que la media mensual pero
+   *  con años en lugar de meses. null si no hay base para contar. */
+  avgPerYear: number | null;
   /** Meses usados en el cálculo (puede ser null si no hay base para contar). */
   months: number | null;
   /** Etiqueta legible del origen del cálculo, para mostrar en UI. */
@@ -153,6 +187,7 @@ export function getKmStats(carId: number): KmStats {
 
   // Media mensual: depende del origen elegido.
   let avgPerMonth: number | null = null;
+  let avgPerYear: number | null = null;
   let months: number | null = null;
   let sourceLabel: string | null = null;
 
@@ -162,7 +197,9 @@ export function getKmStats(carId: number): KmStats {
       const start = new Date(fm + "T12:00:00");
       const now = new Date();
       months = Math.max(1, (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth()) + 1);
+      const years = Math.max(0.5, months / 12);
       avgPerMonth = Math.round(total / months);
+      avgPerYear = Math.round(total / years);
       sourceLabel = `desde ${fm}`;
     }
   } else {
@@ -170,7 +207,9 @@ export function getKmStats(carId: number): KmStats {
       const first = new Date(rows[0].date + "T12:00:00");
       const now = new Date();
       months = Math.max(1, (now.getFullYear() - first.getFullYear()) * 12 + (now.getMonth() - first.getMonth()) + 1);
+      const years = Math.max(0.5, months / 12);
       avgPerMonth = Math.round(total / months);
+      avgPerYear = Math.round(total / years);
       sourceLabel = `desde ${rows[0].date}`;
     }
   }
@@ -178,5 +217,5 @@ export function getKmStats(carId: number): KmStats {
   const source: "matriculacion" | "primer_registro" | "sin_datos" =
     avgPerMonth === null ? "sin_datos" : origen;
 
-  return { total, thisMonth, avgPerMonth, months, source, sourceLabel };
+  return { total, thisMonth, avgPerMonth, avgPerYear, months, source, sourceLabel };
 }

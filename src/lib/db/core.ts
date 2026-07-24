@@ -28,6 +28,11 @@ function initSchema(db: Database.Database) {
       motor TEXT NOT NULL DEFAULT '', ano INTEGER, puertas INTEGER DEFAULT 5,
       km_actuales INTEGER DEFAULT 0, estado TEXT NOT NULL DEFAULT 'Mantenimiento al dia',
       fecha_ultima_itv TEXT, mantenimiento_config TEXT, fecha_vencimiento_seguro TEXT, notes TEXT NOT NULL DEFAULT '',
+      matricula TEXT NOT NULL DEFAULT '', bastidor TEXT NOT NULL DEFAULT '', combustible TEXT NOT NULL DEFAULT 'Gasolina',
+      foto_attachment_id INTEGER, archivado INTEGER NOT NULL DEFAULT 0,
+      fecha_matriculacion TEXT, km_origen TEXT NOT NULL DEFAULT 'matriculacion',
+      fecha_impuesto_circulacion TEXT,
+      potencia_cv INTEGER, cilindrada_cc INTEGER, peso_kg INTEGER, plazas INTEGER, color TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE TABLE IF NOT EXISTS expenses (
@@ -76,6 +81,20 @@ function migrateSchema(db: Database.Database) {
   if (!colNames.includes("combustible")) db.exec("ALTER TABLE cars ADD COLUMN combustible TEXT NOT NULL DEFAULT 'Gasolina'");
   if (!colNames.includes("foto_attachment_id")) db.exec("ALTER TABLE cars ADD COLUMN foto_attachment_id INTEGER");
   if (!colNames.includes("archivado")) db.exec("ALTER TABLE cars ADD COLUMN archivado INTEGER NOT NULL DEFAULT 0");
+
+  // Ticket 1.19 — fecha_impuesto_circulacion: cuando se paga el IVTM
+  // (impuesto de circulación municipal anual), se actualiza aquí.
+  if (!colNames.includes("fecha_impuesto_circulacion")) {
+    db.exec("ALTER TABLE cars ADD COLUMN fecha_impuesto_circulacion TEXT");
+  }
+
+  // Ticket 1.20 — datos completos del vehículo. Caballos fiscales (CV),
+  // cilindrada (cc), peso en orden de marcha (kg), plazas, color.
+  if (!colNames.includes("potencia_cv")) db.exec("ALTER TABLE cars ADD COLUMN potencia_cv INTEGER");
+  if (!colNames.includes("cilindrada_cc")) db.exec("ALTER TABLE cars ADD COLUMN cilindrada_cc INTEGER");
+  if (!colNames.includes("peso_kg")) db.exec("ALTER TABLE cars ADD COLUMN peso_kg INTEGER");
+  if (!colNames.includes("plazas")) db.exec("ALTER TABLE cars ADD COLUMN plazas INTEGER");
+  if (!colNames.includes("color")) db.exec("ALTER TABLE cars ADD COLUMN color TEXT");
 
   const expCols = db.prepare("PRAGMA table_info(expenses)").all() as { name: string }[];
   const expNames = expCols.map(c => c.name);

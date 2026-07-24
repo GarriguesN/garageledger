@@ -15,7 +15,9 @@ export default function EditarCoche() {
   const [form, setForm] = useState({
     marca: '', modelo: '', generacion: '', motor: '', ano: '',
     puertas: '5', km_actuales: '', fecha_ultima_itv: '', fecha_vencimiento_seguro: '',
+    fecha_matriculacion: '', km_origen: 'matriculacion',
     matricula: '', bastidor: '', combustible: 'Gasolina',
+    potencia_cv: '', cilindrada_cc: '', peso_kg: '', plazas: '', color: '',
   });
   const [existingFotoId, setExistingFotoId] = useState<number | null>(null);
   const [photo, setPhoto] = useState<File | null>(null);
@@ -35,9 +37,16 @@ export default function EditarCoche() {
           km_actuales: c.km_actuales?.toString() || '',
           fecha_ultima_itv: c.fecha_ultima_itv || '',
           fecha_vencimiento_seguro: c.fecha_vencimiento_seguro || '',
+          fecha_matriculacion: c.fecha_matriculacion || '',
+          km_origen: c.km_origen || 'matriculacion',
           matricula: c.matricula || '',
           bastidor: c.bastidor || '',
           combustible: c.combustible || 'Gasolina',
+          potencia_cv: c.potencia_cv?.toString() || '',
+          cilindrada_cc: c.cilindrada_cc?.toString() || '',
+          peso_kg: c.peso_kg?.toString() || '',
+          plazas: c.plazas?.toString() || '',
+          color: c.color || '',
         });
         setExistingFotoId(c.foto_attachment_id ?? null);
         if (c.foto_attachment_id) {
@@ -91,6 +100,13 @@ export default function EditarCoche() {
           km_actuales: parseInt(form.km_actuales) || 0,
           fecha_ultima_itv: form.fecha_ultima_itv || null,
           fecha_vencimiento_seguro: form.fecha_vencimiento_seguro || null,
+          fecha_matriculacion: form.fecha_matriculacion || null,
+          km_origen: form.km_origen || 'matriculacion',
+          potencia_cv: form.potencia_cv ? parseInt(form.potencia_cv) : null,
+          cilindrada_cc: form.cilindrada_cc ? parseInt(form.cilindrada_cc) : null,
+          peso_kg: form.peso_kg ? parseInt(form.peso_kg) : null,
+          plazas: form.plazas ? parseInt(form.plazas) : null,
+          color: form.color || null,
           matricula: form.matricula,
           bastidor: form.bastidor,
           combustible: form.combustible,
@@ -227,6 +243,67 @@ export default function EditarCoche() {
               <span className="input-icon"><Calendar size={16} /></span>
               <input className="input" type="date" value={form.fecha_vencimiento_seguro} onChange={e => setForm({...form, fecha_vencimiento_seguro: e.target.value})} />
             </div>
+          </div>
+        </div>
+
+        {/* Datos técnicos del vehículo — Ticket 1.20 */}
+        <div>
+          <p className="text-xs text-[var(--text-muted)] mb-1.5 font-semibold">Datos técnicos</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-[var(--text-muted)] mb-1">Caballos (CV)</label>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                value={form.potencia_cv}
+                onChange={e => setForm({...form, potencia_cv: e.target.value})}
+                placeholder="Ej. 140"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--text-muted)] mb-1">Cilindrada (cc)</label>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                value={form.cilindrada_cc}
+                onChange={e => setForm({...form, cilindrada_cc: e.target.value})}
+                placeholder="Ej. 1800"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--text-muted)] mb-1">Peso (kg)</label>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                value={form.peso_kg}
+                onChange={e => setForm({...form, peso_kg: e.target.value})}
+                placeholder="Ej. 1320"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--text-muted)] mb-1">Plazas</label>
+              <input
+                className="input"
+                type="number"
+                min="1"
+                max="9"
+                value={form.plazas}
+                onChange={e => setForm({...form, plazas: e.target.value})}
+                placeholder="Ej. 5"
+              />
+            </div>
+          </div>
+          <div className="mt-3">
+            <label className="block text-xs text-[var(--text-muted)] mb-1">Color</label>
+            <input
+              className="input"
+              value={form.color}
+              onChange={e => setForm({...form, color: e.target.value})}
+              placeholder="Ej. Negro metalizado"
+            />
           </div>
         </div>
 

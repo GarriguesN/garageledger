@@ -73,6 +73,7 @@ export default function CarDetailClient({
     tipo: "Carburante", importe: "", date: new Date().toISOString().split("T")[0],
     descripcion: "", referencia: "", litros: "", km: String(initialCar.km_actuales || ""),
     costeTaller: "", selectedTask: "",
+    impuesto_circulacion: false,
   }));
   const [saving, setSaving] = useState(false);
 
@@ -262,6 +263,7 @@ export default function CarDetailClient({
       descripcion: "", referencia: "", litros: "",
       km: String(car?.km_actuales ?? initialCar.km_actuales ?? ""),
       costeTaller: "", selectedTask: "",
+      impuesto_circulacion: false,
     });
     setShowForm(true);
   };
@@ -285,6 +287,11 @@ export default function CarDetailClient({
     if (form.litros) body.litros = parseFloat(form.litros);
     if (form.km) body.km = parseInt(form.km);
     if (form.tipo.includes("DIY") && form.costeTaller) body.costeTaller = parseFloat(form.costeTaller);
+    // Ticket 1.20: si es Impuestos y el checkbox está marcado, el backend
+    // actualiza cars.fecha_impuesto_circulacion con la fecha del gasto.
+    if (form.tipo === "Impuestos" && form.impuesto_circulacion) {
+      body.impuesto_circulacion = true;
+    }
 
     const res = await fetchJsonWithToast(
       "/api/expenses",

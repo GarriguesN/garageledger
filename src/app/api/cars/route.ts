@@ -31,6 +31,14 @@ export async function POST(req: NextRequest) {
     bastidor: body.bastidor,
     combustible: body.combustible,
     foto_attachment_id: body.foto_attachment_id ?? null,
+    fecha_matriculacion: body.fecha_matriculacion ?? null,
+    km_origen: body.km_origen ?? "matriculacion",
+    fecha_impuesto_circulacion: body.fecha_impuesto_circulacion ?? null,
+    potencia_cv: body.potencia_cv ?? null,
+    cilindrada_cc: body.cilindrada_cc ?? null,
+    peso_kg: body.peso_kg ?? null,
+    plazas: body.plazas ?? null,
+    color: body.color ?? null,
   });
   return NextResponse.json(car, { status: 201 });
 }

@@ -8,7 +8,7 @@
 // cálculo: este ticket es SOLO JSX/clases Tailwind.
 
 import {
-  TrendingUp, BarChart3, PiggyBank, Droplet, TrendingDown, Euro, Receipt, Gauge,
+  TrendingUp, BarChart3, PiggyBank, Droplet, TrendingDown, Euro, Receipt,
 } from "lucide-react";
 import { fmt0, fmtOrDash } from "../lib/format";
 import type { CarMetrics } from "../lib/types";
@@ -117,42 +117,34 @@ export default function CarStatsGrid({ carId, metrics, kmStats }: CarStatsGridPr
         note="€/L último repostaje"
       />
 
-      {/* Card ancho completo: kilometraje — totales / este mes / media.
-          Padding más bajo que las 6 cards anteriores para que ocupe
-          menos vertical sin perder legibilidad. */}
-      <div className="col-span-2 card !p-3">
-        <div className="flex items-start gap-2.5">
-          <div
-            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-            style={{ background: ICON_BG_BLUE, color: ICON_FG_BLUE }}
-            aria-hidden
-          >
-            <Gauge size={20} strokeWidth={1.8} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[12px] leading-tight" style={{ color: TEXT_GRAY }}>
-              Kilometraje
-            </p>
-            <div className="grid grid-cols-3 gap-3 mt-2">
-              <KmCell
-                value={fmt0(kmStats.total)}
-                suffix="km"
-                label="Totales"
-              />
-              <KmCell
-                value={kmStats.thisMonth !== null ? fmt0(kmStats.thisMonth) : "—"}
-                suffix="km"
-                label="Este mes"
-              />
-              <KmCell
-                value={kmStats.avgPerMonth !== null ? fmt0(kmStats.avgPerMonth) : "—"}
-                suffix="km/mes"
-                label="Media mensual"
-                sublabel={kmStats.avgPerMonth === null ? "Falta fecha de matriculación o primer registro" : (kmStats.sourceLabel || undefined)}
-                link={kmStats.avgPerMonth === null ? `/coches/${carId}/editar` : undefined}
-              />
-            </div>
-          </div>
+      {/* Card ancho completo: kilometraje — 4 valores en línea.
+          Sin icono ni label, padding muy bajo para que ocupe menos. */}
+      <div className="col-span-2 card !px-3 !py-2">
+        <div className="grid grid-cols-4 gap-3">
+          <KmCell
+            value={fmt0(kmStats.total)}
+            suffix="km"
+            label="Totales"
+          />
+          <KmCell
+            value={kmStats.thisMonth !== null ? fmt0(kmStats.thisMonth) : "—"}
+            suffix="km"
+            label="Este mes"
+          />
+          <KmCell
+            value={kmStats.avgPerMonth !== null ? fmt0(kmStats.avgPerMonth) : "—"}
+            suffix="km/mes"
+            label="Media mensual"
+            sublabel={kmStats.avgPerMonth === null ? "Falta fecha de matriculación o primer registro" : (kmStats.sourceLabel || undefined)}
+            link={kmStats.avgPerMonth === null ? `/coches/${carId}/editar` : undefined}
+          />
+          <KmCell
+            value={kmStats.avgPerYear !== null ? fmt0(kmStats.avgPerYear) : "—"}
+            suffix="km/año"
+            label="Media anual"
+            sublabel={kmStats.avgPerYear === null ? "Falta fecha de matriculación o primer registro" : undefined}
+            link={kmStats.avgPerYear === null ? `/coches/${carId}/editar` : undefined}
+          />
         </div>
       </div>
     </div>

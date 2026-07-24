@@ -47,6 +47,11 @@ export interface AddExpenseFormState {
   km: string;
   costeTaller: string;
   selectedTask: string;
+  /** Ticket 1.20: cuando tipo='Impuestos', el checkbox controla si este
+   *  gasto es el pago anual del IVTM (impuesto de circulación) y por
+   *  tanto debe actualizar cars.fecha_impuesto_circulacion. El padre
+   *  (CarDetailClient) lee este flag y decide. */
+  impuesto_circulacion: boolean;
 }
 
 export interface EditExpenseFormState {

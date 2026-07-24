@@ -45,6 +45,20 @@ export default function AddExpenseForm({
             <option key={c} value={c}>{c}</option>
           ))}
         </select>
+        {/* Ticket 1.20: si el tipo es Impuestos, el checkbox controla si
+            este pago se considera el IVTM (impuesto de circulación)
+            anual y por tanto actualiza cars.fecha_impuesto_circulacion. */}
+        {form.tipo === "Impuestos" && (
+          <label className="flex items-center gap-2 mt-2 cursor-pointer text-sm">
+            <input
+              type="checkbox"
+              checked={form.impuesto_circulacion}
+              onChange={(e) => onChange({ ...form, impuesto_circulacion: e.target.checked })}
+              className="w-4 h-4 rounded border-[var(--border-color)] accent-[var(--accent)]"
+            />
+            <span>Impuesto de circulación (IVTM)</span>
+          </label>
+        )}
       </div>
       <div>
         <label className="block text-xs text-[var(--text-muted)] mb-1">Importe (€)</label>
