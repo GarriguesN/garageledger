@@ -34,10 +34,12 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
   const body = await req.json();
-  const { id, ...fields } = body;
+  const id = body.id ?? searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
-  const updated = updateMaintenanceTask(id, fields);
+  const { id: _, ...fields } = body;
+  const updated = updateMaintenanceTask(parseInt(id), fields);
   return updated ? NextResponse.json(updated) : NextResponse.json({ error: "Not found" }, { status: 404 });
 }
 
