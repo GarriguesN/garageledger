@@ -59,7 +59,7 @@ export function createExpense(
   // intervalos (puntual, ej. "Arreglo parrilla frontal") o el usuario
   // desmarcó el checkbox, no se crea ninguna tarea fantasma.
   // Esto conecta el flujo de gastos con las tareas programadas.
-  if (opts.maintenanceTaskId && (tipo === "Mantenimiento (Taller)" || tipo.startsWith("DIY"))) {
+  if (opts.maintenanceTaskId && (tipo === "Mantenimiento (Taller)" || tipo.includes("DIY"))) {
     completeMaintenanceTask(opts.maintenanceTaskId, km ?? 0, date, opts.scheduleNext !== false);
   }
   return getDb().prepare("SELECT * FROM expenses WHERE id=?").get(r.lastInsertRowid) as Expense;
