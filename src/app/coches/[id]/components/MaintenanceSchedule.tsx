@@ -9,10 +9,11 @@
 //     mantenimiento. También acepta `flashTaskId` para aplicar la clase
 //     `flash-task` a la fila exacta.
 
-import { Clock, ClipboardList, ChevronRight } from "lucide-react";
+import { Clock, ClipboardList, ChevronRight, Edit, Trash2 } from "lucide-react";
 import { fmt0, formatLongMonthYear } from "../lib/format";
 import { getIconForKey } from "@/lib/maintenance/presets";
 import type { Car, MaintenanceTask } from "../lib/types";
+import { useState } from "react";
 
 interface MaintenanceScheduleProps {
   tasks: MaintenanceTask[];
@@ -26,6 +27,10 @@ interface MaintenanceScheduleProps {
   flashTaskId?: number | null;
   /** Abre el modal con todas las tareas de mantenimiento. */
   onOpenAll?: () => void;
+  /** Ticket 1.15: abrir modal de edición con los datos de esta tarea. */
+  onEdit?: (task: MaintenanceTask) => void;
+  /** Ticket 1.15: borrado desde la fila expandida. */
+  onDelete?: (taskId: number) => void;
 }
 
 const TEXT_DARK = "#211a1e";
@@ -49,11 +54,15 @@ export function sortMaintenanceTasks(tasks: MaintenanceTask[], car: Car): Mainte
 export default function MaintenanceSchedule({
   tasks, car, onCompleteTask,
   registerTaskRef, flashTaskId, onOpenAll,
+  onEdit, onDelete,
 }: MaintenanceScheduleProps) {
   const isEmpty = tasks.length === 0;
   const kmActuales = car?.km_actuales ?? 0;
   const orderedTasks = sortMaintenanceTasks(tasks, car);
   const visibleTasks = orderedTasks.slice(0, VISIBLE_LIMIT);
+  // Ticket 1.15: acordeón — sólo una fila expandida a la vez.
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const toggle = (id: number) => setExpandedId(prev => prev === id ? null : id);
 
   return (
     <div>
@@ -104,6 +113,10 @@ export default function MaintenanceSchedule({
             onComplete={onCompleteTask}
             flashing={flashTaskId === task.id}
             registerRef={(el) => registerTaskRef?.(task.id, el)}
+            isExpanded={expandedId === task.id}
+            onToggle={() => toggle(task.id)}
+            onEdit={onEdit ? () => onEdit(task) : undefined}
+            onDelete={onDelete ? () => onDelete(task.id) : undefined}
           />
         ))}
       </div>
@@ -117,10 +130,16 @@ interface MaintenanceRowProps {
   onComplete: (task: MaintenanceTask) => void;
   flashing?: boolean;
   registerRef?: (el: HTMLElement | null) => void;
+  /** Ticket 1.15: estado de acordeón por fila. */
+  isExpanded: boolean;
+  onToggle: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 export function MaintenanceRow({
   task, car, onComplete, flashing, registerRef,
+  isExpanded, onToggle, onEdit, onDelete,
 }: MaintenanceRowProps) {
   const kmActuales = car?.km_actuales ?? 0;
   const intervalKm = task.interval_km ?? 15000;
@@ -141,94 +160,161 @@ export function MaintenanceRow({
       : null;
   const Icon = getIconForKey(task.icon_key);
 
+  const panelId = `maint-panel-${task.id}`;
   return (
     <div
       ref={registerRef}
-      className={"card !p-3 flex items-center gap-3 " + (flashing ? "flash-task" : "")}
+      className={"card !p-0 overflow-hidden " + (flashing ? "flash-task" : "")}
     >
-      <div
-        className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-        style={{ background: "#f2f2f3", color: "#4a4548" }}
-        aria-hidden
-      >
-        <Icon size={18} strokeWidth={1.8} />
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <span
-            className="text-[14px] font-semibold truncate"
-            style={{ color: TEXT_DARK }}
-          >
-            {task.part_name}
-          </span>
-          {task.part_brand && (
-            <span
-              className="badge text-[11px] flex-shrink-0"
-              style={{ background: "#f2f2f3", color: TEXT_GRAY }}
-            >
-              {task.part_brand}
-            </span>
-          )}
+      {/* Cabecera siempre visible. El chevron abre/cierra el acordeón. */}
+      <div className="flex items-center gap-3 px-3 py-3">
+        <div
+          className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+          style={{ background: "#f2f2f3", color: "#4a4548" }}
+          aria-hidden
+        >
+          <Icon size={18} strokeWidth={1.8} />
         </div>
-        {/* PUNTO 6: dos líneas explícitas para que ningún dato
-            importante quede cortado a media palabra. */}
-        <p className="text-[11px] mt-0.5 whitespace-normal" style={{ color: TEXT_GRAY }}>
-          <span className="block">
-            Próximo:{" "}
-            <strong style={{ color: TEXT_DARK }}>
-              {task.next_km !== null ? `${fmt0(task.next_km)} km` : "—"}
-            </strong>
-            {task.next_date && (
-              <> · {formatLongMonthYear(task.next_date)}</>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className="text-[14px] font-semibold truncate"
+              style={{ color: TEXT_DARK }}
+            >
+              {task.part_name}
+            </span>
+            {task.part_brand && (
+              <span
+                className="badge text-[11px] flex-shrink-0"
+                style={{ background: "#f2f2f3", color: TEXT_GRAY }}
+              >
+                {task.part_brand}
+              </span>
             )}
-          </span>
-          <span className="block">
-            Realizado:{" "}
-            <strong style={{ color: TEXT_DARK }}>
-              {task.current_km !== null ? `${fmt0(task.current_km)} km` : "—"}
-            </strong>
-            {task.interval_km !== null && task.interval_km !== undefined && task.interval_km > 0 && (
-              <> · c/{fmt0(task.interval_km)} km</>
-            )}
-          </span>
-        </p>
+          </div>
+          <p className="text-[11px] mt-0.5 whitespace-normal" style={{ color: TEXT_GRAY }}>
+            <span className="block">
+              Próximo:{" "}
+              <strong style={{ color: TEXT_DARK }}>
+                {task.next_km !== null ? `${fmt0(task.next_km)} km` : "—"}
+              </strong>
+              {task.next_date && (
+                <> · {formatLongMonthYear(task.next_date)}</>
+              )}
+            </span>
+          </p>
+        </div>
+
+        {restantes !== null && progressPct !== null && (
+          <div className="flex flex-col items-end gap-1 flex-shrink-0 min-w-[88px]">
+            <span
+              className="text-[12px] font-semibold"
+              style={{ color: overdue ? "#c3423f" : TEXT_DARK }}
+            >
+              {fmt0(restantes)} km
+            </span>
+            <div
+              className="h-1.5 w-20 rounded-full overflow-hidden"
+              style={{ background: "#e5e5ea" }}
+              role="progressbar"
+              aria-valuenow={progressPct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`${fmt0(restantes)} kilómetros restantes`}
+            >
+              <div
+                className="h-full rounded-full transition-all"
+                style={{ width: `${progressPct}%`, background: "#c3423f" }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Chevron con aria-expanded/aria-controls (Ticket 1.15). */}
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={isExpanded}
+          aria-controls={panelId}
+          aria-label={isExpanded ? "Contraer detalles" : "Expandir detalles"}
+          className="flex-shrink-0 p-1 -mr-1 rounded transition-transform"
+          style={{
+            color: TEXT_GRAY,
+            transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+            transition: "transform 200ms ease",
+          }}
+        >
+          <ChevronRight size={18} aria-hidden />
+        </button>
       </div>
 
-      {restantes !== null && progressPct !== null && (
-        <div className="flex flex-col items-end gap-1 flex-shrink-0 min-w-[120px]">
-          <span
-            className="text-[12px] font-semibold"
-            style={{ color: overdue ? "#c3423f" : TEXT_DARK }}
-          >
-            {fmt0(restantes)} km restantes
-          </span>
-          <div
-            className="h-1.5 w-28 rounded-full overflow-hidden"
-            style={{ background: "#e5e5ea" }}
-            role="progressbar"
-            aria-valuenow={progressPct}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label={`${fmt0(restantes)} kilómetros restantes`}
-          >
-            <div
-              className="h-full rounded-full transition-all"
-              style={{ width: `${progressPct}%`, background: "#c3423f" }}
-            />
+      {/* Panel expandido. */}
+      <div
+        id={panelId}
+        role="region"
+        aria-label={`Detalles de ${task.part_name}`}
+        className="overflow-hidden border-t"
+        style={{
+          borderColor: "var(--border-color)",
+          maxHeight: isExpanded ? "500px" : "0px",
+          opacity: isExpanded ? 1 : 0,
+          transitionProperty: "max-height, opacity",
+          transitionDuration: "200ms",
+        }}
+      >
+        <div className="px-3 py-3 space-y-1.5 text-[12px]" style={{ color: TEXT_DARK }}>
+          <p><strong>Realizado:</strong>{" "}
+            {task.current_km !== null ? `${fmt0(task.current_km)} km` : "—"}
+          </p>
+          <p><strong>Intervalo:</strong>{" "}
+            {task.interval_km !== null && task.interval_km > 0
+              ? `cada ${fmt0(task.interval_km)} km`
+              : "—"}
+            {task.interval_months != null && task.interval_months > 0 && (
+              <> · cada {task.interval_months} meses</>
+            )}
+          </p>
+          {task.part_brand && (
+            <p><strong>Marca:</strong> {task.part_brand}</p>
+          )}
+          {task.notes && (
+            <p className="break-words"><strong>Notas:</strong> {task.notes}</p>
+          )}
+          {/* Acciones: Marcar como completado, Editar, Borrar. */}
+          <div className="flex items-center justify-end gap-2 pt-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => onComplete(task)}
+              className="flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded"
+              style={{ color: TEXT_DARK }}
+            >
+              Marcar hecho
+            </button>
+            {onEdit && (
+              <button
+                type="button"
+                onClick={onEdit}
+                className="flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded"
+                style={{ color: "var(--accent)" }}
+              >
+                <Edit size={14} /> Editar
+              </button>
+            )}
+            {onDelete && (
+              <button
+                type="button"
+                onClick={onDelete}
+                className="flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded"
+                style={{ color: "#dc2626" }}
+                aria-label={`Borrar tarea ${task.part_name}`}
+              >
+                <Trash2 size={14} /> Borrar
+              </button>
+            )}
           </div>
         </div>
-      )}
-
-      <button
-        type="button"
-        className="btn p-2 text-[var(--text-muted)] hover:text-[var(--accent)] flex-shrink-0"
-        onClick={() => onComplete(task)}
-        title="Marcar como completado"
-        aria-label={`Completar ${task.part_name}`}
-      >
-        <ChevronRight size={16} />
-      </button>
+      </div>
     </div>
   );
 }

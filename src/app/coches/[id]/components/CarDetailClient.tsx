@@ -258,6 +258,9 @@ export default function CarDetailClient({
   // always sees the latest odometer, not a stale value from a previous
   // session or earlier load. Ticket 1.14 follow-up.
   const openExpenseForm = () => {
+    // Reset del ref cada vez que abrimos el modal. Sin esto, un segundo
+    // open tras un error previo quedaría bloqueado por submittingRef=true.
+    submittingRef.current = false;
     setForm({
       tipo: "Carburante", importe: "", date: new Date().toISOString().split("T")[0],
       descripcion: "", referencia: "", litros: "",
@@ -278,7 +281,16 @@ export default function CarDetailClient({
   };
 
   // ── Handlers (idénticos a los del orquestador anterior) ──
+  // Ref sincrónica para evitar doble-envío. setSaving() es asíncrono
+  // (React agenda el re-render), así que durante la primera ventana de
+  // microsegundos del click el botón sigue "habilitado" y un segundo tap
+  // rápido crea dos gastos idénticos. El ref bloquea ambos submits con
+  // un check sincrónico. Patrón estándar para forms críticos.
+  const submittingRef = { current: false };
   const submitForm = async () => {
+    if (submittingRef.current) return;  // guard sincrónico
+    if (saving) return;                  // guard por si el ref falla
+    submittingRef.current = true;
     setSaving(true);
     const body: Record<string, unknown> = {
       carId, tipo: form.tipo, importe: parseFloat(form.importe),
@@ -300,12 +312,20 @@ export default function CarDetailClient({
       setToast,
     );
     setSaving(false);
+    submittingRef.current = false;
 
     if (!res.ok) return;          // el toast ya se disparó dentro del helper
     setShowForm(false);
     setToast({ msg: "Gasto guardado", type: "success" });
     setTimeout(() => setToast(null), 2500);
     load();      // refresca car.km_actuales; el form se reinicia al reabrir via openExpenseForm
+  };
+
+  // Reset del ref al cerrar el modal (para que un nuevo modal pueda guardar).
+  const closeExpenseForm = () => {
+    submittingRef.current = false;
+    setSaving(false);
+    setShowForm(false);
   };
 
   const startEdit = (entry: TimelineEntry) => {
@@ -489,7 +509,10 @@ export default function CarDetailClient({
                   <ReadOnlyFields
                     entry={entry}
                     color={color}
-                    onStartEdit={startEdit}
+                    isExpanded={false}
+                    onToggle={() => {}}
+                    onStartEdit={() => startEdit(entry)}
+                    onDelete={() => deleteExp(entry.id)}
                   />
                 )}
               </div>
@@ -512,6 +535,8 @@ export default function CarDetailClient({
               task={task}
               car={car}
               onComplete={openCompleteTask}
+              isExpanded={false}
+              onToggle={() => {}}
             />
           ))}
         </div>

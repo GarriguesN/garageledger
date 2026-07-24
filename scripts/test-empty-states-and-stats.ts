@@ -37,7 +37,7 @@ function expect<T>(label: string, actual: T, expected: T) {
 // ─────────────────────────────────────────────────────────────────────
 console.log("\n=== 1) fmtOrDash — never returns NaN/null/undefined literals ===");
 {
-  expect("fmtOrDash(0, 2) = '0.00' (real zero is preserved)",         fmtOrDash(0, 2),       "0.00");
+  expect("fmtOrDash(0, 2) = '0,00' (real zero is preserved)",         fmtOrDash(0, 2),       "0,00");
   expect("fmtOrDash(null) = '—'",                                      fmtOrDash(null),        "—");
   expect("fmtOrDash(undefined) = '—'",                                 fmtOrDash(undefined),   "—");
   expect("fmtOrDash(NaN) = '—'",                                       fmtOrDash(NaN),         "—");
@@ -45,9 +45,11 @@ console.log("\n=== 1) fmtOrDash — never returns NaN/null/undefined literals ==
   expect("fmtOrDash(-Infinity) = '—'",                                 fmtOrDash(-Infinity),   "—");
   expect("fmtOrDash('123' as any) = '—' (string is not a number)",     fmtOrDash("123" as unknown as number), "—");
   expect("fmtOrDash({} as any) = '—'",                                 fmtOrDash({} as unknown as number),   "—");
-  expect("fmtOrDash(3.14159, 2) = '3.14'",                             fmtOrDash(3.14159, 2),  "3.14");
+  expect("fmtOrDash(3.14159, 2) = '3,14'",                             fmtOrDash(3.14159, 2),  "3,14");
   expect("fmtOrDash(3.14159, 0) = '3'",                                fmtOrDash(3.14159, 0),  "3");
-  expect("fmtOrDash(-1.5, 1) = '-1.5' (negative is fine)",             fmtOrDash(-1.5, 1),     "-1.5");
+  expect("fmtOrDash(-1.5, 1) = '-1,5' (negative is fine)",             fmtOrDash(-1.5, 1),     "-1,5");
+  expect("fmtOrDash(1234.56, 2) = '1.234,56' (separador de millares)", fmtOrDash(1234.56, 2),  "1.234,56");
+  expect("fmtOrDash(12345.6789, 3) = '12.345,679'",                     fmtOrDash(12345.6789, 3), "12.345,679");
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -111,8 +113,8 @@ function safeNumLikeInComponent(n: unknown): number | null {
     fmtOrDash(safeTotal ?? safeFuel ?? null, 3), "—");
 
   // Caso "hay total pero no fuel"
-  expect("Coste/km con total: fmtOrDash(0.1234, 3) = '0.123'",
-    fmtOrDash(0.1234 as number, 3), "0.123");
+  expect("Coste/km con total: fmtOrDash(0.1234, 3) = '0,123'",
+    fmtOrDash(0.1234 as number, 3), "0,123");
 
   // safeDiff cuando current o previous vienen rotos
   expect("safeDiff con un null = null (no se pintará 'NaN')",

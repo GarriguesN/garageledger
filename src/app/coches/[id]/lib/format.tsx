@@ -8,21 +8,23 @@ export function fmt(n: number) {
   return n.toLocaleString("es-ES", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
+    useGrouping: true,
   });
 }
 
 export function fmt0(n: number) {
-  return n.toLocaleString("es-ES", { minimumFractionDigits: 0 });
+  return n.toLocaleString("es-ES", { minimumFractionDigits: 0, useGrouping: true });
 }
 
 // Render seguro: si el valor no es un número finito (null, undefined, NaN,
 // Infinity, o cualquier cosa que no sea `number`), devolvemos un guion. Esto
 // blinda `CarStatsGrid` y futuros consumidores contra estados corruptos o
 // filas incompletas (ej. consumo medio sin litros registrados → null).
-// Si el valor es finito, lo formatea con `decimals` decimales sin grouping.
+// Si el valor es finito, lo formatea con `decimals` decimales y separador
+// de millares es-ES (igual que fmt()/fmt0()).
 export function fmtOrDash(n: unknown, decimals = 0): string {
   return typeof n === "number" && Number.isFinite(n)
-    ? n.toFixed(decimals)
+    ? n.toLocaleString("es-ES", { minimumFractionDigits: decimals, maximumFractionDigits: decimals, useGrouping: true })
     : "—";
 }
 

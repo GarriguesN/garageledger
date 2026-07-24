@@ -124,6 +124,8 @@ async function runDomTests() {
     pretendToBeVisual: true,
   });
   const g: any = globalThis;
+  // jsdom no expone CSS.escape; polyfill mínimo para querySelector de ids.
+  g.CSS = g.CSS || { escape: (s: string) => s.replace(/([^\w-])/g, '\\$1') };
   g.window = dom.window;
   g.document = dom.window.document;
   g.navigator = dom.window.navigator;
@@ -201,6 +203,8 @@ async function runExpenseTests() {
     pretendToBeVisual: true,
   });
   const g: any = globalThis;
+  // jsdom no expone CSS.escape; polyfill mínimo para querySelector de ids.
+  g.CSS = g.CSS || { escape: (s: string) => s.replace(/([^\w-])/g, '\\$1') };
   g.window = dom.window;
   g.document = dom.window.document;
   g.navigator = dom.window.navigator;
@@ -238,7 +242,8 @@ async function runExpenseTests() {
   const container = document.createElement("div");
   document.body.appendChild(container);
 
-  // Primer render: la fila debe ser tocable y abrir edición.
+  // Ticket 1.15: el tap en la fila ya NO abre edición — sólo el chevron
+  // expande el panel. La edición vive dentro del panel expandido.
   await act(async () => {
     createRoot(container).render(
       React.createElement(ExpenseHistory, {
@@ -248,7 +253,7 @@ async function runExpenseTests() {
         editForm: {
           tipo: "Carburante", importe: 50, date: "2026-07-22", descripcion: "",
         },
-        onStartEdit: (e: any) => editCalls.push(e.id),
+        onStartEdit: (_e?: any) => editCalls.push(1),
         onChangeEditForm: () => {},
         onSaveInline: () => {},
         onCancelEdit: () => {},
@@ -258,17 +263,34 @@ async function runExpenseTests() {
     );
   });
 
+  // La fila ya NO es role=button (Ticket 1.15: tap-fila-edita eliminado).
   const row = container.querySelector('[role="button"]') as HTMLElement | null;
-  expect("La fila tiene role=button", row !== null, true);
+  expect("La fila NO tiene role=button (Ticket 1.15)", row, null);
 
-  await act(async () => { row?.click(); });
-  expect("Tap en la fila llama onStartEdit(1)", editCalls, [1]);
+  // El chevron sí es un botón, con aria-expanded/aria-controls (Ticket 1.15).
+  const chevronBtn = container.querySelector('button[aria-expanded]') as HTMLElement | null;
+  expect("El chevron tiene aria-expanded", chevronBtn !== null, true);
+  const panelId = chevronBtn?.getAttribute("aria-controls") ?? "";
+  expect("El chevron apunta al panel vía aria-controls", panelId.startsWith("expense-panel-"), true);
 
-  // Ticket 1.11: ya no hay kebab ni menú. Borrar vive en el modo edición.
-  const kebabBtn = container.querySelector('[aria-label^="Más acciones"]') as HTMLElement | null;
-  expect("Sin kebab (Ticket 1.11: borrado en modo edición)", kebabBtn, null);
-  const menu = container.querySelector('[role="menu"]');
-  expect("Sin menú desplegable", menu, null);
+  // Tap en el chevron expande el panel.
+  await act(async () => { chevronBtn?.click(); });
+  const expandedPanel = container.querySelector(`#${CSS.escape(panelId)}`) as HTMLElement | null;
+  expect("Panel existe con el id correcto", expandedPanel !== null, true);
+  expect("Chevron pasa a aria-expanded=true", chevronBtn?.getAttribute("aria-expanded"), "true");
+
+  // Tap-fila sigue SIN abrir edición.
+  expect("Tap-fila no llamó onStartEdit", editCalls.length, 0);
+
+  // Dentro del panel hay un botón Editar con la misma acción que onStartEdit.
+  const editBtn = container.querySelector('button[aria-label^="Editar gasto"]') as HTMLElement | null;
+  expect("Panel expandido tiene botón Editar", editBtn !== null, true);
+  await act(async () => { editBtn?.click(); });
+  expect("Click en Editar invoca onStartEdit", editCalls, [1]);
+
+  // El botón Borrar dentro del panel también está presente.
+  const delBtn = container.querySelector('button[aria-label^="Borrar gasto"]') as HTMLElement | null;
+  expect("Panel expandido tiene botón Borrar", delBtn !== null, true);
 
   // Segundo render: la fila está ahora en modo edición. El botón Borrar
   // debe estar visible y debe invocar onDelete al pulsarlo.

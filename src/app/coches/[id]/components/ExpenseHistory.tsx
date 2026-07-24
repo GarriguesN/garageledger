@@ -15,10 +15,12 @@
 //   - Razón: respeta la affordance del mockup (fila clickeable) y no
 //     depende de un sensor (hover) que no existe en táctil.
 
+"use client";
+
 import {
   Calendar, Fuel, Wrench, Euro,
   Edit, Save, X, Trash2, FileText, Gauge,
-  Receipt, ChevronRight, BarChart3,
+  Receipt, ChevronRight, ChevronDown, BarChart3,
 } from "lucide-react";
 import {
   fmt, fmt0, formatDate, TIPO_COLOR, CATEGORIAS,
@@ -26,6 +28,7 @@ import {
 import type {
   TimelineEntry, EditExpenseFormState,
 } from "../lib/types";
+import { useState } from "react";
 
 interface ExpenseHistoryProps {
   timeline: TimelineEntry[];
@@ -51,6 +54,13 @@ export default function ExpenseHistory({
   onStartEdit, onChangeEditForm, onSaveInline, onCancelEdit,
   onDelete, onOpenAll,
 }: ExpenseHistoryProps) {
+  // Ticket 1.15: acordeón — sólo una fila expandida a la vez.
+  // La fila entera en estado normal ya NO abre edición al tap.
+  // Sólo el chevron expande/colapsa. La edición vive dentro del panel
+  // expandido, junto al botón borrar.
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const toggleExpanded = (id: number) => setExpandedId(prev => prev === id ? null : id);
+
   return (
     <div>
       {/* Header con título + "Ver todos" (mockup).
@@ -76,9 +86,10 @@ export default function ExpenseHistory({
         {timeline.slice(0, VISIBLE_LIMIT).map((entry) => {
           const color = TIPO_COLOR[entry.tipo] || "#6b7280";
           const isEditing = editingId === entry.id;
+          const isExpanded = expandedId === entry.id;
 
           return (
-            <div key={entry.id} className="card !p-3">
+            <div key={entry.id} className="card !p-0 overflow-hidden">
               {isEditing ? (
                 <EditFormFields
                   entry={entry}
@@ -92,7 +103,13 @@ export default function ExpenseHistory({
                 <ReadOnlyFields
                   entry={entry}
                   color={color}
-                  onStartEdit={onStartEdit}
+                  isExpanded={isExpanded}
+                  onToggle={() => toggleExpanded(entry.id)}
+                  onStartEdit={() => {
+                    setExpandedId(entry.id);
+                    onStartEdit(entry);
+                  }}
+                  onDelete={() => onDelete(entry.id)}
                 />
               )}
             </div>
@@ -280,14 +297,17 @@ export function EditFormFields({ entry, editForm, onChange, onSave, onCancel, on
 interface ReadOnlyFieldsProps {
   entry: TimelineEntry;
   color: string;
-  onStartEdit: (entry: TimelineEntry) => void;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onStartEdit: () => void;
+  onDelete: () => void;
 }
 
-// Fila del historial (mockup). Ticket 1.7a: tap en la fila abre edición
-// inline. Ticket 1.11: el borrado vive dentro del modo de edición junto a
-// Guardar/Cancelar para no reintroducir un kebab que ya no encaja con el
-// patrón "fila tocable = editar".
-export function ReadOnlyFields({ entry, color, onStartEdit }: ReadOnlyFieldsProps) {
+// Fila del historial (mockup). Ticket 1.15: el tap ya NO abre edición;
+// sólo el chevron expande/colapsa un panel con detalles + acciones.
+export function ReadOnlyFields({
+  entry, color, isExpanded, onToggle, onStartEdit, onDelete,
+}: ReadOnlyFieldsProps) {
 
   const Icon = entry.tipo === "Carburante" ? Fuel
     : entry.tipo?.includes("DIY") ? Wrench
@@ -308,71 +328,135 @@ export function ReadOnlyFields({ entry, color, onStartEdit }: ReadOnlyFieldsProp
   }
   if (entry.referencia) metaParts.push(`#${entry.referencia}`);
 
+  const panelId = `expense-panel-${entry.id}`;
+  const isFuelLike = entry.tipo === "Carburante";
+  const isDiy = entry.tipo?.startsWith("DIY") || entry.tipo === "Mantenimiento (Taller)";
+
   return (
-    <div
-      className="relative flex items-center gap-3 cursor-pointer"
-      onClick={() => onStartEdit(entry)}
-      // El teclado también abre la edición (Enter/Space) para usuarios que
-      // no usan ratón ni touch.
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onStartEdit(entry);
-        }
-      }}
-      tabIndex={0}
-      role="button"
-      aria-label={`Editar gasto ${entry.descripcion ?? entry.tipo}`}
-    >
-      {/* Icono circular por categoría */}
-      <div
-        className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-        style={{ background: `${color}1a`, color }}
-        aria-hidden
-      >
-        <Icon size={18} strokeWidth={1.8} />
-      </div>
-
-      {/* Texto: categoría (color) + descripción + meta */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span
-            className="text-[12px] font-semibold uppercase tracking-wide"
-            style={{ color }}
-          >
-            {entry.tipo}
-          </span>
-          {entry.descripcion && (
-            <span
-              className="text-[13px] truncate"
-              style={{ color: TEXT_DARK }}
-              title={entry.descripcion}
-            >
-              {entry.descripcion}
-            </span>
-          )}
-        </div>
-        <p className="text-[11px] mt-0.5 truncate" style={{ color: TEXT_GRAY }}>
-          {formatDate(entry.date)}
-          {metaParts.length > 0 && ` · ${metaParts.join(" · ")}`}
-        </p>
-      </div>
-
-      {/* Importe + chevron */}
-      <div className="flex items-center gap-1.5 flex-shrink-0">
-        <span
-          style={{ color: "var(--accent)" }}
+    <div>
+      {/* Cabecera de la fila (siempre visible). El chevron lleva
+          aria-expanded/aria-controls. */}
+      <div className="relative flex items-center gap-3 px-3 py-3">
+        {/* Icono circular por categoría */}
+        <div
+          className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+          style={{ background: `${color}1a`, color }}
+          aria-hidden
         >
+          <Icon size={18} strokeWidth={1.8} />
+        </div>
+
+        {/* Texto: categoría (color) + descripción + meta */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span
+              className="text-[12px] font-semibold uppercase tracking-wide"
+              style={{ color }}
+            >
+              {entry.tipo}
+            </span>
+            {entry.descripcion && (
+              <span
+                className="text-[13px] truncate"
+                style={{ color: TEXT_DARK }}
+                title={entry.descripcion}
+              >
+                {entry.descripcion}
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] mt-0.5 truncate" style={{ color: TEXT_GRAY }}>
+            {formatDate(entry.date)}
+            {metaParts.length > 0 && ` · ${metaParts.join(" · ")}`}
+          </p>
+        </div>
+
+        {/* Importe */}
+        <span className="font-semibold flex-shrink-0" style={{ color: "var(--accent)" }}>
           {fmt(entry.importe)}€
         </span>
-        <ChevronRight
-          size={16}
-          style={{ color: TEXT_GRAY }}
-          aria-hidden
-        />
+
+        {/* Chevron con aria-expanded/aria-controls (Ticket 1.15). */}
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={isExpanded}
+          aria-controls={panelId}
+          aria-label={isExpanded ? "Contraer detalles" : "Expandir detalles"}
+          className="flex-shrink-0 p-1 -mr-1 rounded transition-transform"
+          style={{
+            color: TEXT_GRAY,
+            transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+            transition: "transform 200ms ease",
+          }}
+        >
+          <ChevronRight size={18} aria-hidden />
+        </button>
       </div>
 
-
+      {/* Panel expandido (acordeón). max-height animado + aria-hidden.
+          role=region para que lector de pantalla lo identifique como zona
+          expandible. */}
+      <div
+        id={panelId}
+        role="region"
+        aria-label={`Detalles de ${entry.tipo} ${entry.descripcion ?? ""}`.trim()}
+        className="overflow-hidden border-t"
+        style={{
+          borderColor: "var(--border-color)",
+          maxHeight: isExpanded ? "500px" : "0px",
+          transition: "max-height 200ms ease",
+          opacity: isExpanded ? 1 : 0,
+          transitionProperty: "max-height, opacity",
+        }}
+      >
+        <div className="px-3 py-3 space-y-1.5 text-[12px]" style={{ color: TEXT_DARK }}>
+          {/* Descripción completa (no truncada). */}
+          {entry.descripcion && (
+            <p className="break-words"><strong>Descripción:</strong> {entry.descripcion}</p>
+          )}
+          {/* Detalles carburante */}
+          {isFuelLike && (
+            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+              {entry.litros != null && <p><strong>Litros:</strong> {entry.litros} L</p>}
+              {entry.km != null && entry.km > 0 && <p><strong>Km:</strong> {fmt0(entry.km)}</p>}
+              {entry.litros && entry.litros > 0 && (
+                <p><strong>Precio:</strong> {(entry.importe / entry.litros).toFixed(3)} €/L</p>
+              )}
+              {entry.referencia && <p><strong>Referencia:</strong> {entry.referencia}</p>}
+            </div>
+          )}
+          {/* Detalles DIY */}
+          {isDiy && entry.coste_estimado_taller != null && entry.coste_estimado_taller > 0 && (
+            <p><strong>Coste estimado taller:</strong> {fmt(entry.coste_estimado_taller)} €</p>
+          )}
+          {/* Notas — la entrada de BD no tiene campo notes todavía; si lo
+              añadimos en el futuro, se mostrará aquí. */}
+          {/* Acciones: Editar + Borrar */}
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onStartEdit(); }}
+              aria-label={`Editar gasto ${entry.descripcion ?? entry.tipo}`}
+              className="flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded"
+              style={{ color: "var(--accent)" }}
+            >
+              <Edit size={14} />
+              Editar
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              className="flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded"
+              style={{ color: "#dc2626" }}
+              aria-label={`Borrar gasto ${entry.descripcion ?? entry.tipo}`}
+            >
+              <Trash2 size={14} />
+              Borrar
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
