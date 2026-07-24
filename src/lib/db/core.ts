@@ -41,6 +41,7 @@ function initSchema(db: Database.Database) {
       importe REAL NOT NULL, descripcion TEXT NOT NULL DEFAULT '',
       referencia TEXT NOT NULL DEFAULT '',
       litros REAL, km INTEGER, coste_estimado_taller REAL,
+      maintenance_task_id INTEGER,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (car_id) REFERENCES cars(id) ON DELETE CASCADE
     );
@@ -115,6 +116,12 @@ function migrateSchema(db: Database.Database) {
   const expCols = db.prepare("PRAGMA table_info(expenses)").all() as { name: string }[];
   const expNames = expCols.map(c => c.name);
   if (!expNames.includes("referencia")) db.exec("ALTER TABLE expenses ADD COLUMN referencia TEXT NOT NULL DEFAULT ''");
+  // Ticket 1.16: conexión gasto↔tarea. Si el gasto es de mantenimiento
+  // y el usuario eligió una tarea abierta, aquí guardamos su id para
+  // que completeMaintenanceTask la cierre al crear el gasto.
+  if (!expNames.includes("maintenance_task_id")) {
+    db.exec("ALTER TABLE expenses ADD COLUMN maintenance_task_id INTEGER");
+  }
 
   // Maintenance presets: icon_key stores the preset key selected when
   // creating a task (e.g. "engine_oil_filter"). Idempotent — only adds

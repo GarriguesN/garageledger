@@ -299,6 +299,10 @@ export default function CarDetailClient({
     if (form.litros) body.litros = parseFloat(form.litros);
     if (form.km) body.km = parseInt(form.km);
     if (form.tipo.includes("DIY") && form.costeTaller) body.costeTaller = parseFloat(form.costeTaller);
+    // Ticket 1.16: si el usuario eligió una tarea abierta en el form de
+    // gasto, el backend la cierra con los datos del gasto y crea la
+    // siguiente automáticamente (Ticket 1.16 + 1.14 cadena).
+    if (form.selectedTask) body.maintenanceTaskId = parseInt(form.selectedTask);
     // Ticket 1.20: si es Impuestos y el checkbox está marcado, el backend
     // actualiza cars.fecha_impuesto_circulacion con la fecha del gasto.
     if (form.tipo === "Impuestos" && form.impuesto_circulacion) {

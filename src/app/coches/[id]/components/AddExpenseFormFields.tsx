@@ -10,7 +10,7 @@ import {
   Euro, Calendar, FileText, Hash, Fuel, Gauge, Wrench,
 } from "lucide-react";
 import {
-  CATEGORIAS, isFuel, isDiy,
+  CATEGORIAS, isFuel, isDiy, isTaller,
 } from "../lib/format";
 import type { AddExpenseFormState, MaintenanceTask } from "../lib/types";
 
@@ -136,12 +136,15 @@ export default function AddExpenseForm({
           </div>
         </div>
       )}
-      {diy && (
+      {(isDiy(form) || isTaller(form)) && (
         <div className="space-y-3">
           <div>
             <label className="block text-xs text-[var(--text-muted)] mb-1">
               Tarea de mantenimiento
             </label>
+            <p className="text-[11px] text-[var(--text-muted)] mb-1">
+              Si eliges una tarea abierta, la cerramos con estos datos y programamos la siguiente automáticamente.
+            </p>
             <select
               className="input"
               value={form.selectedTask}
@@ -163,21 +166,40 @@ export default function AddExpenseForm({
               ))}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs text-[var(--text-muted)] mb-1">
-                Coste estimado taller (€)
-              </label>
-              <div className="input-wrapper">
-                <span className="input-icon"><Wrench size={16} /></span>
-                <input
+          {/* Ticket 1.16: el coste estimado de taller SOLO aplica a DIY, donde
+              tiene sentido comparar el gasto real contra el hipotético
+              taller. Para "Mantenimiento (Taller)" el importe ya es el
+              coste real pagado al mecánico. */}
+          {isDiy(form) ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-[var(--text-muted)] mb-1">
+                  Coste estimado taller (€)
+                </label>
+                <div className="input-wrapper">
+                  <span className="input-icon"><Wrench size={16} /></span>
+                  <input
+                    className="input"
+                    type="number" step="0.01" placeholder="Ej. 80.00"
+                    value={form.costeTaller}
+                    onChange={(e) => onChange({ ...form, costeTaller: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-[var(--text-muted)] mb-1">Km actuales</label>
+                <div className="input-wrapper">
+                  <span className="input-icon"><Gauge size={16} /></span>
+                  <input
                   className="input"
-                  type="number" step="0.01" placeholder="Ej. 80.00"
-                  value={form.costeTaller}
-                  onChange={(e) => onChange({ ...form, costeTaller: e.target.value })}
+                  type="number" placeholder="Ej. 294122"
+                  value={form.km}
+                  onChange={(e) => onChange({ ...form, km: e.target.value })}
                 />
               </div>
+              </div>
             </div>
+          ) : (
             <div>
               <label className="block text-xs text-[var(--text-muted)] mb-1">Km actuales</label>
               <div className="input-wrapper">
@@ -190,7 +212,7 @@ export default function AddExpenseForm({
                 />
               </div>
             </div>
-          </div>
+          )}
         </div>
       )}
       <div className="flex gap-2 pt-2">

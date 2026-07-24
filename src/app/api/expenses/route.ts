@@ -24,7 +24,10 @@ export async function POST(req: NextRequest) {
     body.date || new Date().toISOString().split("T")[0],
     body.descripcion || "", body.referencia || "",
     body.litros || null, body.km || null, body.costeTaller || null,
-    { impuestoCirculacion: body.tipo === "Impuestos" && body.impuesto_circulacion === true }
+    {
+      impuestoCirculacion: body.tipo === "Impuestos" && body.impuesto_circulacion === true,
+      maintenanceTaskId: body.maintenanceTaskId || undefined,
+    }
   );
   return NextResponse.json(exp, { status: 201 });
 }

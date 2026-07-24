@@ -9,7 +9,7 @@
 // Run with:
 //   npx tsx scripts/test-empty-states-and-stats.ts
 
-import { fmt, fmt0, fmtOrDash, formatDate, formatLongMonthYear, Sparkline, TIPO_COLOR, CATEGORIAS, isFuel, isDiy, isMaintenance } from "../src/app/coches/[id]/lib/format";
+import { fmt, fmt0, fmtOrDash, formatDate, formatLongMonthYear, Sparkline, TIPO_COLOR, CATEGORIAS, isFuel, isDiy, isTaller, isMaintenance } from "../src/app/coches/[id]/lib/format";
 import { fetchJsonWithToast, ToastFn } from "../src/app/coches/[id]/lib/net";
 
 // ── tiny test harness (kept local so this file is self-contained) ──
@@ -180,7 +180,9 @@ console.log("\n=== 6) isFuel / isDiy / isMaintenance ===");
   expect("isFuel({tipo:'Carburante'}) = true",                       isFuel({ tipo: "Carburante" }),  true);
   expect("isFuel({tipo:'Mantenimiento (DIY)'}) = false",             isFuel({ tipo: "Mantenimiento (DIY)" }), false);
   expect("isDiy({tipo:'Mantenimiento (DIY)'}) = true",               isDiy({ tipo: "Mantenimiento (DIY)" }), true);
-  expect("isDiy({tipo:'Mantenimiento (Taller)'}) = true",            isDiy({ tipo: "Mantenimiento (Taller)" }), true);
+  expect("isDiy({tipo:'Mantenimiento (Taller)'}) = false (Ticket 1.16)", isDiy({ tipo: "Mantenimiento (Taller)" }), false);
+  expect("isTaller({tipo:'Mantenimiento (Taller)'}) = true",        isTaller({ tipo: "Mantenimiento (Taller)" }), true);
+  expect("isTaller({tipo:'Mantenimiento (DIY)'}) = false",          isTaller({ tipo: "Mantenimiento (DIY)" }), false);
   expect("isDiy({tipo:'Seguro'}) = false",                           isDiy({ tipo: "Seguro" }), false);
   expect("isMaintenance({tipo:'Carburante'}) = true",                isMaintenance({ tipo: "Carburante" }), true);
   expect("isMaintenance({tipo:'ITV'}) = false",                      isMaintenance({ tipo: "ITV" }), false);

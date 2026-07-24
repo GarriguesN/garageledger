@@ -67,9 +67,16 @@ export const TIPO_COLOR = Object.fromEntries(CATEGORIES.map(c => [c.label, c.col
 export function isFuel(form: { tipo: string }) {
   return form.tipo === "Carburante";
 }
+// DIY: solo el gasto hecho por el usuario (no Taller). Es donde tiene
+// sentido comparar contra "coste_estimado_taller".
 export function isDiy(form: { tipo: string }) {
-  return form.tipo === "Mantenimiento (DIY)" || form.tipo === "Mantenimiento (Taller)";
+  return form.tipo === "Mantenimiento (DIY)";
+}
+// Taller: gasto pagado al mecánico. NO muestra coste_estimado_taller
+// (Ticket 1.16) porque ya tienes el importe real.
+export function isTaller(form: { tipo: string }) {
+  return form.tipo === "Mantenimiento (Taller)";
 }
 export function isMaintenance(form: { tipo: string }) {
-  return isFuel(form) || isDiy(form);
+  return isFuel(form) || isDiy(form) || isTaller(form);
 }
