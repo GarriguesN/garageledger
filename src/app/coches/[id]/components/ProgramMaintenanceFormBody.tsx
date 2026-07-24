@@ -187,7 +187,7 @@ export default function ProgramMaintenanceFormBody({
             <span className="input-icon"><Calendar size={16} /></span>
             <input
               className="input"
-              type="date"
+              type="date" style={{maxWidth:"84.5%"}}
               value={form.next_date}
               onChange={(e) => onChange({ ...form, next_date: e.target.value })}
             />

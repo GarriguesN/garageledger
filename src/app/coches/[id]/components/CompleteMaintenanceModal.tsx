@@ -84,7 +84,7 @@ export default function CompleteMaintenanceModal({
           <input
             id="cm-date"
             className="input"
-            type="date"
+            type="date" style={{maxWidth:"84.5%"}}
             value={date}
             onChange={(e) => {
               setDate(e.target.value);

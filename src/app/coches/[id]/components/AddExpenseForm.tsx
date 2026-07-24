@@ -61,7 +61,7 @@ export default function AddExpenseForm({
           <span className="input-icon"><Calendar size={16} /></span>
           <input
             className="input"
-            type="date"
+            type="date" style={{maxWidth:"84.5%"}}
             value={form.date}
             onChange={(e) => onChange({ ...form, date: e.target.value })}
           />

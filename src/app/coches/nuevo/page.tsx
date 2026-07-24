@@ -190,9 +190,7 @@ export default function NuevoCoche() {
           <div className="input-wrapper">
             <span className="input-icon"><Calendar size={16} /></span>
             <input
-              className="input"
-              type="date"
-              value={form.fecha_matriculacion} style={{maxWidth:"84.5%"}}
+              className="input" type="date" style={{maxWidth:"84.5%"}} value={form.fecha_matriculacion}
               onChange={e => setForm({...form, fecha_matriculacion: e.target.value})}
             />
           </div>
@@ -262,8 +260,7 @@ export default function NuevoCoche() {
               <label className="block text-xs text-[var(--text-muted)] mb-1">Última ITV</label>
               <div className="input-wrapper">
                 <span className="input-icon"><Calendar size={16} /></span>
-                <input className="input" type="date"
-                  value={form.fecha_ultima_itv}
+                <input className="input" type="date" style={{maxWidth:"84.5%"}} value={form.fecha_ultima_itv}
                   onChange={e => setForm({...form, fecha_ultima_itv: e.target.value})}
                 />
               </div>
@@ -272,8 +269,7 @@ export default function NuevoCoche() {
               <label className="block text-xs text-[var(--text-muted)] mb-1">Vencimiento seguro</label>
               <div className="input-wrapper">
                 <span className="input-icon"><Calendar size={16} /></span>
-                <input className="input" type="date"
-                  value={form.fecha_vencimiento_seguro}
+                <input className="input" type="date" style={{maxWidth:"84.5%"}} value={form.fecha_vencimiento_seguro}
                   onChange={e => setForm({...form, fecha_vencimiento_seguro: e.target.value})}
                 />
               </div>
@@ -284,7 +280,7 @@ export default function NuevoCoche() {
               </label>
               <div className="input-wrapper">
                 <span className="input-icon"><Calendar size={16} /></span>
-                <input className="input" type="date"
+                <input className="input" type="date" style={{maxWidth:"84.5%"}}
                   value={form.fecha_ivtm}
                   onChange={e => setForm({...form, fecha_ivtm: e.target.value})}
                 />

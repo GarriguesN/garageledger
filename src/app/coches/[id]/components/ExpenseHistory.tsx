@@ -204,7 +204,7 @@ export function EditFormFields({ entry, editForm, onChange, onSave, onCancel, on
           <span className="input-icon"><Calendar size={14} /></span>
           <input
             className="input text-xs"
-            type="date"
+            type="date" style={{maxWidth:"84.5%"}}
             value={editForm.date}
             onChange={(e) => onChange({ ...editForm, date: e.target.value })}
           />
