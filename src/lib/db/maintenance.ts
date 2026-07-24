@@ -56,6 +56,14 @@ export function getOpenMaintenanceTasksByPreset(carId: number, presetKey: string
     "SELECT * FROM maintenance_tasks WHERE car_id=? AND preset_key=? AND completed=0 ORDER BY next_km ASC",
   ).all(carId, presetKey) as MaintenanceTask[];
 }
+
+/** Busca tareas abiertas por nombre de pieza (fallback cuando no hay
+ *  preset_key en las tareas antiguas). */
+export function getOpenMaintenanceTasksByName(carId: number, partName: string): MaintenanceTask[] {
+  return getDb().prepare(
+    "SELECT * FROM maintenance_tasks WHERE car_id=? AND part_name=? AND completed=0 ORDER BY next_km ASC",
+  ).all(carId, partName) as MaintenanceTask[];
+}
 export function createMaintenanceTask(carId: number, part_name: string, opts: {
   part_brand?: string; part_model?: string;
   current_km?: number; current_date?: string;

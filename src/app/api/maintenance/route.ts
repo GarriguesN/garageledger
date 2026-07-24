@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMaintenanceTasks, getOpenMaintenanceTasksByPreset, createMaintenanceTask, updateMaintenanceTask, completeMaintenanceTask, deleteMaintenanceTask } from "@/lib/db";
+import { getMaintenanceTasks, getOpenMaintenanceTasksByPreset, getOpenMaintenanceTasksByName, createMaintenanceTask, updateMaintenanceTask, completeMaintenanceTask, deleteMaintenanceTask } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -9,6 +9,12 @@ export async function GET(req: NextRequest) {
   const presetKey = searchParams.get("preset_key");
   if (carId && presetKey) {
     return NextResponse.json(getOpenMaintenanceTasksByPreset(parseInt(carId), presetKey));
+  }
+  // Fallback: buscar por part_name (para tareas antiguas creadas antes
+  // de la migración de preset_key).
+  const partName = searchParams.get("part_name");
+  if (carId && partName) {
+    return NextResponse.json(getOpenMaintenanceTasksByName(parseInt(carId), partName));
   }
   if (!carId) return NextResponse.json({ error: "car_id required" }, { status: 400 });
   return NextResponse.json(getMaintenanceTasks(parseInt(carId)));

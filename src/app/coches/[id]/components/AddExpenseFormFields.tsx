@@ -38,9 +38,23 @@ export default function AddExpenseForm({
 
   useEffect(() => {
     if (!form.presetKey) { setPresetTasks([]); return; }
-    fetch(`/api/maintenance?car_id=${carId}&preset_key=${encodeURIComponent(form.presetKey)}`)
+    const params = `car_id=${carId}&preset_key=${encodeURIComponent(form.presetKey)}`;
+    fetch(`/api/maintenance?${params}`)
       .then(r => r.json())
-      .then((arr: MaintenanceTask[]) => setPresetTasks(arr))
+      .then(async (arr: MaintenanceTask[]) => {
+        if (arr.length > 0) { setPresetTasks(arr); return; }
+        // Fallback para tareas antiguas que no tienen preset_key: buscar
+        // por part_name (que coincide con el label del preset).
+        const preset = MAINTENANCE_PRESETS.find(p => p.key === form.presetKey);
+        if (!preset) { setPresetTasks([]); return; }
+        // GET /api/maintenance?car_id=X&part_name=Y usa el endpoint
+        // genérico que también entiende preset_key; para part_name
+        // necesitamos una variante. Lo resolvemos aquí directamente
+        // con un fetch separado.
+        const r2 = await fetch(`/api/maintenance?car_id=${carId}&part_name=${encodeURIComponent(preset.part_name)}`);
+        const byName = await r2.json() as MaintenanceTask[];
+        setPresetTasks(Array.isArray(byName) ? byName : []);
+      })
       .catch(() => setPresetTasks([]));
   }, [form.presetKey, carId]);
 
