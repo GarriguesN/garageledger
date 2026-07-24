@@ -50,27 +50,35 @@ export default async function GaragePage() {
           </Link>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {cars.map((car) => (
-            <VehicleCard
-              key={car.id}
-              id={String(car.id)}
-              marca={car.marca}
-              modelo={car.modelo}
-              generacion={car.generacion}
-              ano={car.ano ?? 0}
-              motor={car.motor}
-              matricula={car.matricula}
-              bastidor={car.bastidor}
-              combustible={car.combustible}
-              kmActuales={car.km_actuales}
-              estado={car.estado}
-              gastoMensual={car.gastoMensual}
-              fotoAttachmentId={car.foto_attachment_id}
-              archivado={car.archivado === 1}
-            />
-          ))}
-        </div>
+        <>
+          {/* Añadir vehículo — siempre visible (no solo en empty state) */}
+          <div className="flex items-center justify-end gap-3 mb-2">
+            <Link href="/coches/nuevo" className="btn btn-primary text-sm">
+              <Plus size={16} /> Añadir vehículo
+            </Link>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {cars.map((car) => (
+              <VehicleCard
+                key={car.id}
+                id={String(car.id)}
+                marca={car.marca}
+                modelo={car.modelo}
+                generacion={car.generacion}
+                ano={car.ano ?? 0}
+                motor={car.motor}
+                matricula={car.matricula}
+                bastidor={car.bastidor}
+                combustible={car.combustible}
+                kmActuales={car.km_actuales}
+                estado={car.estado}
+                gastoMensual={car.gastoMensual}
+                fotoAttachmentId={car.foto_attachment_id}
+                archivado={car.archivado === 1}
+              />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

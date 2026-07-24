@@ -1,5 +1,5 @@
 // Increment CACHE_NAME on every significant frontend change to evict stale PWA assets.
-const CACHE_NAME = "garageledger-v3";
+const CACHE_NAME = "garageledger-v4";
 const STATIC_ASSETS = [
 
   "/manifest.json",

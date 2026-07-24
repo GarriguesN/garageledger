@@ -141,7 +141,7 @@ export default function SettingsPage() {
           </div>
           <div className="flex justify-between">
             <span className="text-[var(--text-muted)]">Versión</span>
-            <span>1.0.0</span>
+            <span>1.5.0</span>
           </div>
           <div className="flex justify-between">
             <span className="text-[var(--text-muted)]">Framework</span>
@@ -151,6 +151,23 @@ export default function SettingsPage() {
             <span className="text-[var(--text-muted)]">Base de datos</span>
             <span>SQLite</span>
           </div>
+        </div>
+      </div>
+
+      {/* Patch Notes (Ticket 1.24) */}
+      <div className="card">
+        <h2 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-4">Novedades</h2>
+        <div className="text-xs text-[var(--text-secondary)] space-y-1.5">
+          <p><strong>v1.5.0</strong> — julio 2026</p>
+          <ul className="space-y-1 list-disc list-inside pl-1">
+            <li>Mantenimientos programados con 35+ presets.</li>
+            <li>Detección automática de tareas al añadir gasto.</li>
+            <li>Acordeón con fecha, km y referencia en todas las filas.</li>
+            <li>Swipe para editar/eliminar con undo (Deshacer).</li>
+            <li>Ahorro calculado en tareas DIY vs taller.</li>
+            <li>Soporte multi-coche con dashboard por vehículo.</li>
+            <li>Auto-login por PIN al completar todos los dígitos.</li>
+          </ul>
         </div>
       </div>
 
