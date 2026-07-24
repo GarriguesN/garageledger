@@ -1,7 +1,36 @@
 import Database from "better-sqlite3";
 import path from "path";
 
-const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), "data", "garageledger.db");
+// DB_PATH: override por env var (e.g. tests en CI), sino busca
+// `<project>/data/garageledger.db` relativo a la raíz del repo. Usamos
+// `require.main.filename` / `__dirname` (en runtime de Next, este archivo
+// vive en `src/lib/db/core.ts`; subimos 3 niveles para llegar al root).
+// Esto evita el problema de `process.cwd()` cuando Next standalone
+// corre con cwd distinto.
+function resolveProjectRoot(): string {
+  // En runtime, este archivo está en /<root>/src/lib/db/core.ts
+  // (compilado a .next/server/...). Necesitamos el root del proyecto.
+  // Estrategia: caminar hacia arriba buscando `package.json` o un
+  // archivo que sepamos está en el root.
+  const candidates = [
+    process.cwd(),
+    process.env.PWD || "",
+    // Compiled path (Next.js production):  <root>/.next/standalone/src/lib/db/core.js
+    path.resolve(__dirname, "..", "..", "..", "..", ".."),
+    // Source path (ts-node / dev):        <root>/src/lib/db/core.ts
+    path.resolve(__dirname, "..", "..", ".."),
+  ].filter(Boolean);
+
+  for (const dir of candidates) {
+    if (!dir) continue;
+    const pkg = path.join(dir, "package.json");
+    if (require("fs").existsSync(pkg)) return dir;
+  }
+  // Fallback a process.cwd() si no encontramos package.json.
+  return process.cwd();
+}
+
+const DB_PATH = process.env.DB_PATH || path.join(resolveProjectRoot(), "data", "garageledger.db");
 
 let db: Database.Database | null = null;
 
