@@ -112,7 +112,7 @@ export default function SwipeableRow({ children, onEdit, onDelete }: SwipeableRo
   ) : null;
 
   return (
-    <div className="relative overflow-hidden rounded-xl">
+    <div className="relative overflow-hidden rounded-xl" style={{ borderRadius: 8 }}>
       {reveal}
       <div
         onTouchStart={onStart}
@@ -126,7 +126,7 @@ export default function SwipeableRow({ children, onEdit, onDelete }: SwipeableRo
           transform: `translateX(${offset}px)`,
           transition: committed.current ? "none" : "transform 250ms ease",
           touchAction: "pan-y",
-          background: "var(--bg-primary)",
+          background: "var(--bg-card, var(--bg-primary))",
           borderRadius: "inherit",
         }}
       >
