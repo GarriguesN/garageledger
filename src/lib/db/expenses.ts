@@ -42,7 +42,7 @@ export function createExpense(
   carId: number, tipo: string, importe: number, date: string,
   descripcion = "", referencia = "",
   litros: number | null = null, km: number | null = null, costeTaller: number | null = null,
-  opts: { impuestoCirculacion?: boolean; maintenanceTaskId?: number } = {},
+  opts: { impuestoCirculacion?: boolean; maintenanceTaskId?: number; scheduleNext?: boolean } = {},
 ): Expense {
   const r = getDb().prepare("INSERT INTO expenses (car_id, date, tipo, importe, descripcion, referencia, litros, km, coste_estimado_taller, maintenance_task_id) VALUES (?,?,?,?,?,?,?,?,?,?)").run(carId, date, tipo, importe, descripcion, referencia, litros, km, costeTaller, opts.maintenanceTaskId ?? null);
   // Ticket 1.14: bump car km if this expense has odometer data.
@@ -50,11 +50,14 @@ export function createExpense(
   // Ticket 1.20: ITV/Seguro/Impuestos actualizan la fecha del coche.
   autoUpdateCarDate(carId, tipo, date, { impuesto_circulacion: opts.impuestoCirculacion });
   // Ticket 1.16: si el usuario eligió una tarea de mantenimiento en el form
-  // de gasto, la cerramos automáticamente con los datos del gasto (km + fecha)
-  // y completeMaintenanceTask crea la siguiente tarea con next_km = km + interval_km.
+  // de gasto, la cerramos con los datos del gasto (km + fecha) y
+  // completeMaintenanceTask crea la siguiente tarea con next_km = km +
+  // interval_km SOLO si scheduleNext=true. Si la tarea no tenía
+  // intervalos (puntual, ej. "Arreglo parrilla frontal") o el usuario
+  // desmarcó el checkbox, no se crea ninguna tarea fantasma.
   // Esto conecta el flujo de gastos con las tareas programadas.
   if (opts.maintenanceTaskId && (tipo === "Mantenimiento (Taller)" || tipo.startsWith("DIY"))) {
-    completeMaintenanceTask(opts.maintenanceTaskId, km ?? 0, date);
+    completeMaintenanceTask(opts.maintenanceTaskId, km ?? 0, date, opts.scheduleNext !== false);
   }
   return getDb().prepare("SELECT * FROM expenses WHERE id=?").get(r.lastInsertRowid) as Expense;
 }

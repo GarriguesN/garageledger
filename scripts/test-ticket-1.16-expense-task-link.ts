@@ -125,5 +125,97 @@ if (task3) deleteMaintenanceTask(task3.id);
 // ── 6) Actualizar coche para no dejar el km cambiado ──
 safeCall("restore km del coche", () => updateCar(1, { km_actuales: initialKm }));
 
+
+// ── 7) Ticket 1.16-fix: escenarios a/b/c del checkbox scheduleNext ──
+
+// (a) Tarea CON interval_km + scheduleNext=true (default) → sí se crea la siguiente.
+const taskA = safeCall("createMaintenanceTask Aceite 15k", () =>
+  createMaintenanceTask(1, "Aceite 15k A", { interval_km: 15000, icon_key: "engine_oil" }),
+);
+const beforeA = getMaintenanceTasks(1, false).length;
+const eA = safeCall("createExpense A (interval+scheduleNext=true)", () =>
+  createExpense(1, "Mantenimiento (Taller)", 60, "2026-07-23",
+    "Aceite A", "", null, newKm + 1000, null,
+    { maintenanceTaskId: taskA!.id, scheduleNext: true }),
+);
+const afterA = getMaintenanceTasks(1, false).length;
+expect("A) con interval + scheduleNext=true → tarea original cerrada",
+  getMaintenanceTasks(1, false).find(t => t.id === taskA!.id) === undefined);
+expect("A) con interval + scheduleNext=true → siguiente tarea creada (completed=0)",
+  getMaintenanceTasks(1, false).some(t => t.part_name === "Aceite 15k A"));
+const newA = getMaintenanceTasks(1, false).find(t => t.part_name === "Aceite 15k A");
+if (newA) deleteMaintenanceTask(newA.id);
+if (eA) deleteExpense(eA.id);
+
+// (b) Tarea SIN intervals + scheduleNext=false (default por no tener intervalos) → NO crea fantasma.
+const taskB = safeCall("createMaintenanceTask Arreglo puntual sin interval", () =>
+  createMaintenanceTask(1, "Arreglo parrilla", {}),  // sin interval_km ni interval_months
+);
+expect("B) tarea creada sin intervalos", taskB?.id !== undefined);
+expect("B) intervalo_km null", taskB?.interval_km === null);
+expect("B) intervalo_months null", taskB?.interval_months === null);
+const beforeB = getMaintenanceTasks(1, false).length;
+const eB = safeCall("createExpense B (sin interval + scheduleNext=false)", () =>
+  createExpense(1, "Mantenimiento (Taller)", 300, "2026-07-23",
+    "Arreglo parrilla", "", null, newKm + 2000, null,
+    { maintenanceTaskId: taskB!.id, scheduleNext: false }),
+);
+const afterB = getMaintenanceTasks(1, false).length;
+expect("B) sin interval + scheduleNext=false → tarea original cerrada",
+  getMaintenanceTasks(1, false).find(t => t.id === taskB!.id) === undefined);
+expect("B) sin interval + scheduleNext=false → NO se crea tarea fantasma",
+  getMaintenanceTasks(1, false).filter(t => t.part_name === "Arreglo parrilla").length === 0);
+if (eB) deleteExpense(eB.id);
+
+// (c.1) Usuario FUERZA: tarea sin interval + scheduleNext=true (al revés del default)
+//      → el backend respeta su elección y crea la tarea siguiente aunque no haya intervalos
+//      (caso raro pero válido: "Arreglo puntual pero el usuario quiere que le recuerde en X km").
+const taskC = safeCall("createMaintenanceTask Reparación", () =>
+  createMaintenanceTask(1, "Reparación X", {}),
+);
+const beforeC = getMaintenanceTasks(1, false).length;
+const eC = safeCall("createExpense C (forzar scheduleNext=true en tarea sin interval)", () =>
+  createExpense(1, "Mantenimiento (Taller)", 80, "2026-07-23",
+    "Reparación X", "", null, newKm + 3000, null,
+    { maintenanceTaskId: taskC!.id, scheduleNext: true }),
+);
+const afterC = getMaintenanceTasks(1, false).length;
+expect("C.1) forzar scheduleNext=true en sin interval → siguiente tarea creada",
+  getMaintenanceTasks(1, false).some(t => t.part_name === "Reparación X"));
+const newC = getMaintenanceTasks(1, false).find(t => t.part_name === "Reparación X");
+if (newC) deleteMaintenanceTask(newC.id);
+if (eC) deleteExpense(eC.id);
+
+// (c.2) Usuario FUERZA: tarea CON interval + scheduleNext=false (al revés del default)
+//      → el backend respeta su elección: NO crea la siguiente. Útil si el usuario
+//      decide que esta fue la última vez (ej. "ya no quiero que me avise de más cambios de aceite").
+const taskD = safeCall("createMaintenanceTask Pastillas", () =>
+  createMaintenanceTask(1, "Pastillas freno", { interval_km: 30000, icon_key: "brake_pads" }),
+);
+const beforeD = getMaintenanceTasks(1, false).length;
+const eD = safeCall("createExpense D (forzar scheduleNext=false en con interval)", () =>
+  createExpense(1, "Mantenimiento (Taller)", 120, "2026-07-23",
+    "Pastillas freno", "", null, newKm + 4000, null,
+    { maintenanceTaskId: taskD!.id, scheduleNext: false }),
+);
+const afterD = getMaintenanceTasks(1, false).length;
+expect("D) forzar scheduleNext=false → tarea original cerrada",
+  getMaintenanceTasks(1, false).find(t => t.id === taskD!.id) === undefined);
+expect("D) forzar scheduleNext=false → NO crea siguiente tarea pendiente",
+  !getMaintenanceTasks(1, false).some(t => t.part_name === "Pastillas freno"));
+if (eD) deleteExpense(eD.id);
+
+// (c.3) IMPORTANTE: SIN maintenanceTaskId, scheduleNext=true no crea nada (no hay tarea que cerrar).
+const beforeE = getMaintenanceTasks(1, false).length;
+const eE = safeCall("createExpense E (sin taskId, scheduleNext=true)", () =>
+  createExpense(1, "Carburante", 50, "2026-07-23", "Gasolina", "", 40, null, null,
+    { scheduleNext: true }),
+);
+const afterE = getMaintenanceTasks(1, false).length;
+expect("E) sin maintenanceTaskId + scheduleNext=true → no se crea ninguna tarea",
+  afterE === beforeE);
+if (eE) deleteExpense(eE.id);
+
+
 console.log(`\nTicket 1.16: Passed ${pass} / ${pass + fail}`);
 if (fail) process.exit(1);

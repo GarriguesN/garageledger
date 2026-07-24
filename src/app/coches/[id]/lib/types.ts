@@ -47,8 +47,13 @@ export interface AddExpenseFormState {
   km: string;
   costeTaller: string;
   selectedTask: string;
+  /** Ticket 1.16-fix: cuando el gasto es de mantenimiento y se eligió
+   *  tarea, indica si queremos programar la siguiente automáticamente.
+   *  Default true si la tarea tiene interval_km/interval_months; el
+   *  padre lo auto-inicializa en el onChange del selector de tarea. */
+  scheduleNext: boolean;
   /** Ticket 1.20: cuando tipo='Impuestos', el checkbox controla si este
-   *  gasto es el pago anual del IVTM (impuesto de circulación) y por
+   *  pago se considera el IVTM (impuesto de circulación) anual y por
    *  tanto debe actualizar cars.fecha_impuesto_circulacion. El padre
    *  (CarDetailClient) lee este flag y decide. */
   impuesto_circulacion: boolean;

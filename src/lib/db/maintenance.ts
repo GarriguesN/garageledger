@@ -69,7 +69,10 @@ export function updateMaintenanceTask(id: number, fields: Record<string, any>): 
   return getDb().prepare("SELECT * FROM maintenance_tasks WHERE id=?").get(id) as MaintenanceTask | undefined;
 }
 
-export function completeMaintenanceTask(id: number, currentKm: number, currentDate: string): MaintenanceTask | undefined {
+export function completeMaintenanceTask(
+  id: number, currentKm: number, currentDate: string,
+  scheduleNext: boolean = true,
+): MaintenanceTask | undefined {
   const task = getDb().prepare("SELECT * FROM maintenance_tasks WHERE id=?").get(id) as MaintenanceTask | undefined;
   if (!task) return undefined;
   // Ticket 1.14: bump the car's odometer when completing a task.
@@ -81,9 +84,16 @@ export function completeMaintenanceTask(id: number, currentKm: number, currentDa
     return d.toISOString().slice(0, 10);
   })() : null;
   // audit:M-6 — Envolver UPDATE + INSERT en transacción para atomicidad.
+  // Ticket 1.16-fix: la creación de la siguiente tarea SOLO se ejecuta si
+  // `scheduleNext` es true. Si es false, sólo cerramos la tarea actual y
+  // salimos sin crear tarea fantasma (ni siquiera cuando interval_km e
+  // interval_months son null). Las tareas puntuales como "Arreglo
+  // parrilla frontal" sin intervalos ya no quedan colgadas en la lista
+  // para siempre.
   const db = getDb();
   const tx = db.transaction(() => {
-    db.prepare("UPDATE maintenance_tasks SET completed=1, current_km=?, current_date=?, next_km=?, next_date=? WHERE id=?").run(currentKm, currentDate, nextKm, nextDate, id);
+    db.prepare("UPDATE maintenance_tasks SET completed=1, current_km=?, current_date=? WHERE id=?").run(currentKm, currentDate, id);
+    if (!scheduleNext) return null;
     const r = db.prepare(`
       INSERT INTO maintenance_tasks (car_id, part_name, part_brand, part_model, current_km, current_date, next_km, next_date, interval_km, interval_months, notes)
       VALUES (?,?,?,?,?,?,?,?,?,?,?)
@@ -91,6 +101,7 @@ export function completeMaintenanceTask(id: number, currentKm: number, currentDa
     return r.lastInsertRowid as number;
   });
   const newId = tx();
+  if (newId == null) return undefined;  // scheduleNext=false → no se creó la siguiente
   return getDb().prepare("SELECT * FROM maintenance_tasks WHERE id=?").get(newId) as MaintenanceTask | undefined;
 }
 

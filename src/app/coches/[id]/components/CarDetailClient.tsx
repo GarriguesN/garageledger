@@ -72,7 +72,7 @@ export default function CarDetailClient({
   const [form, setForm] = useState<AddExpenseFormState>(() => ({
     tipo: "Carburante", importe: "", date: new Date().toISOString().split("T")[0],
     descripcion: "", referencia: "", litros: "", km: String(initialCar.km_actuales || ""),
-    costeTaller: "", selectedTask: "",
+    costeTaller: "", selectedTask: "", scheduleNext: false,
     impuesto_circulacion: false,
   }));
   const [saving, setSaving] = useState(false);
@@ -265,7 +265,7 @@ export default function CarDetailClient({
       tipo: "Carburante", importe: "", date: new Date().toISOString().split("T")[0],
       descripcion: "", referencia: "", litros: "",
       km: String(car?.km_actuales ?? initialCar.km_actuales ?? ""),
-      costeTaller: "", selectedTask: "",
+      costeTaller: "", selectedTask: "", scheduleNext: false,
       impuesto_circulacion: false,
     });
     setShowForm(true);
@@ -302,7 +302,13 @@ export default function CarDetailClient({
     // Ticket 1.16: si el usuario eligió una tarea abierta en el form de
     // gasto, el backend la cierra con los datos del gasto y crea la
     // siguiente automáticamente (Ticket 1.16 + 1.14 cadena).
-    if (form.selectedTask) body.maintenanceTaskId = parseInt(form.selectedTask);
+    // Ticket 1.16-fix: el checkbox "Programar el siguiente" controla si
+    // queremos que completeMaintenanceTask cree la tarea recurrente o
+    // sólo cierre la actual sin dejar tarea fantasma.
+    if (form.selectedTask) {
+      body.maintenanceTaskId = parseInt(form.selectedTask);
+      body.scheduleNext = form.scheduleNext;
+    }
     // Ticket 1.20: si es Impuestos y el checkbox está marcado, el backend
     // actualiza cars.fecha_impuesto_circulacion con la fecha del gasto.
     if (form.tipo === "Impuestos" && form.impuesto_circulacion) {

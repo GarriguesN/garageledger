@@ -149,11 +149,22 @@ export default function AddExpenseForm({
               className="input"
               value={form.selectedTask}
               onChange={(e) => {
-                const task = maintenanceTasks.find((t) => t.id === parseInt(e.target.value));
+                const id = e.target.value;
+                const task = maintenanceTasks.find((t) => t.id === parseInt(id));
+                if (!task) {
+                  onChange({ ...form, selectedTask: id, descripcion: form.descripcion });
+                  return;
+                }
+                // Ticket 1.16-fix: marcamos el checkbox por defecto sólo si
+                // la tarea tiene intervalos (recurrente). Si la tarea es
+                // puntual (sin intervalos), desmarcamos para que no quede
+                // una tarea fantasma abierta para siempre.
+                const isRecurring = (task.interval_km ?? 0) > 0 || (task.interval_months ?? 0) > 0;
                 onChange({
                   ...form,
-                  selectedTask: e.target.value,
-                  descripcion: task ? task.part_name : form.descripcion,
+                  selectedTask: id,
+                  descripcion: task.part_name,
+                  scheduleNext: isRecurring,
                 });
               }}
             >
@@ -162,10 +173,41 @@ export default function AddExpenseForm({
                 <option key={t.id} value={t.id}>
                   {t.part_name}
                   {t.part_brand ? ` (${t.part_brand})` : ""}
+                  {(t.interval_km ?? 0) > 0 ? ` · cada ${t.interval_km} km` : ""}
+                  {(t.interval_months ?? 0) > 0 ? ` · cada ${t.interval_months} meses` : ""}
                 </option>
               ))}
             </select>
           </div>
+          {/* Ticket 1.16-fix: checkbox real para programar la siguiente
+              tarea. El default lo pone el onChange del selector (true si
+              la tarea tiene intervalos, false si es puntual). El usuario
+              puede forzarlo en cualquier dirección. */}
+          {form.selectedTask && (
+            <label className="flex items-start gap-2 cursor-pointer text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5 w-4 h-4 rounded border-[var(--border-color)] accent-[var(--accent)]"
+                checked={form.scheduleNext}
+                onChange={(e) => onChange({ ...form, scheduleNext: e.target.checked })}
+              />
+              <span>
+                Programar el siguiente mantenimiento automáticamente
+                <span className="block text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>
+                  {(() => {
+                    const task = maintenanceTasks.find((t) => t.id === parseInt(form.selectedTask));
+                    if (!task) return null;
+                    if ((task.interval_km ?? 0) > 0 && (task.interval_months ?? 0) > 0) {
+                      return `Cada ${task.interval_km} km o cada ${task.interval_months} meses.`;
+                    }
+                    if ((task.interval_km ?? 0) > 0) return `Cada ${task.interval_km} km.`;
+                    if ((task.interval_months ?? 0) > 0) return `Cada ${task.interval_months} meses.`;
+                    return "Esta tarea no tiene intervalos (es puntual); desmarcado para no crear tarea fantasma.";
+                  })()}
+                </span>
+              </span>
+            </label>
+          )}
           {/* Ticket 1.16: el coste estimado de taller SOLO aplica a DIY, donde
               tiene sentido comparar el gasto real contra el hipotético
               taller. Para "Mantenimiento (Taller)" el importe ya es el

@@ -27,6 +27,11 @@ export async function POST(req: NextRequest) {
     {
       impuestoCirculacion: body.tipo === "Impuestos" && body.impuesto_circulacion === true,
       maintenanceTaskId: body.maintenanceTaskId || undefined,
+      // Ticket 1.16-fix: el frontend envía scheduleNext explícitamente.
+      // Default true (compatibilidad) si la tarea tiene intervalos; el
+      // frontend lo pone false para tareas puntuales o cuando el usuario
+      // desmarca el checkbox.
+      scheduleNext: body.scheduleNext !== false,
     }
   );
   return NextResponse.json(exp, { status: 201 });
