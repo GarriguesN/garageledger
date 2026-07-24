@@ -379,7 +379,12 @@ export default function CarDetailClient({
           if (tr.ok) {
             const newTask = tr.data as { id: number };
             body.maintenanceTaskId = newTask.id;
-            body.scheduleNext = form.scheduleNext;
+            // NO completamos la tarea recién creada — la dejamos
+            // abierta (completed=0) para que el usuario la complete
+            // en un futuro gasto. Sólo vinculamos el expense a ella.
+            // Sin scheduleNext, createExpense no llamará a
+            // completeMaintenanceTask.
+            body.scheduleNext = false;
           }
         }
       } else {
