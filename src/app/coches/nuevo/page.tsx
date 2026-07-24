@@ -191,8 +191,8 @@ export default function NuevoCoche() {
             <span className="input-icon"><Calendar size={16} /></span>
             <input
               className="input"
-              type="date" placeholder="dd/mm/aaaa"
-              value={form.fecha_matriculacion}
+              type="date"
+              value={form.fecha_matriculacion} style={{maxWidth:"84.5%"}}
               onChange={e => setForm({...form, fecha_matriculacion: e.target.value})}
             />
           </div>
