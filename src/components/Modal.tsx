@@ -105,11 +105,9 @@ export default function Modal({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  // Cuando el modal está abierto, marcamos como inertes el contenido de
-  // fuera.  Esto bloquea foco y oculta del árbol de accesibilidad de forma
-  // más segura que aria-hidden (que daba aviso "Blocked aria-hidden on an
-  // element because its descendant retained focus" cuando el foco se movía
-  // dentro del modal).  `inert` tiene soporte amplio en navegadores modernos.
+  // aria-hidden al contenido de fuera mientras el modal está abierto.
+  // No usamos `inert` porque los Modales se renderizan dentro de #page-main,
+  // y `inert` en el ancestro bloquearía la interactividad del propio modal.
   useEffect(() => {
     if (!open) return;
     const targets: Element[] = [];
@@ -121,13 +119,16 @@ export default function Modal({
       .querySelectorAll<HTMLElement>('nav, header[role="banner"]')
       .forEach((n) => targets.push(n));
 
+    const prev: Array<{ el: Element; aria: string | null }> = [];
     for (const el of targets) {
-      el.setAttribute("inert", "");
+      prev.push({ el, aria: el.getAttribute("aria-hidden") });
+      el.setAttribute("aria-hidden", "true");
     }
 
     return () => {
-      for (const el of targets) {
-        el.removeAttribute("inert");
+      for (const { el, aria } of prev) {
+        if (aria === null) el.removeAttribute("aria-hidden");
+        else el.setAttribute("aria-hidden", aria);
       }
     };
   }, [open, mainId]);
