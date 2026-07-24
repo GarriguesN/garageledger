@@ -86,6 +86,7 @@ export default function CarDetailClient({
 
   // PUNTO 5: modal "Programar mantenimiento"
   const [showProgramMaintenance, setShowProgramMaintenance] = useState(false);
+  const [editingMaintenanceId, setEditingMaintenanceId] = useState<number | null>(null);
   const [programForm, setProgramForm] = useState<ProgramMaintenanceFormState>(
     emptyProgramMaintenanceForm(initialCar.km_actuales)
   );
@@ -131,10 +132,12 @@ export default function CarDetailClient({
         icon_key: programForm.preset_key.trim() || null,
         preset_key: programForm.preset_key.trim() || null,
       };
+      const method = editingMaintenanceId ? "PUT" : "POST";
+      const url = editingMaintenanceId ? `/api/maintenance?id=${editingMaintenanceId}` : "/api/maintenance";
       const res = await fetchJsonWithToast(
-        "/api/maintenance",
-        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-          fallback: "No se pudo programar el mantenimiento. Inténtalo de nuevo." },
+        url,
+        { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+          fallback: "No se pudo guardar el mantenimiento. Inténtalo de nuevo." },
         setToast,
       );
       if (!res.ok) return;
@@ -273,11 +276,45 @@ export default function CarDetailClient({
     setShowForm(true);
   };
   const openProgramMaintenance = () => {
+    setEditingMaintenanceId(null);
     setProgramError(null);
     setProgramForm(emptyProgramMaintenanceForm(car?.km_actuales ?? initialCar.km_actuales));
-    setShowProgramMaintenance((v) => !v);
+    setShowProgramMaintenance(true);
+  };
+
+  const editMaintenanceTask = (task: MaintenanceTask) => {
+    setEditingMaintenanceId(task.id);
+    setProgramForm({
+      part_name: task.part_name,
+      current_km: task.current_km != null ? String(task.current_km) : "",
+      next_km: task.next_km != null ? String(task.next_km) : "",
+      next_date: task.next_date || "",
+      interval_km: task.interval_km != null ? String(task.interval_km) : "",
+      interval_months: task.interval_months != null ? String(task.interval_months) : "",
+      part_brand: task.part_brand || "",
+      preset_key: task.preset_key || "",
+    });
+    setProgramError(null);
+    setShowProgramMaintenance(true);
+  };
+
+  const deleteMaintenanceTask = async (task: MaintenanceTask) => {
+    if (!confirm(`Eliminar tarea "${task.part_name}"?`)) return;
+    const res = await fetchJsonWithToast(
+      `/api/maintenance?id=${task.id}`,
+      { method: "DELETE", headers: { "Content-Type": "application/json" },
+        fallback: "No se pudo eliminar la tarea. Inténtalo de nuevo." },
+      setToast,
+    );
+    if (!res.ok) return;
+    setToast({ msg: "Tarea eliminada", type: "success" });
+    setTimeout(() => setToast(null), 2500);
+    load();
   };
   const closeProgramMaintenance = () => {
+    setEditingMaintenanceId(null);
+    setProgramError(null);
+    setEditingMaintenanceId(null);
     setShowProgramMaintenance(false);
     setProgramError(null);
   };
@@ -351,9 +388,11 @@ export default function CarDetailClient({
       body.impuesto_circulacion = true;
     }
 
+    const method = editingId ? "PUT" : "POST";
+    const url = editingId ? `/api/expenses?id=${editingId}` : "/api/expenses";
     const res = await fetchJsonWithToast(
-      "/api/expenses",
-      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      url,
+      { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
         fallback: "No se pudo guardar el gasto. Inténtalo de nuevo." },
       setToast,
     );
@@ -362,7 +401,8 @@ export default function CarDetailClient({
 
     if (!res.ok) return;          // el toast ya se disparó dentro del helper
     setShowForm(false);
-    setToast({ msg: "Gasto guardado", type: "success" });
+    setEditingId(null);
+    setToast({ msg: editingId ? "Gasto actualizado" : "Gasto guardado", type: "success" });
     setTimeout(() => setToast(null), 2500);
     load();      // refresca car.km_actuales; el form se reinicia al reabrir via openExpenseForm
   };
@@ -372,37 +412,39 @@ export default function CarDetailClient({
     submittingRef.current = false;
     setSaving(false);
     setShowForm(false);
+    setEditingId(null);
   };
 
   const startEdit = (entry: TimelineEntry) => {
+    // Abre el modal de gasto con los datos del entry precargados.
+    // Al guardar, usamos PUT /api/expenses si editingId está seteado.
     setEditingId(entry.id);
-    setEditForm({
-      id: entry.id, tipo: entry.tipo, importe: entry.importe, date: entry.date,
-      descripcion: entry.descripcion || "", litros: entry.litros ?? null, km: entry.km ?? null,
-      coste_estimado_taller: entry.coste_estimado_taller ?? null,
+    setForm({
+      tipo: entry.tipo,
+      importe: String(entry.importe),
+      date: entry.date,
+      descripcion: entry.descripcion || "",
+      referencia: entry.referencia || "",
+      litros: entry.litros != null ? String(entry.litros) : "",
+      km: entry.km != null ? String(entry.km) : String(car?.km_actuales ?? initialCar.km_actuales ?? ""),
+      costeTaller: entry.coste_estimado_taller != null ? String(entry.coste_estimado_taller) : "",
+      selectedTask: "",
+      presetKey: entry.preset_key || "",
+      scheduleNext: false,
+      impuesto_circulacion: false,
     });
+    setShowForm(true);
   };
-
   const updateExpenseInline = async () => {
-    if (!editingId) return;
-    const res = await fetchJsonWithToast(
-      "/api/expenses",
-      { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(editForm),
-        fallback: "No se pudo actualizar el gasto. Inténtalo de nuevo." },
-      setToast,
-    );
-    if (!res.ok) return;
-    setEditingId(null);
-    setToast({ msg: "Gasto actualizado", type: "success" });
-    setTimeout(() => setToast(null), 2500);
-    load();
+    // Obsoleto — la edición ahora abre el modal principal, no inline.
+    // Mantenemos el stub vacío para no romper referencias en ExpenseHistory
+    // hasta que migremos ese componente también.
   };
-
   const deleteExp = async (id: number) => {
     if (!confirm("Eliminar gasto?")) return;
     const res = await fetchJsonWithToast(
       `/api/expenses?id=${id}`,
-      { method: "DELETE",
+      { method: "DELETE", headers: { "Content-Type": "application/json" },
         fallback: "No se pudo eliminar el gasto. Inténtalo de nuevo." },
       setToast,
     );
@@ -411,7 +453,6 @@ export default function CarDetailClient({
     setTimeout(() => setToast(null), 2500);
     load();
   };
-
   // Ticket 1.14: modal de completar tarea. Abre el modal con km_actuales
   // pre-rellenado; el guardado llama a POST /api/maintenance y refresca.
   const openCompleteTask = (task: MaintenanceTask) => {
@@ -511,12 +552,7 @@ export default function CarDetailClient({
       {/* Historial */}
       <ExpenseHistory
         timeline={timeline}
-        editingId={editingId}
-        editForm={editForm}
         onStartEdit={startEdit}
-        onChangeEditForm={setEditForm}
-        onSaveInline={updateExpenseInline}
-        onCancelEdit={() => setEditingId(null)}
         onDelete={deleteExp}
         onOpenAll={() => setShowAllExpenses(true)}
       />
@@ -529,6 +565,11 @@ export default function CarDetailClient({
         registerTaskRef={registerTaskRef}
         flashTaskId={flashTaskId}
         onOpenAll={() => setShowAllMaintenance(true)}
+        onEdit={editMaintenanceTask}
+        onDelete={(taskId) => {
+          const t = maintenanceTasks.find(x => x.id === taskId);
+          if (t) deleteMaintenanceTask(t);
+        }}
       />
 
       {/* Modal "Ver todos" — gastos */}
@@ -541,28 +582,19 @@ export default function CarDetailClient({
         <div className="space-y-1.5">
           {timeline.map((entry) => {
             const color = (TIPO_COLOR as Record<string, string>)[entry.tipo] || "#6b7280";
-            const isEditing = editingId === entry.id;
             return (
               <div key={entry.id} className="card !p-3">
-                {isEditing ? (
-                  <EditFormFields
-                    entry={entry}
-                    editForm={editForm}
-                    onChange={setEditForm}
-                    onSave={updateExpenseInline}
-                    onCancel={() => setEditingId(null)}
-                    onDelete={deleteExp}
-                  />
-                ) : (
-                  <ReadOnlyFields
-                    entry={entry}
-                    color={color}
-                    isExpanded={false}
-                    onToggle={() => {}}
-                    onStartEdit={() => startEdit(entry)}
-                    onDelete={() => deleteExp(entry.id)}
-                  />
-                )}
+                <ReadOnlyFields
+                  entry={entry}
+                  color={color}
+                  isExpanded={false}
+                  onToggle={() => {}}
+                  onStartEdit={() => {
+                    setShowAllExpenses(false);
+                    startEdit(entry);
+                  }}
+                  onDelete={() => deleteExp(entry.id)}
+                />
               </div>
             );
           })}

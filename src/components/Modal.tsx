@@ -105,8 +105,11 @@ export default function Modal({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  // aria-hidden al resto del contenido mientras el modal está abierto.
-  // Aplicamos a #main y a los nav principales. Restauramos al cerrar.
+  // Cuando el modal está abierto, marcamos como inertes el contenido de
+  // fuera.  Esto bloquea foco y oculta del árbol de accesibilidad de forma
+  // más segura que aria-hidden (que daba aviso "Blocked aria-hidden on an
+  // element because its descendant retained focus" cuando el foco se movía
+  // dentro del modal).  `inert` tiene soporte amplio en navegadores modernos.
   useEffect(() => {
     if (!open) return;
     const targets: Element[] = [];
@@ -114,21 +117,17 @@ export default function Modal({
       const m = document.getElementById(mainId);
       if (m) targets.push(m);
     }
-    // Buscar el navbar contextual del coche y la top nav y marcarlas inertes también.
     document
-      .querySelectorAll<HTMLElement>("nav, header[role=\"banner\"]")
+      .querySelectorAll<HTMLElement>('nav, header[role="banner"]')
       .forEach((n) => targets.push(n));
 
-    const prev: Array<{ el: Element; aria: string | null }> = [];
     for (const el of targets) {
-      prev.push({ el, aria: el.getAttribute("aria-hidden") });
-      el.setAttribute("aria-hidden", "true");
+      el.setAttribute("inert", "");
     }
 
     return () => {
-      for (const { el, aria } of prev) {
-        if (aria === null) el.removeAttribute("aria-hidden");
-        else el.setAttribute("aria-hidden", aria);
+      for (const el of targets) {
+        el.removeAttribute("inert");
       }
     };
   }, [open, mainId]);

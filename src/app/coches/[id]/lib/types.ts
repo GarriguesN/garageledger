@@ -35,6 +35,7 @@ export interface TimelineEntry {
   litros?: number | null;
   km?: number | null;
   coste_estimado_taller?: number | null;
+  preset_key?: string | null;
 }
 
 export interface AddExpenseFormState {
