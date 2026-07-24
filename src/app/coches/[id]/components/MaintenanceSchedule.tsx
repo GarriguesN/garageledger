@@ -190,14 +190,7 @@ export function MaintenanceRow({
             >
               {task.part_name}
             </span>
-            {task.part_brand && (
-              <span
-                className="badge text-[11px] flex-shrink-0"
-                style={{ background: "#f2f2f3", color: TEXT_GRAY }}
-              >
-                {task.part_brand}
-              </span>
-            )}
+            
           </div>
           <p className="text-[11px] mt-0.5 whitespace-normal" style={{ color: TEXT_GRAY }}>
             <span className="block">
