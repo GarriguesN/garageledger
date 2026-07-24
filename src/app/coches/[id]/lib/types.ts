@@ -47,6 +47,10 @@ export interface AddExpenseFormState {
   km: string;
   costeTaller: string;
   selectedTask: string;
+  /** Ticket 1.17: clave del preset elegido en el form de gasto
+   *  (e.g. "engine_oil_filter"). Vacío cuando el usuario eligió
+   *  "Otro (texto libre)" o no es un gasto de mantenimiento. */
+  presetKey: string;
   /** Ticket 1.16-fix: cuando el gasto es de mantenimiento y se eligió
    *  tarea, indica si queremos programar la siguiente automáticamente.
    *  Default true si la tarea tiene interval_km/interval_months; el

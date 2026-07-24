@@ -12,7 +12,7 @@ export { getAttachments, createAttachment, deleteAttachment } from "./db/attachm
 export { getMonthlySpend, getDiySavings, getFuelConsumption, getTotalCostPerKm, getCarMetrics, getTimeline, getMonthlyHistory, computeCarEstado } from "./db/metrics";
 export { DEFAULT_MANTENIMIENTO, getMantenimientoConfig, saveMantenimientoConfig } from "./db/maintenance";
 export type { MaintenanceTask } from "./db/maintenance";
-export { getMaintenanceTasks, createMaintenanceTask, updateMaintenanceTask, completeMaintenanceTask, deleteMaintenanceTask } from "./db/maintenance";
+export { getMaintenanceTasks, createMaintenanceTask, updateMaintenanceTask, completeMaintenanceTask, deleteMaintenanceTask, getOpenMaintenanceTasksByPreset } from "./db/maintenance";
 // audit:M-1 — getKmStats exportado aquí (antes solo en db/index.ts que se eliminó)
 export { getKmStats } from "./db/cars";
 export type { KmStats } from "./db/cars";

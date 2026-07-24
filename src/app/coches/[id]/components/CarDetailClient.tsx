@@ -72,7 +72,7 @@ export default function CarDetailClient({
   const [form, setForm] = useState<AddExpenseFormState>(() => ({
     tipo: "Carburante", importe: "", date: new Date().toISOString().split("T")[0],
     descripcion: "", referencia: "", litros: "", km: String(initialCar.km_actuales || ""),
-    costeTaller: "", selectedTask: "", scheduleNext: false,
+    costeTaller: "", selectedTask: "", scheduleNext: false, presetKey: "",
     impuesto_circulacion: false,
   }));
   const [saving, setSaving] = useState(false);
@@ -128,6 +128,7 @@ export default function CarDetailClient({
           ? parseInt(programForm.interval_months)
           : null,
         icon_key: programForm.preset_key.trim() || null,
+        preset_key: programForm.preset_key.trim() || null,
       };
       const res = await fetchJsonWithToast(
         "/api/maintenance",
@@ -265,7 +266,7 @@ export default function CarDetailClient({
       tipo: "Carburante", importe: "", date: new Date().toISOString().split("T")[0],
       descripcion: "", referencia: "", litros: "",
       km: String(car?.km_actuales ?? initialCar.km_actuales ?? ""),
-      costeTaller: "", selectedTask: "", scheduleNext: false,
+      costeTaller: "", selectedTask: "", scheduleNext: false, presetKey: "",
       impuesto_circulacion: false,
     });
     setShowForm(true);
@@ -299,6 +300,10 @@ export default function CarDetailClient({
     if (form.litros) body.litros = parseFloat(form.litros);
     if (form.km) body.km = parseInt(form.km);
     if (form.tipo.includes("DIY") && form.costeTaller) body.costeTaller = parseFloat(form.costeTaller);
+    // Ticket 1.17: si el usuario eligió un preset del catálogo, lo
+    // mandamos al backend para que guarde el preset_key y permita la
+    // detección automática de tareas pendientes (Ticket 1.16-fix-b).
+    if (form.presetKey) body.presetKey = form.presetKey;
     // Ticket 1.16: si el usuario eligió una tarea abierta en el form de
     // gasto, el backend la cierra con los datos del gasto y crea la
     // siguiente automáticamente (Ticket 1.16 + 1.14 cadena).

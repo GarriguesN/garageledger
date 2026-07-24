@@ -13,6 +13,7 @@ import {
   CATEGORIAS, isFuel, isDiy, isTaller,
 } from "../lib/format";
 import type { AddExpenseFormState, MaintenanceTask } from "../lib/types";
+import { MAINTENANCE_PRESETS } from "@/lib/maintenance/presets";
 
 interface AddExpenseFormProps {
   form: AddExpenseFormState;
@@ -140,49 +141,55 @@ export default function AddExpenseForm({
         <div className="space-y-3">
           <div>
             <label className="block text-xs text-[var(--text-muted)] mb-1">
-              Tarea de mantenimiento
+              Trabajo realizado
             </label>
             <p className="text-[11px] text-[var(--text-muted)] mb-1">
-              Si eliges una tarea abierta, la cerramos con estos datos y programamos la siguiente automáticamente.
+              Elige el trabajo del catálogo. El sistema cierra la tarea pendiente y programa la siguiente automáticamente.
             </p>
             <select
               className="input"
-              value={form.selectedTask}
+              value={form.presetKey || ""}
               onChange={(e) => {
-                const id = e.target.value;
-                const task = maintenanceTasks.find((t) => t.id === parseInt(id));
-                if (!task) {
-                  onChange({ ...form, selectedTask: id, descripcion: form.descripcion });
+                const key = e.target.value;
+                const preset = MAINTENANCE_PRESETS.find((p) => p.key === key);
+                if (!preset) {
+                  // "Otro (texto libre)" — limpiamos preset_key pero
+                  // mantenemos la descripción manual si la había.
+                  onChange({ ...form, presetKey: "", selectedTask: "" });
                   return;
                 }
-                // Ticket 1.16-fix: marcamos el checkbox por defecto sólo si
-                // la tarea tiene intervalos (recurrente). Si la tarea es
-                // puntual (sin intervalos), desmarcamos para que no quede
-                // una tarea fantasma abierta para siempre.
-                const isRecurring = (task.interval_km ?? 0) > 0 || (task.interval_months ?? 0) > 0;
                 onChange({
                   ...form,
-                  selectedTask: id,
-                  descripcion: task.part_name,
-                  scheduleNext: isRecurring,
+                  presetKey: preset.key,
+                  descripcion: preset.part_name,
+                  selectedTask: "",  // limpiamos la selección manual de tarea; la detección automática por preset_key entra en Ticket 1.16-fix-b
                 });
               }}
             >
-              <option value="">-- Describelo manualmente --</option>
-              {maintenanceTasks.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.part_name}
-                  {t.part_brand ? ` (${t.part_brand})` : ""}
-                  {(t.interval_km ?? 0) > 0 ? ` · cada ${t.interval_km} km` : ""}
-                  {(t.interval_months ?? 0) > 0 ? ` · cada ${t.interval_months} meses` : ""}
-                </option>
+              <option value="">— Otro (texto libre) —</option>
+              {Object.entries(
+                MAINTENANCE_PRESETS.reduce<Record<string, typeof MAINTENANCE_PRESETS>>((acc, p) => {
+                  (acc[p.category] ??= []).push(p);
+                  return acc;
+                }, {}),
+              ).map(([cat, list]) => (
+                <optgroup key={cat} label={cat}>
+                  {list.map((p) => (
+                    <option key={p.key} value={p.key}>
+                      {p.part_name}
+                      {p.interval_km ? ` · cada ${p.interval_km} km` : ""}
+                      {p.interval_months ? ` · cada ${p.interval_months} meses` : ""}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </div>
           {/* Ticket 1.16-fix: checkbox real para programar la siguiente
-              tarea. El default lo pone el onChange del selector (true si
-              la tarea tiene intervalos, false si es puntual). El usuario
-              puede forzarlo en cualquier dirección. */}
+              tarea. Sólo visible cuando hay tarea seleccionada
+              manualmente (legacy: cuando el usuario aún elige tarea del
+              dropdown de tareas abiertas). Ticket 1.16-fix-b sustituye
+              esto por la detección automática vía preset_key. */}
           {form.selectedTask && (
             <label className="flex items-start gap-2 cursor-pointer text-sm">
               <input

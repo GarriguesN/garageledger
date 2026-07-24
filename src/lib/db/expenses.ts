@@ -7,6 +7,9 @@ export interface Expense {
   importe: number; descripcion: string; referencia: string;
   litros: number | null; km: number | null; coste_estimado_taller: number | null;
   maintenance_task_id: number | null;
+  /** Ticket 1.17: clave del preset (e.g. "engine_oil_filter"). Si viene,
+   *  el backend puede buscar la tarea abierta con mismo preset_key. */
+  preset_key: string | null;
   created_at: string;
 }
 
@@ -42,9 +45,9 @@ export function createExpense(
   carId: number, tipo: string, importe: number, date: string,
   descripcion = "", referencia = "",
   litros: number | null = null, km: number | null = null, costeTaller: number | null = null,
-  opts: { impuestoCirculacion?: boolean; maintenanceTaskId?: number; scheduleNext?: boolean } = {},
+  opts: { impuestoCirculacion?: boolean; maintenanceTaskId?: number; scheduleNext?: boolean; presetKey?: string } = {},
 ): Expense {
-  const r = getDb().prepare("INSERT INTO expenses (car_id, date, tipo, importe, descripcion, referencia, litros, km, coste_estimado_taller, maintenance_task_id) VALUES (?,?,?,?,?,?,?,?,?,?)").run(carId, date, tipo, importe, descripcion, referencia, litros, km, costeTaller, opts.maintenanceTaskId ?? null);
+  const r = getDb().prepare("INSERT INTO expenses (car_id, date, tipo, importe, descripcion, referencia, litros, km, coste_estimado_taller, maintenance_task_id, preset_key) VALUES (?,?,?,?,?,?,?,?,?,?,?)").run(carId, date, tipo, importe, descripcion, referencia, litros, km, costeTaller, opts.maintenanceTaskId ?? null, opts.presetKey ?? null);
   // Ticket 1.14: bump car km if this expense has odometer data.
   if (km !== null && km > 0) bumpKmIfHigher(carId, km);
   // Ticket 1.20: ITV/Seguro/Impuestos actualizan la fecha del coche.

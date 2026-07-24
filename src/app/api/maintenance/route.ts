@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMaintenanceTasks, createMaintenanceTask, updateMaintenanceTask, completeMaintenanceTask, deleteMaintenanceTask } from "@/lib/db";
+import { getMaintenanceTasks, getOpenMaintenanceTasksByPreset, createMaintenanceTask, updateMaintenanceTask, completeMaintenanceTask, deleteMaintenanceTask } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const carId = searchParams.get("car_id");
+  // Ticket 1.17: endpoint específico para detectar si hay tareas abiertas
+  // con un preset_key concreto (usado por el form de gasto).
+  const presetKey = searchParams.get("preset_key");
+  if (carId && presetKey) {
+    return NextResponse.json(getOpenMaintenanceTasksByPreset(parseInt(carId), presetKey));
+  }
   if (!carId) return NextResponse.json({ error: "car_id required" }, { status: 400 });
   return NextResponse.json(getMaintenanceTasks(parseInt(carId)));
 }

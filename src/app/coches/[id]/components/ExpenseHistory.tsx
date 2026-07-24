@@ -343,7 +343,9 @@ export function ReadOnlyFields({
           <Icon size={18} strokeWidth={1.8} />
         </div>
 
-        {/* Texto: categoría (color) + descripción + meta */}
+        {/* Texto: categoría (color) + meta. La descripción vive en el panel
+            expandido — la fila cerrada es lo más minimalista posible
+            (Ticket 1.17: precio SIEMPRE a la derecha). */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span
@@ -352,15 +354,6 @@ export function ReadOnlyFields({
             >
               {entry.tipo}
             </span>
-            {entry.descripcion && (
-              <span
-                className="text-[13px] truncate"
-                style={{ color: TEXT_DARK }}
-                title={entry.descripcion}
-              >
-                {entry.descripcion}
-              </span>
-            )}
           </div>
           <p className="text-[11px] mt-0.5 truncate" style={{ color: TEXT_GRAY }}>
             {formatDate(entry.date)}
@@ -368,22 +361,13 @@ export function ReadOnlyFields({
           </p>
         </div>
 
-        {/* Fila cerrada: carburante muestra litros (ya en el meta), el resto muestra importe. */}
-        {isFuel ? (
-          entry.litros ? (
-            <span className="font-semibold flex-shrink-0 text-[13px]" style={{ color: TEXT_DARK }}>
-              {entry.litros} L
-            </span>
-          ) : (
-            <span className="font-semibold flex-shrink-0 text-[13px]" style={{ color: TEXT_GRAY }}>
-              —
-            </span>
-          )
-        ) : (
-          <span className="font-semibold flex-shrink-0" style={{ color: "var(--accent)" }}>
-            {fmt(entry.importe)}€
-          </span>
-        )}
+        {/* Ticket 1.17: la columna derecha de la fila cerrada SIEMPRE es
+            el precio. Para carburante era litros (los litros ya están
+            en la línea meta), lo unificamos al precio para todas las
+            categorías. */}
+        <span className="font-semibold flex-shrink-0" style={{ color: "var(--accent)" }}>
+          {fmt(entry.importe)}€
+        </span>
 
         {/* Chevron con aria-expanded/aria-controls (Ticket 1.15). */}
         <button

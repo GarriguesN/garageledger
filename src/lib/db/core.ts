@@ -42,6 +42,7 @@ function initSchema(db: Database.Database) {
       referencia TEXT NOT NULL DEFAULT '',
       litros REAL, km INTEGER, coste_estimado_taller REAL,
       maintenance_task_id INTEGER,
+      preset_key TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (car_id) REFERENCES cars(id) ON DELETE CASCADE
     );
@@ -63,6 +64,7 @@ function initSchema(db: Database.Database) {
       part_name TEXT NOT NULL, part_brand TEXT NOT NULL DEFAULT '', part_model TEXT NOT NULL DEFAULT '',
       current_km INTEGER, current_date TEXT, next_km INTEGER, next_date TEXT,
       interval_km INTEGER, interval_months INTEGER, notes TEXT NOT NULL DEFAULT '',
+      icon_key TEXT, preset_key TEXT,
       completed INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (car_id) REFERENCES cars(id) ON DELETE CASCADE
     );
@@ -129,6 +131,14 @@ function migrateSchema(db: Database.Database) {
   const mtCols = db.prepare("PRAGMA table_info(maintenance_tasks)").all() as { name: string }[];
   const mtNames = mtCols.map(c => c.name);
   if (!mtNames.includes("icon_key")) db.exec("ALTER TABLE maintenance_tasks ADD COLUMN icon_key TEXT");
+  // Ticket 1.17 (siguiente paso): clave estable del preset seleccionado.
+  // Permite comparar gastos con tareas sin depender del texto del part_name.
+  if (!mtNames.includes("preset_key")) {
+    db.exec("ALTER TABLE maintenance_tasks ADD COLUMN preset_key TEXT");
+  }
+  if (!expNames.includes("preset_key")) {
+    db.exec("ALTER TABLE expenses ADD COLUMN preset_key TEXT");
+  }
 }
 
 function seedIfEmpty(db: Database.Database) {

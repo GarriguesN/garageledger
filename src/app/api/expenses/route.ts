@@ -32,6 +32,8 @@ export async function POST(req: NextRequest) {
       // frontend lo pone false para tareas puntuales o cuando el usuario
       // desmarca el checkbox.
       scheduleNext: body.scheduleNext !== false,
+      // Ticket 1.17: clave del preset elegido en el form de gasto.
+      presetKey: body.presetKey || undefined,
     }
   );
   return NextResponse.json(exp, { status: 201 });
