@@ -29,14 +29,16 @@ export default function ExpenseHistoryRow({
       onEdit={() => onStartEdit(entry)}
       onDelete={onDelete}
     >
-      <ReadOnlyFields
-        entry={entry}
-        color={color}
-        isExpanded={expanded}
-        onToggle={() => setExpanded((v) => !v)}
-        onStartEdit={() => onStartEdit(entry)}
-        onDelete={() => onDelete()}
-      />
+      <div className="card !p-0 overflow-hidden">
+        <ReadOnlyFields
+          entry={entry}
+          color={color}
+          isExpanded={expanded}
+          onToggle={() => setExpanded((v) => !v)}
+          onStartEdit={() => onStartEdit(entry)}
+          onDelete={() => onDelete()}
+        />
+      </div>
     </SwipeableRow>
   );
 }

@@ -125,7 +125,9 @@ export default function SwipeableRow({ children, onEdit, onDelete }: SwipeableRo
         style={{
           transform: `translateX(${offset}px)`,
           transition: committed.current ? "none" : "transform 250ms ease",
-          touchAction: "pan-y",  // Permite scroll vertical, sólo capturamos X
+          touchAction: "pan-y",
+          background: "var(--bg-primary)",
+          borderRadius: "inherit",
         }}
       >
         {children}
