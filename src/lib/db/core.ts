@@ -139,6 +139,55 @@ function migrateSchema(db: Database.Database) {
   if (!expNames.includes("preset_key")) {
     db.exec("ALTER TABLE expenses ADD COLUMN preset_key TEXT");
   }
+  // Backfill automático: tareas antiguas no tenían preset_key. Mapeamos
+  // part_name → preset_key del catálogo para que la detección por
+  // preset_key funcione en BD existentes (Ticket 1.17).
+  // Se ejecuta en cada arranque pero el UPDATE es idempotente: si la
+  // columna ya tiene el valor correcto, no hace nada.
+  const presets = [
+    ["Aceite de motor y filtro", "engine_oil_filter"],
+    ["Aceite y filtro", "engine_oil_filter"],
+    ["Filtro de aire del motor", "engine_air_filter"],
+    ["Filtro de aire", "engine_air_filter"],
+    ["Filtro de combustible", "fuel_filter"],
+    ["Bujías", "spark_plugs"],
+    ["Bujias", "spark_plugs"],
+    ["Bobinas de encendido", "ignition_coils"],
+    ["Reglaje de válvulas", "valve_clearance"],
+    ["Reglaje de valvulas", "valve_clearance"],
+    ["Pastillas de freno", "brake_pads"],
+    ["Discos de freno", "brake_discs"],
+    ["Filtro de habitáculo", "cabin_filter"],
+    ["Filtro de habitaculo", "cabin_filter"],
+    ["Aceite de cambio y filtro", "transmission_oil_filter"],
+    ["Aceite de caja de cambios", "transmission_oil"],
+    ["Líquido de frenos", "brake_fluid"],
+    ["Liquido de frenos", "brake_fluid"],
+    ["Anticongelante", "coolant"],
+    ["Correa de distribución", "timing_belt"],
+    ["Correa de accesorios", "accessory_belt"],
+    ["Poleas de accesorios", "accessory_pulleys"],
+    ["Tren de válvulas", "valve_train"],
+    ["Amortiguadores delanteros", "front_shocks"],
+    ["Amortiguadores traseros", "rear_shocks"],
+    ["Kit de embrague", "clutch_kit"],
+    ["Embrague", "clutch"],
+    ["Batería", "battery"],
+    ["Bateria", "battery"],
+    ["Limpia parabrisas", "windshield_wipers"],
+    ["Escobillas", "wiper_blades"],
+    ["Rotación de neumáticos", "tire_rotation"],
+    ["Rotación de neumaticos", "tire_rotation"],
+    ["Alineación y equilibrado", "wheel_alignment"],
+    ["Alineacion y equilibrado", "wheel_alignment"],
+    ["Presión de neumáticos", "tire_pressure"],
+    ["Presion de neumaticos", "tire_pressure"],
+  ];
+  for (const [partName, presetKey] of presets) {
+    db.prepare(
+      "UPDATE maintenance_tasks SET preset_key=? WHERE part_name=? AND (preset_key IS NULL OR preset_key='')",
+    ).run(presetKey, partName);
+  }
 }
 
 function seedIfEmpty(db: Database.Database) {
