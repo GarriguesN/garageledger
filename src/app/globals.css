@@ -213,3 +213,9 @@ body {
   background-color: var(--bg-secondary);
   color: var(--accent);
 }
+
+/* Ticket 1.23-fix: inputs date en movil hacen overflow. Tamaño fijo. */
+input[type="date"] {
+  max-width: 140px;
+  width: 140px;
+}
