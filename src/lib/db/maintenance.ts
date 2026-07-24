@@ -107,7 +107,11 @@ export function createMaintenanceTask(carId: number, part_name: string, opts: {
 export function updateMaintenanceTask(id: number, fields: Record<string, any>): MaintenanceTask | undefined {
   const allowed = ["part_name","part_brand","part_model","current_km","current_date","next_km","next_date","interval_km","interval_months","notes","completed","preset_key","icon_key"];
   const sets: string[] = []; const vals: any[] = [];
-  for (const k of allowed) { if (k in fields) { sets.push(`${k}=?`); vals.push(fields[k]); } }
+  for (const k of allowed) {
+    if (k in fields && fields[k] !== null && fields[k] !== undefined) {
+      sets.push(`${k}=?`); vals.push(fields[k]);
+    }
+  }
   if (!sets.length) return getDb().prepare("SELECT * FROM maintenance_tasks WHERE id=?").get(id) as MaintenanceTask | undefined;
   vals.push(id);
   getDb().prepare(`UPDATE maintenance_tasks SET ${sets.join(",")} WHERE id=?`).run(...vals);
