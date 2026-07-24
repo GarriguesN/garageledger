@@ -1,174 +1,185 @@
 @import "tailwindcss";
 
 @theme {
-  --color-accent: #c3423f;
-  --color-accent-dark: #a83633;
-  --color-surface: #ffffff;
-  --color-surface-alt: #f0edee;
-  --color-border: #d8d3d5;
-  --color-text-primary: #211a1e;
-  --color-text-secondary: #4a4548;
-  --color-text-muted: #8a8588;
+	--color-accent: #c3423f;
+	--color-accent-dark: #a83633;
+	--color-surface: #ffffff;
+	--color-surface-alt: #f0edee;
+	--color-border: #d8d3d5;
+	--color-text-primary: #211a1e;
+	--color-text-secondary: #4a4548;
+	--color-text-muted: #8a8588;
 }
 
 :root {
-  --bg-primary: #f0edee;
-  --bg-secondary: #e6e2e3;
-  --bg-card: #ffffff;
-  --text-primary: #211a1e;
-  --text-secondary: #4a4548;
-  --text-muted: #8a8588;
-  --border-color: #d8d3d5;
-  --accent: #c3423f;
-  --accent-hover: #a83633;
-  --success: #4f9d69;
+	--bg-primary: #f0edee;
+	--bg-secondary: #e6e2e3;
+	--bg-card: #ffffff;
+	--text-primary: #211a1e;
+	--text-secondary: #4a4548;
+	--text-muted: #8a8588;
+	--border-color: #d8d3d5;
+	--accent: #c3423f;
+	--accent-hover: #a83633;
+	--success: #4f9d69;
 }
 
 body {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  margin: 0;
-  padding: 0;
-  overflow-x: hidden;
+	background-color: var(--bg-primary);
+	color: var(--text-primary);
+	font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+	margin: 0;
+	padding: 0;
+	overflow-x: hidden;
 }
 
 .app-container {
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
+	padding-top: env(safe-area-inset-top);
+	padding-bottom: env(safe-area-inset-bottom);
+	padding-left: env(safe-area-inset-left);
+	padding-right: env(safe-area-inset-right);
+	min-height: 100dvh;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
 }
 
 .card {
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 1.25rem;
+	background-color: var(--bg-card);
+	border: 1px solid var(--border-color);
+	border-radius: 8px;
+	padding: 1.25rem;
 }
 
 .badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.25rem 0.625rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  white-space: nowrap;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.375rem;
+	padding: 0.25rem 0.625rem;
+	border-radius: 9999px;
+	font-size: 0.75rem;
+	font-weight: 500;
+	white-space: nowrap;
 }
 
 .badge-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	flex-shrink: 0;
 }
 
 .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: opacity 0.15s;
-  border: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	padding: 0.5rem 1rem;
+	border-radius: 6px;
+	font-size: 0.875rem;
+	font-weight: 500;
+	cursor: pointer;
+	transition: opacity 0.15s;
+	border: none;
 }
 
-.btn:hover { opacity: 0.85; }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:hover {
+	opacity: 0.85;
+}
+
+.btn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
 
 .btn-primary {
-  background-color: var(--accent);
-  color: #fff;
+	background-color: var(--accent);
+	color: #fff;
 }
 
 .btn-secondary {
-  background-color: var(--bg-card);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
+	background-color: var(--bg-card);
+	color: var(--text-primary);
+	border: 1px solid var(--border-color);
 }
 
 .btn-danger {
-  background-color: #ef4444;
-  color: #fff;
+	background-color: #ef4444;
+	color: #fff;
 }
 
 .input {
-  width: 100%;
-  padding-top: 0.625rem;
-  padding-bottom: 0.625rem;
-  padding-left: 0.75rem;
-  padding-right: 0.75rem;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background-color: var(--bg-card);
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  transition: border-color 0.15s;
-  outline: none;
-  box-sizing: border-box;
+	width: 100%;
+	padding-top: 0.625rem;
+	padding-bottom: 0.625rem;
+	padding-left: 0.75rem;
+	padding-right: 0.75rem;
+	border: 1px solid var(--border-color);
+	border-radius: 6px;
+	background-color: var(--bg-card);
+	color: var(--text-primary);
+	font-size: 0.875rem;
+	transition: border-color 0.15s;
+	outline: none;
+	box-sizing: border-box;
 }
 
 .input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(195, 66, 63, 0.15);
+	border-color: var(--accent);
+	box-shadow: 0 0 0 2px rgba(195, 66, 63, 0.15);
 }
 
 .input-wrapper {
-  position: relative;
-  width: 100%;
+	position: relative;
+	width: 100%;
 }
 
 .input-wrapper .input-icon {
-  position: absolute;
-  left: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  pointer-events: none;
+	position: absolute;
+	left: 0.75rem;
+	top: 50%;
+	transform: translateY(-50%);
+	color: var(--text-muted);
+	display: flex;
+	align-items: center;
+	pointer-events: none;
 }
 
 .input-wrapper .input {
-  padding-left: 2.5rem;
+	padding-left: 2.5rem;
 }
 
 .select {
-  width: 100%;
-  padding: 0.625rem 0.75rem;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background-color: var(--bg-card);
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  outline: none;
-  cursor: pointer;
+	width: 100%;
+	padding: 0.625rem 0.75rem;
+	border: 1px solid var(--border-color);
+	border-radius: 6px;
+	background-color: var(--bg-card);
+	color: var(--text-primary);
+	font-size: 0.875rem;
+	outline: none;
+	cursor: pointer;
 }
 
 .select:focus {
-  border-color: var(--accent);
+	border-color: var(--accent);
 }
 
 .skeleton {
-  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: 4px;
+	background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
+	background-size: 200% 100%;
+	animation: shimmer 1.5s infinite;
+	border-radius: 4px;
 }
 
 @keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+	0% {
+		background-position: 200% 0;
+	}
+
+	100% {
+		background-position: -200% 0;
+	}
 }
 
 /* Ticket 1.6: highlight breve de la fila de mantenimiento destino de una
@@ -177,42 +188,51 @@ body {
    frame aplicado. La duración (1.5s) es el sweet spot entre perceptible
    y molesto. */
 @keyframes flash-task-highlight {
-  0%   { background-color: rgba(195, 66, 63, 0.18); }
-  100% { background-color: transparent; }
+	0% {
+		background-color: rgba(195, 66, 63, 0.18);
+	}
+
+	100% {
+		background-color: transparent;
+	}
 }
 
 .flash-task {
-  animation: flash-task-highlight 1.5s ease-out forwards;
-  border-radius: 16px;
+	animation: flash-task-highlight 1.5s ease-out forwards;
+	border-radius: 16px;
 }
 
 .grid-layout {
-  display: grid;
-  gap: 1rem;
+	display: grid;
+	gap: 1rem;
 }
 
 @media (min-width: 640px) {
-  .grid-layout { grid-template-columns: repeat(2, 1fr); }
+	.grid-layout {
+		grid-template-columns: repeat(2, 1fr);
+	}
 }
 
 @media (min-width: 1024px) {
-  .grid-layout { grid-template-columns: repeat(3, 1fr); }
+	.grid-layout {
+		grid-template-columns: repeat(3, 1fr);
+	}
 }
 
 .nav-link {
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  transition: background-color 0.15s, color 0.15s;
-  text-decoration: none;
+	padding: 0.5rem 0.75rem;
+	border-radius: 6px;
+	font-size: 0.875rem;
+	font-weight: 500;
+	color: var(--text-secondary);
+	transition: background-color 0.15s, color 0.15s;
+	text-decoration: none;
 }
 
 .nav-link:hover,
 .nav-link.active {
-  background-color: var(--bg-secondary);
-  color: var(--accent);
+	background-color: var(--bg-secondary);
+	color: var(--accent);
 }
 
 /* Ticket 1.23-fix: inputs date en movil hacen overflow.
@@ -220,8 +240,8 @@ body {
    ni muy grande (deja overflow). min-width garantiza minimo 130px
    y el input ocupa el wrapper sin desbordar. */
 input[type="date"] {
-  min-width: 130px;
-  max-width: 170px;
-  width: 100%;
-  box-sizing: border-box;
+	min-width: 130px;
+	/* max-width: 170px; */
+	width: 100%;
+	box-sizing: border-box;
 }
