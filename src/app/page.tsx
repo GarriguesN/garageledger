@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { Car, Wrench, Euro, Calendar, AlertTriangle } from "lucide-react";
 import VehicleCard from "@/components/VehicleCard";
-import { getCarDashboardData, getDb } from "@/lib/db";
+import { getCarDashboardData, getDb, MaintenanceTask } from "@/lib/db";
+
+interface UpcomingTask extends MaintenanceTask {
+  marca: string;
+  modelo: string;
+  km_actuales: number;
+}
 
 export default function DashboardPage() {
   const cars = getCarDashboardData();
@@ -9,10 +15,10 @@ export default function DashboardPage() {
 
   // Total monthly spend across all cars
   const ym = new Date().toISOString().slice(0, 7);
-  const totalMonth = db.prepare("SELECT COALESCE(SUM(importe),0) as t FROM expenses WHERE strftime('%Y-%m', date)=?").get(ym) as any;
+  const totalMonth = db.prepare("SELECT COALESCE(SUM(importe),0) as t FROM expenses WHERE strftime('%Y-%m', date)=?").get(ym) as { t: number };
 
   // Pending maintenance count
-  const pendingMaint = db.prepare("SELECT COUNT(*) as c FROM maintenance_tasks mt JOIN cars c ON c.id=mt.car_id WHERE mt.completed=0 AND mt.next_km IS NOT NULL AND mt.next_km <= c.km_actuales").get() as any;
+  const pendingMaint = db.prepare("SELECT COUNT(*) as c FROM maintenance_tasks mt JOIN cars c ON c.id=mt.car_id WHERE mt.completed=0 AND mt.next_km IS NOT NULL AND mt.next_km <= c.km_actuales").get() as { c: number };
 
   // Alerts count (cars with estado != "Al dia")
   const alertsCount = cars.filter(c => c.estado !== "Al dia").length;
@@ -23,7 +29,7 @@ export default function DashboardPage() {
     JOIN cars c ON c.id = mt.car_id
     WHERE mt.completed=0 AND mt.next_km IS NOT NULL
     ORDER BY (mt.next_km - c.km_actuales) ASC LIMIT 4
-  `).all() as any[];
+  `).all() as UpcomingTask[];
 
   return (
     <div className="space-y-5">
@@ -115,8 +121,8 @@ export default function DashboardPage() {
                 <Wrench size={16} style={{ color: "var(--accent)" }} /> Próximos mantenimientos
               </h2>
               <div className="space-y-2">
-                {upcomingTasks.map((t: any) => {
-                  const remaining = t.next_km - t.km_actuales;
+                {upcomingTasks.map((t) => {
+                  const remaining = (t.next_km || 0) - t.km_actuales;
                   const urgent = remaining <= 0;
                   const near = remaining > 0 && remaining < (t.interval_km || 15000) * 0.15;
                   return (
