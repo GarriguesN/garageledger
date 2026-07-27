@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import NavBar from "@/components/NavBar";
-import ThemeProvider from "@/components/ThemeProvider";
+import TopBar from "@/components/TopBar";
 import PinGate from "@/components/PinGate";
 
 export const metadata: Metadata = {
@@ -37,14 +37,16 @@ export default function RootLayout({
       </head>
       <body className="min-h-dvh flex flex-col">
         <div className="app-container">
-          <ThemeProvider>
             <PinGate>
+              <TopBar />
               <NavBar />
-              <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6 pb-[calc(3rem+env(safe-area-inset-bottom))] sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+              <main
+                id="page-main"
+                className="flex-1 max-w-5xl w-full mx-auto px-4 pt-2 pb-[calc(3rem+env(safe-area-inset-bottom))] sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pt-2"
+              >
                 {children}
               </main>
             </PinGate>
-          </ThemeProvider>
         </div>
         <script
           dangerouslySetInnerHTML={{

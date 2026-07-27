@@ -10,20 +10,46 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  let body: any;
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ error: "Cuerpo JSON inválido" }, { status: 400 });
+  }
+  if (!body?.carId) return NextResponse.json({ error: "carId requerido" }, { status: 400 });
+  const importe = typeof body.importe === "string" ? parseFloat(body.importe) : body.importe;
+  if (typeof importe !== "number" || !Number.isFinite(importe) || importe < 0) {
+    return NextResponse.json({ error: "importe inválido" }, { status: 400 });
+  }
   const exp = createExpense(
     body.carId, body.tipo, body.importe,
     body.date || new Date().toISOString().split("T")[0],
     body.descripcion || "", body.referencia || "",
-    body.litros || null, body.km || null, body.costeTaller || null
+    body.litros || null, body.km || null, body.costeTaller || null,
+    {
+      impuestoCirculacion: (body.tipoId === "impuestos" || body.tipo === "Impuestos") && body.impuesto_circulacion === true,
+      maintenanceTaskId: body.maintenanceTaskId || undefined,
+      // Ticket 1.16-fix: el frontend envía scheduleNext explícitamente.
+      // Default true (compatibilidad) si la tarea tiene intervalos; el
+      // frontend lo pone false para tareas puntuales o cuando el usuario
+      // desmarca el checkbox.
+      scheduleNext: body.scheduleNext !== false,
+      // Ticket 1.17: clave del preset elegido en el form de gasto.
+      presetKey: body.presetKey || undefined,
+      tipoId: body.tipoId || undefined,
+    }
   );
   return NextResponse.json(exp, { status: 201 });
 }
 
 export async function PUT(req: NextRequest) {
-  const body = await req.json();
-  const { id, ...fields } = body;
+  const { searchParams } = new URL(req.url);
+  let body: any;
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ error: "Cuerpo JSON inválido" }, { status: 400 });
+  }
+  // El frontend envía el id como query param (?id=37) y los campos en el body.
+  const id = body.id ?? searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+  const { id: _, ...fields } = body;
   const updated = updateExpense(parseInt(id), fields);
   return updated
     ? NextResponse.json(updated)
