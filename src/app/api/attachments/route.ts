@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
 import { getAttachments, createAttachment, deleteAttachment } from "@/lib/db";
+import { validateUpload } from "@/lib/attachments";
 
-const UPLOAD_DIR = process.env.UPLOAD_DIR || "/opt/garageledger/data/uploads";
+export const runtime = "nodejs";
+
+function uploadDir(): string {
+  return process.env.UPLOAD_DIR || "/opt/garageledger/data/uploads";
+}
 
 function ensureDir(dir: string) {
   try { fs.mkdirSync(dir, { recursive: true }); } catch {}
 }
-
-export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -22,17 +25,30 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
-    const carId = parseInt(formData.get("car_id") as string);
-    const expenseId = formData.get("expense_id") ? parseInt(formData.get("expense_id") as string) : undefined;
-    const file = formData.get("file") as File;
-    if (!file || !carId) return NextResponse.json({ error: "Missing file or car_id" }, { status: 400 });
+    const carIdRaw = formData.get("car_id") as string | null;
+    const expenseIdRaw = formData.get("expense_id") as string | null;
+    const file = formData.get("file") as File | null;
+    if (!file || !carIdRaw) return NextResponse.json({ error: "Missing file or car_id" }, { status: 400 });
+    const carId = parseInt(carIdRaw);
+    const expenseId = expenseIdRaw ? parseInt(expenseIdRaw) : undefined;
+    if (!Number.isFinite(carId)) return NextResponse.json({ error: "car_id inválido" }, { status: 400 });
 
-    ensureDir(UPLOAD_DIR);
+    // Validate BEFORE writing to disk (max-input trust: attacker could stream GB).
+    const check = validateUpload({
+      name: file.name ?? "",
+      type: file.type ?? "",
+      size: file.size ?? 0,
+    });
+    if (!check.ok) {
+      return NextResponse.json({ error: check.error }, { status: check.status });
+    }
 
-    const ext = path.extname(file.name) || "";
+    ensureDir(uploadDir());
+
+    const ext = path.extname(file.name).toLowerCase();
     const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
-    fs.writeFileSync(path.join(UPLOAD_DIR, uniqueName), buffer);
+    fs.writeFileSync(path.join(uploadDir(), uniqueName), buffer);
 
     const att = createAttachment(carId, uniqueName, file.name, file.type, buffer.length, expenseId);
     return NextResponse.json(att, { status: 201 });

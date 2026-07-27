@@ -15,12 +15,19 @@ export function getMonthlySpend(carId: number): { current: number; previous: num
 }
 
 export function getDiySavings(carId: number): number {
-  const row = getDb().prepare("SELECT COALESCE(SUM(coste_estimado_taller-importe),0) as savings FROM expenses WHERE car_id=? AND tipo='Mantenimiento (DIY)' AND coste_estimado_taller IS NOT NULL").get(carId) as any;
+  // Ticket 1.23: usamos tipo_id en vez de tipo (label) cuando está disponible.
+  const row = getDb().prepare(
+    "SELECT COALESCE(SUM(coste_estimado_taller-importe),0) as savings FROM expenses " +
+    "WHERE car_id=? AND (tipo_id='mantenimiento_diy' OR (tipo_id IS NULL AND tipo='Mantenimiento (DIY)')) AND coste_estimado_taller IS NOT NULL"
+  ).get(carId) as any;
   return row.savings;
 }
 
 export function getFuelConsumption(carId: number): { l100km: number | null; costPerKm: number | null; pricePerLiter: number | null } {
-  const refuels = getDb().prepare("SELECT date, importe, litros, km FROM expenses WHERE car_id=? AND tipo='Carburante' AND km IS NOT NULL AND litros IS NOT NULL ORDER BY date ASC").all(carId) as any[];
+  const refuels = getDb().prepare(
+    "SELECT date, importe, litros, km FROM expenses " +
+    "WHERE car_id=? AND (tipo_id='carburante' OR (tipo_id IS NULL AND tipo='Carburante')) AND km IS NOT NULL AND litros IS NOT NULL ORDER BY date ASC"
+  ).all(carId) as any[];
   if (refuels.length < 2) return { l100km: null, costPerKm: null, pricePerLiter: null };
   const first = refuels[0], last = refuels[refuels.length - 1];
   const diffKm = last.km - first.km;
@@ -50,21 +57,32 @@ export function getCarMetrics(carId: number) {
   const totalCostPerKm = getTotalCostPerKm(carId);
   const projectedAnnual = monthly.current * 12;
   const car = getCar(carId);
-  const alerts: { type: 'critical' | 'warning' | 'info'; message: string }[] = [];
+  const alerts: { type: 'critical' | 'warning' | 'info'; message: string; task_id?: number }[] = [];
+  // audit:A-2 — No mutar la BD en un GET. El estado se computa en runtime.
+  // Use refreshCarEstado(carId) after mutations to persist.
+  const tasks = getDb().prepare("SELECT * FROM maintenance_tasks WHERE car_id=? AND completed=0").all(carId) as any[];
+
   if (car) {
-    // Auto-calculate estado
-    const newEstado = computeCarEstado(car);
-    if (newEstado !== car.estado) {
-      getDb().prepare("UPDATE cars SET estado=? WHERE id=?").run(newEstado, car.id);
-    }
 
     // Maintenance task alerts
-    const tasks = getDb().prepare("SELECT * FROM maintenance_tasks WHERE car_id=? AND completed=0").all(carId) as any[];
+    // Ticket 1.6: cada alerta de mantenimiento lleva `task_id` para que
+    // el frontend pueda hacer scroll a la fila exacta en
+    // MaintenanceSchedule. Sin este vínculo, dos tareas con el mismo
+    // part_name (caso real: cambias filtros con marcas distintas) no se
+    // podrían distinguir parseando solo el mensaje.
     for (const t of tasks) {
       if (t.next_km && t.next_km <= car.km_actuales) {
-        alerts.push({ type: 'critical', message: `${t.part_name}: taller necesario (${t.next_km.toLocaleString("es-ES")} km)` });
+        alerts.push({
+          type: 'critical',
+          message: `${t.part_name}: taller necesario (${t.next_km.toLocaleString("es-ES")} km)`,
+          task_id: t.id,
+        });
       } else if (t.next_km && (t.next_km - car.km_actuales) < (t.interval_km || 15000) * 0.15) {
-        alerts.push({ type: 'warning', message: `${t.part_name}: en ${(t.next_km - car.km_actuales).toLocaleString("es-ES")} km` });
+        alerts.push({
+          type: 'warning',
+          message: `${t.part_name}: en ${(t.next_km - car.km_actuales).toLocaleString("es-ES")} km`,
+          task_id: t.id,
+        });
       }
     }
 
@@ -89,12 +107,36 @@ export function getCarMetrics(carId: number) {
         alerts.push({ type: 'warning', message: `Seguro vence en ${daysLeft} días (${car.fecha_vencimiento_seguro})` });
       }
     }
+
+    // Impuesto de circulación (IVTM) — anual, dos formas:
+    //   - fecha_impuesto_circulacion: la pone el auto-update al marcar el
+    //     checkbox del IVTM en un gasto. La alerta sale si < hace 1 año.
+    //   - fecha_ivtm: la rellena el usuario directamente en el form.
+    if (car.fecha_impuesto_circulacion) {
+      const lastTax = new Date(car.fecha_impuesto_circulacion + "T12:00:00");
+      const dueTax = new Date(lastTax.getTime() + 365 * 24 * 60 * 60 * 1000);
+      if (dueTax < new Date()) {
+        alerts.push({ type: 'critical', message: `Impuesto de circulación caducado (${car.fecha_impuesto_circulacion})` });
+      } else if ((dueTax.getTime() - Date.now()) < 30 * 24 * 60 * 60 * 1000) {
+        alerts.push({ type: 'warning', message: `Impuesto de circulación próximo: ${dueTax.toLocaleDateString("es-ES")}` });
+      }
+    }
+    if (car.fecha_ivtm) {
+      const lastIvtm = new Date(car.fecha_ivtm + "T12:00:00");
+      const dueIvtm = new Date(lastIvtm.getTime() + 365 * 24 * 60 * 60 * 1000);
+      if (dueIvtm < new Date()) {
+        alerts.push({ type: 'critical', message: `IVTM caducado (${car.fecha_ivtm})` });
+      } else if ((dueIvtm.getTime() - Date.now()) < 30 * 24 * 60 * 60 * 1000) {
+        alerts.push({ type: 'warning', message: `IVTM próximo: ${dueIvtm.toLocaleDateString("es-ES")}` });
+      }
+    }
   }
-  return { monthly, diy, fuel, totalCostPerKm, projectedAnnual, alerts };
+  const estado = car ? computeCarEstado(car) : null;
+  return { monthly, diy, fuel, totalCostPerKm, projectedAnnual, alerts, estado };
 }
 
 export function getTimeline(carId: number, limit = 50): any[] {
-  return getDb().prepare("SELECT id, date, tipo, importe, descripcion, litros, km, coste_estimado_taller, 'expense' as entry_type FROM expenses WHERE car_id=? ORDER BY date DESC, id DESC LIMIT ?").all(carId, limit) as any[];
+  return getDb().prepare("SELECT id, date, tipo, tipo_id, importe, descripcion, referencia, litros, km, coste_estimado_taller, maintenance_task_id, preset_key, 'expense' as entry_type FROM expenses WHERE car_id=? ORDER BY date DESC, id DESC LIMIT ?").all(carId, limit) as any[];
 }
 
 export function getMonthlyHistory(carId: number, months = 6): { month: string; total: number }[] {
@@ -106,7 +148,7 @@ function daysUntil(dateStr: string | null): number | null {
   return Math.ceil((new Date(dateStr + "T12:00:00").getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
-export function computeCarEstado(car: any): string {
+export function computeCarEstado(car: any, tasks?: any[]): string {
   const daysItv = daysUntil(car.fecha_ultima_itv);
   const daysSeg = daysUntil(car.fecha_vencimiento_seguro);
   if (!car.fecha_ultima_itv) return "A revisar"; // no ITV registered
@@ -117,12 +159,12 @@ export function computeCarEstado(car: any): string {
   if (daysSeg !== null && daysSeg! < 0) return "Seguro Caducado";
 
   // Check maintenance tasks
-  const tasks = getDb().prepare("SELECT * FROM maintenance_tasks WHERE car_id=? AND completed=0").all(car.id) as any[];
-  const overdueTask = tasks.find((t: any) => t.next_km && t.next_km <= car.km_actuales);
+  const taskList = tasks ?? getDb().prepare("SELECT * FROM maintenance_tasks WHERE car_id=? AND completed=0").all(car.id) as any[];
+  const overdueTask = taskList.find((t: any) => t.next_km && t.next_km <= car.km_actuales);
   if (overdueTask) return "Taller necesario";
 
   // Check if anything is near
-  const nearTask = tasks.find((t: any) => t.next_km && (t.next_km - car.km_actuales) < ((t.interval_km || 15000) * 0.15));
+  const nearTask = taskList.find((t: any) => t.next_km && (t.next_km - car.km_actuales) < ((t.interval_km || 15000) * 0.15));
   const nearItv = daysItv !== null && daysItv! < 60;
   const nearSeg = daysSeg !== null && daysSeg! < 60;
   if (nearTask || nearItv || nearSeg || (daysItv !== null && daysItv! < 0)) return "A revisar";

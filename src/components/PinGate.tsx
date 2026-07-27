@@ -6,6 +6,7 @@ import { Lock, KeyRound } from 'lucide-react';
 export default function PinGate({ children }: { children: React.ReactNode }) {
   const [pinConfigured, setPinConfigured] = useState<boolean | null>(null);
   const [pinLength, setPinLength] = useState(0);
+  const [authChecked, setAuthChecked] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
@@ -15,41 +16,65 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   const [verifying, setVerifying] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Source of truth: server-issued session cookie (validated via /api/session).
+  // We keep sessionStorage only as a UI hint to skip the empty-state flash on
+  // hard navigations, but we ALWAYS verify with the server before unlocking.
   useEffect(() => {
-    if (sessionStorage.getItem('garageledger_unlocked')) {
-      setUnlocked(true);
-      return;
-    }
-    fetch('/api/pin')
-      .then(r => r.json())
-      .then(data => {
-        setPinConfigured(data.configured);
-        setPinLength(data.pinLength || 0);
-        if (!data.configured) {
-          setUnlocked(true);
-          sessionStorage.setItem('garageledger_unlocked', 'true');
+    let cancelled = false;
+    (async () => {
+      try {
+        // 1. Is there an existing valid session?
+        const sess = await fetch('/api/session', { cache: 'no-store' });
+        if (cancelled) return;
+        if (sess.ok) {
+          const j = await sess.json();
+          if (j.unlocked) {
+            setUnlocked(true);
+            setAuthChecked(true);
+            sessionStorage.setItem('garageledger_unlocked', 'true');
+            return;
+          }
         }
-      })
-      .catch(() => {
-        setPinConfigured(false);
-        setUnlocked(true);
-      });
+
+        // 2. No session. Read PIN status.
+        const cfg = await fetch('/api/pin', { cache: 'no-store' });
+        if (cancelled) return;
+        const cfgData = await cfg.json();
+        setPinConfigured(!!cfgData.configured);
+        setPinLength(cfgData.pinLength || 0);
+        if (!cfgData.configured) {
+          // No PIN set — let the wizard render, do NOT auto-unlock.
+          // (Old behavior auto-unlocked on missing PIN; that's a security hole.)
+        }
+      } catch {
+        if (!cancelled) {
+          setError('Error al verificar sesión');
+        }
+      } finally {
+        if (!cancelled) setAuthChecked(true);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
-  // Auto-verify when pin length matches
+  // Auto-verify when pin length matches (uses cookie flow above).
   useEffect(() => {
     if (pinConfigured && pin.length === pinLength && pinLength > 0 && !verifying) {
       setVerifying(true);
       fetch('/api/pin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({ action: 'verify', pin }),
       })
-        .then(r => r.json())
-        .then(data => {
+        .then(async r => {
+          const data = await r.json().catch(() => ({ valid: false }));
           if (data.valid) {
             setUnlocked(true);
             sessionStorage.setItem('garageledger_unlocked', 'true');
+          } else if (r.status === 429) {
+            setError('Demasiados intentos. Espera un minuto.');
+            setPin('');
           } else {
             setError('PIN incorrecto');
             setPin('');
@@ -72,12 +97,16 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
       const res = await fetch('/api/pin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({ action: 'verify', pin }),
       });
       const data = await res.json();
       if (data.valid) {
         setUnlocked(true);
         sessionStorage.setItem('garageledger_unlocked', 'true');
+      } else if (res.status === 429) {
+        setError('Demasiados intentos. Espera un minuto.');
+        setPin('');
       } else {
         setError('PIN incorrecto');
         setPin('');
@@ -104,6 +133,7 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
       const res = await fetch('/api/pin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({ action: 'set', pin: newPin }),
       });
       if (res.ok) {
@@ -114,12 +144,28 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
         setUnlocked(true);
         sessionStorage.setItem('garageledger_unlocked', 'true');
       } else {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         setError(data.error || 'Error al guardar PIN');
       }
     } catch {
       setError('Error al guardar PIN');
     }
+  }
+
+  async function handleLogout() {
+    await fetch('/api/session', { method: 'DELETE', credentials: 'same-origin' }).catch(() => {});
+    sessionStorage.removeItem('garageledger_unlocked');
+    setUnlocked(false);
+    setPin('');
+  }
+
+  // Don't render anything until we've asked the server whether we're unlocked.
+  if (!authChecked) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center bg-[var(--bg-primary)]">
+        <Lock size={32} className="text-[var(--text-muted)] animate-pulse" />
+      </div>
+    );
   }
 
   if (unlocked) return <>{children}</>;
@@ -146,15 +192,7 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
         >
           Establecer PIN
         </button>
-        <button
-          onClick={() => {
-            setUnlocked(true);
-            sessionStorage.setItem('garageledger_unlocked', 'true');
-          }}
-          className="text-sm text-[var(--text-muted)] mt-4 hover:text-[var(--accent)]"
-        >
-          Saltar — no proteger
-        </button>
+        {/* "Saltar" eliminado: ya no es válido entrar a la app sin sesión. */}
       </div>
     );
   }

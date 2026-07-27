@@ -1,7 +1,36 @@
 import Database from "better-sqlite3";
 import path from "path";
 
-const DB_PATH = process.env.DB_PATH || "/opt/garageledger/data/garageledger.db";
+// DB_PATH: override por env var (e.g. tests en CI), sino busca
+// `<project>/data/garageledger.db` relativo a la raíz del repo. Usamos
+// `require.main.filename` / `__dirname` (en runtime de Next, este archivo
+// vive en `src/lib/db/core.ts`; subimos 3 niveles para llegar al root).
+// Esto evita el problema de `process.cwd()` cuando Next standalone
+// corre con cwd distinto.
+function resolveProjectRoot(): string {
+  // En runtime, este archivo está en /<root>/src/lib/db/core.ts
+  // (compilado a .next/server/...). Necesitamos el root del proyecto.
+  // Estrategia: caminar hacia arriba buscando `package.json` o un
+  // archivo que sepamos está en el root.
+  const candidates = [
+    process.cwd(),
+    process.env.PWD || "",
+    // Compiled path (Next.js production):  <root>/.next/standalone/src/lib/db/core.js
+    path.resolve(__dirname, "..", "..", "..", "..", ".."),
+    // Source path (ts-node / dev):        <root>/src/lib/db/core.ts
+    path.resolve(__dirname, "..", "..", ".."),
+  ].filter(Boolean);
+
+  for (const dir of candidates) {
+    if (!dir) continue;
+    const pkg = path.join(dir, "package.json");
+    if (require("fs").existsSync(pkg)) return dir;
+  }
+  // Fallback a process.cwd() si no encontramos package.json.
+  return process.cwd();
+}
+
+const DB_PATH = process.env.DB_PATH || path.join(resolveProjectRoot(), "data", "garageledger.db");
 
 let db: Database.Database | null = null;
 
@@ -28,6 +57,11 @@ function initSchema(db: Database.Database) {
       motor TEXT NOT NULL DEFAULT '', ano INTEGER, puertas INTEGER DEFAULT 5,
       km_actuales INTEGER DEFAULT 0, estado TEXT NOT NULL DEFAULT 'Mantenimiento al dia',
       fecha_ultima_itv TEXT, mantenimiento_config TEXT, fecha_vencimiento_seguro TEXT, notes TEXT NOT NULL DEFAULT '',
+      matricula TEXT NOT NULL DEFAULT '', bastidor TEXT NOT NULL DEFAULT '', combustible TEXT NOT NULL DEFAULT 'Gasolina',
+      foto_attachment_id INTEGER, archivado INTEGER NOT NULL DEFAULT 0,
+      fecha_matriculacion TEXT, km_origen TEXT NOT NULL DEFAULT 'matriculacion',
+      fecha_impuesto_circulacion TEXT, fecha_ivtm TEXT,
+      potencia_cv INTEGER, cilindrada_cc INTEGER, peso_kg INTEGER, plazas INTEGER, color TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE TABLE IF NOT EXISTS expenses (
@@ -36,6 +70,8 @@ function initSchema(db: Database.Database) {
       importe REAL NOT NULL, descripcion TEXT NOT NULL DEFAULT '',
       referencia TEXT NOT NULL DEFAULT '',
       litros REAL, km INTEGER, coste_estimado_taller REAL,
+      maintenance_task_id INTEGER,
+      preset_key TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (car_id) REFERENCES cars(id) ON DELETE CASCADE
     );
@@ -57,6 +93,7 @@ function initSchema(db: Database.Database) {
       part_name TEXT NOT NULL, part_brand TEXT NOT NULL DEFAULT '', part_model TEXT NOT NULL DEFAULT '',
       current_km INTEGER, current_date TEXT, next_km INTEGER, next_date TEXT,
       interval_km INTEGER, interval_months INTEGER, notes TEXT NOT NULL DEFAULT '',
+      icon_key TEXT, preset_key TEXT,
       completed INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (car_id) REFERENCES cars(id) ON DELETE CASCADE
     );
@@ -70,10 +107,140 @@ function migrateSchema(db: Database.Database) {
   if (!colNames.includes("fecha_ultima_itv")) db.exec("ALTER TABLE cars ADD COLUMN fecha_ultima_itv TEXT");
   if (!colNames.includes("mantenimiento_config")) db.exec("ALTER TABLE cars ADD COLUMN mantenimiento_config TEXT");
   if (!colNames.includes("fecha_vencimiento_seguro")) db.exec("ALTER TABLE cars ADD COLUMN fecha_vencimiento_seguro TEXT");
+  // Ticket 1.1 — enriquecimiento de tarjetas
+  if (!colNames.includes("matricula")) db.exec("ALTER TABLE cars ADD COLUMN matricula TEXT NOT NULL DEFAULT ''");
+  if (!colNames.includes("bastidor")) db.exec("ALTER TABLE cars ADD COLUMN bastidor TEXT NOT NULL DEFAULT ''");
+  if (!colNames.includes("combustible")) db.exec("ALTER TABLE cars ADD COLUMN combustible TEXT NOT NULL DEFAULT 'Gasolina'");
+  if (!colNames.includes("foto_attachment_id")) db.exec("ALTER TABLE cars ADD COLUMN foto_attachment_id INTEGER");
+  if (!colNames.includes("archivado")) db.exec("ALTER TABLE cars ADD COLUMN archivado INTEGER NOT NULL DEFAULT 0");
+
+  // Ticket 1.19 — fecha_matriculacion + km_origen: editable por el usuario
+  // desde el form de crear/editar coche. Idempotente — solo añade si faltan.
+  if (!colNames.includes("fecha_matriculacion")) {
+    db.exec("ALTER TABLE cars ADD COLUMN fecha_matriculacion TEXT");
+  }
+  if (!colNames.includes("km_origen")) {
+    db.exec("ALTER TABLE cars ADD COLUMN km_origen TEXT NOT NULL DEFAULT 'matriculacion'");
+  }
+
+  // Ticket 1.19 — fecha_impuesto_circulacion: cuando se paga el IVTM
+  // (impuesto de circulación municipal anual), se actualiza aquí.
+  if (!colNames.includes("fecha_impuesto_circulacion")) {
+    db.exec("ALTER TABLE cars ADD COLUMN fecha_impuesto_circulacion TEXT");
+  }
+
+  // Ticket 1.22 — fecha_ivtm: fecha del último pago del IVTM, editable
+  // por el usuario (los plazos municipales varían; el usuario sabe mejor
+  // cuándo pagó). Usada por metrics.ts para alertas anuales.
+  if (!colNames.includes("fecha_ivtm")) {
+    db.exec("ALTER TABLE cars ADD COLUMN fecha_ivtm TEXT");
+  }
+
+  // Ticket 1.20 — datos completos del vehículo. Caballos fiscales (CV),
+  // cilindrada (cc), peso en orden de marcha (kg), plazas, color.
+  if (!colNames.includes("potencia_cv")) db.exec("ALTER TABLE cars ADD COLUMN potencia_cv INTEGER");
+  if (!colNames.includes("cilindrada_cc")) db.exec("ALTER TABLE cars ADD COLUMN cilindrada_cc INTEGER");
+  if (!colNames.includes("peso_kg")) db.exec("ALTER TABLE cars ADD COLUMN peso_kg INTEGER");
+  if (!colNames.includes("plazas")) db.exec("ALTER TABLE cars ADD COLUMN plazas INTEGER");
+  if (!colNames.includes("color")) db.exec("ALTER TABLE cars ADD COLUMN color TEXT");
 
   const expCols = db.prepare("PRAGMA table_info(expenses)").all() as { name: string }[];
   const expNames = expCols.map(c => c.name);
   if (!expNames.includes("referencia")) db.exec("ALTER TABLE expenses ADD COLUMN referencia TEXT NOT NULL DEFAULT ''");
+  // Ticket 1.16: conexión gasto↔tarea. Si el gasto es de mantenimiento
+  // y el usuario eligió una tarea abierta, aquí guardamos su id para
+  // que completeMaintenanceTask la cierre al crear el gasto.
+  if (!expNames.includes("maintenance_task_id")) {
+    db.exec("ALTER TABLE expenses ADD COLUMN maintenance_task_id INTEGER");
+  }
+
+  // Maintenance presets: icon_key stores the preset key selected when
+  // creating a task (e.g. "engine_oil_filter"). Idempotent — only adds
+  // the column if it doesn't already exist.
+  const mtCols = db.prepare("PRAGMA table_info(maintenance_tasks)").all() as { name: string }[];
+  const mtNames = mtCols.map(c => c.name);
+  if (!mtNames.includes("icon_key")) db.exec("ALTER TABLE maintenance_tasks ADD COLUMN icon_key TEXT");
+  // Ticket 1.17 (siguiente paso): clave estable del preset seleccionado.
+  // Permite comparar gastos con tareas sin depender del texto del part_name.
+  if (!mtNames.includes("preset_key")) {
+    db.exec("ALTER TABLE maintenance_tasks ADD COLUMN preset_key TEXT");
+  }
+  if (!expNames.includes("preset_key")) {
+    db.exec("ALTER TABLE expenses ADD COLUMN preset_key TEXT");
+  }
+  if (!expNames.includes("tipo_id")) {
+    db.exec("ALTER TABLE expenses ADD COLUMN tipo_id TEXT");
+  }
+  // Backfill automático: tareas antiguas no tenían preset_key. Mapeamos
+  // part_name → preset_key del catálogo para que la detección por
+  // preset_key funcione en BD existentes (Ticket 1.17).
+  // Se ejecuta en cada arranque pero el UPDATE es idempotente: si la
+  // columna ya tiene el valor correcto, no hace nada.
+  const presets = [
+    ["Aceite de motor y filtro", "engine_oil_filter"],
+    ["Aceite y filtro", "engine_oil_filter"],
+    ["Filtro de aire del motor", "engine_air_filter"],
+    ["Filtro de aire", "engine_air_filter"],
+    ["Filtro de combustible", "fuel_filter"],
+    ["Bujías", "spark_plugs"],
+    ["Bujias", "spark_plugs"],
+    ["Bobinas de encendido", "ignition_coils"],
+    ["Reglaje de válvulas", "valve_clearance"],
+    ["Reglaje de valvulas", "valve_clearance"],
+    ["Pastillas de freno", "brake_pads"],
+    ["Discos de freno", "brake_discs"],
+    ["Filtro de habitáculo", "cabin_filter"],
+    ["Filtro de habitaculo", "cabin_filter"],
+    ["Aceite de cambio y filtro", "transmission_oil_filter"],
+    ["Aceite de caja de cambios", "transmission_oil"],
+    ["Líquido de frenos", "brake_fluid"],
+    ["Liquido de frenos", "brake_fluid"],
+    ["Anticongelante", "coolant"],
+    ["Correa de distribución", "timing_belt"],
+    ["Correa de accesorios", "accessory_belt"],
+    ["Poleas de accesorios", "accessory_pulleys"],
+    ["Tren de válvulas", "valve_train"],
+    ["Amortiguadores delanteros", "front_shocks"],
+    ["Amortiguadores traseros", "rear_shocks"],
+    ["Kit de embrague", "clutch_kit"],
+    ["Embrague", "clutch"],
+    ["Batería", "battery"],
+    ["Bateria", "battery"],
+    ["Limpia parabrisas", "windshield_wipers"],
+    ["Escobillas", "wiper_blades"],
+    ["Rotación de neumáticos", "tire_rotation"],
+    ["Rotación de neumaticos", "tire_rotation"],
+    ["Alineación y equilibrado", "wheel_alignment"],
+    ["Alineacion y equilibrado", "wheel_alignment"],
+    ["Presión de neumáticos", "tire_pressure"],
+    ["Presion de neumaticos", "tire_pressure"],
+  ];
+  // Backfill tipo_id para expenses existentes: mapeamos el label al id
+  // del catálogo. UPDATE idempotente (solo filas con tipo_id IS NULL).
+  const tipoIdMap: Record<string, string> = {
+    "Carburante": "carburante",
+    "Mantenimiento (Taller)": "mantenimiento",
+    "Mantenimiento (DIY)": "mantenimiento_diy",
+    "Tuning": "tuning",
+    "Seguro": "seguro",
+    "ITV": "itv",
+    "Impuestos": "impuestos",
+    "Parking": "parking",
+    "Peajes": "peajes",
+    "Lavado": "lavado",
+    "Otros": "otros",
+  };
+  for (const [label, id] of Object.entries(tipoIdMap)) {
+    db.prepare(
+      "UPDATE expenses SET tipo_id=? WHERE tipo=? AND (tipo_id IS NULL OR tipo_id='')"
+    ).run(id, label);
+  }
+
+  for (const [partName, presetKey] of presets) {
+    db.prepare(
+      "UPDATE maintenance_tasks SET preset_key=? WHERE part_name=? AND (preset_key IS NULL OR preset_key='')",
+    ).run(presetKey, partName);
+  }
 }
 
 function seedIfEmpty(db: Database.Database) {
