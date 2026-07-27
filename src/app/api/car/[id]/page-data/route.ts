@@ -17,7 +17,7 @@ export async function GET(
   }
 
   const [metrics, timeline, notes, attachments, maintenanceTasks] = await Promise.all([
-    Promise.resolve(getCarMetrics(carId)),
+    Promise.resolve(getCarMetrics(carId, car)),
     Promise.resolve(getTimeline(carId, 100)),
     Promise.resolve(getCarNotes(carId)),
     Promise.resolve(getAttachments(carId)),

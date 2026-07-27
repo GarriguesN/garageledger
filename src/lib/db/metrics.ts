@@ -36,20 +36,20 @@ export function getFuelConsumption(carId: number): { l100km: number | null; cost
   };
 }
 
-export function getTotalCostPerKm(carId: number): number | null {
+export function getTotalCostPerKm(carId: number, preloadedCar?: any): number | null {
   const row = getDb().prepare("SELECT COALESCE(SUM(importe),0) as total FROM expenses WHERE car_id=?").get(carId) as any;
-  const car = getCar(carId);
+  const car = preloadedCar || getCar(carId);
   if (!car || car.km_actuales <= 0 || row.total <= 0) return null;
   return Math.round((row.total / car.km_actuales) * 10000) / 10000;
 }
 
-export function getCarMetrics(carId: number) {
+export function getCarMetrics(carId: number, preloadedCar?: any) {
+  const car = preloadedCar || getCar(carId);
   const monthly = getMonthlySpend(carId);
   const diy = getDiySavings(carId);
   const fuel = getFuelConsumption(carId);
-  const totalCostPerKm = getTotalCostPerKm(carId);
+  const totalCostPerKm = getTotalCostPerKm(carId, car);
   const projectedAnnual = monthly.current * 12;
-  const car = getCar(carId);
   const alerts: { type: 'critical' | 'warning' | 'info'; message: string }[] = [];
   if (car) {
     // Auto-calculate estado
