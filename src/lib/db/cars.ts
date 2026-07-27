@@ -39,8 +39,14 @@ export function deleteCar(id: number): void {
 export function getCarDashboardData() {
   const cars = getCars();
   const ym = new Date().toISOString().slice(0, 7);
+
+  const rows = getDb().prepare("SELECT car_id, SUM(importe) as gasto FROM expenses WHERE strftime('%Y-%m', date)=? GROUP BY car_id").all(ym) as any[];
+  const gastosByCar = new Map<number, number>();
+  for (const row of rows) {
+    gastosByCar.set(row.car_id, row.gasto);
+  }
+
   return cars.map(car => {
-    const row = getDb().prepare("SELECT COALESCE(SUM(importe),0) as gasto FROM expenses WHERE car_id=? AND strftime('%Y-%m', date)=?").get(car.id, ym) as any;
-    return { ...car, gastoMensual: row.gasto };
+    return { ...car, gastoMensual: gastosByCar.get(car.id) || 0 };
   });
 }
