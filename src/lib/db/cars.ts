@@ -1,4 +1,5 @@
 import { getDb } from "./core";
+import { computeCarEstado } from "./metrics";
 
 export interface Car {
   id: number; marca: string; modelo: string; generacion: string;
@@ -39,7 +40,24 @@ export function deleteCar(id: number): void {
 export function getCarDashboardData() {
   const cars = getCars();
   const ym = new Date().toISOString().slice(0, 7);
+
+  // Batch fetch uncompleted tasks for all cars to avoid N+1 in computeCarEstado
+  const allTasks = getDb().prepare("SELECT * FROM maintenance_tasks WHERE completed=0").all() as any[];
+  const tasksByCar = new Map<number, any[]>();
+  for (const t of allTasks) {
+    let arr = tasksByCar.get(t.car_id);
+    if (!arr) {
+      arr = [];
+      tasksByCar.set(t.car_id, arr);
+    }
+    arr.push(t);
+  }
+
   return cars.map(car => {
+    // Recompute estado to ensure dashboard alerts are fresh
+    const newEstado = computeCarEstado(car, tasksByCar.get(car.id) || []);
+    car.estado = newEstado; // Return accurate dynamic state without mutating DB in a getter
+
     const row = getDb().prepare("SELECT COALESCE(SUM(importe),0) as gasto FROM expenses WHERE car_id=? AND strftime('%Y-%m', date)=?").get(car.id, ym) as any;
     return { ...car, gastoMensual: row.gasto };
   });
