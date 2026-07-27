@@ -4,6 +4,7 @@ import fs from "fs";
 import { getAttachments, createAttachment, deleteAttachment } from "@/lib/db";
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "/opt/garageledger/data/uploads";
+const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf'];
 
 function ensureDir(dir: string) {
   try { fs.mkdirSync(dir, { recursive: true }); } catch {}
@@ -29,7 +30,11 @@ export async function POST(req: NextRequest) {
 
     ensureDir(UPLOAD_DIR);
 
-    const ext = path.extname(file.name) || "";
+    const ext = path.extname(file.name).toLowerCase() || "";
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      return NextResponse.json({ error: "Invalid file type" }, { status: 400 });
+    }
+
     const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
     fs.writeFileSync(path.join(UPLOAD_DIR, uniqueName), buffer);
