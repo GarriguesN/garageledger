@@ -52,14 +52,15 @@ export function getCarMetrics(carId: number) {
   const car = getCar(carId);
   const alerts: { type: 'critical' | 'warning' | 'info'; message: string }[] = [];
   if (car) {
+    // Maintenance task alerts
+    const tasks = getDb().prepare("SELECT * FROM maintenance_tasks WHERE car_id=? AND completed=0").all(carId) as any[];
+
     // Auto-calculate estado
-    const newEstado = computeCarEstado(car);
+    const newEstado = computeCarEstado(car, tasks);
     if (newEstado !== car.estado) {
       getDb().prepare("UPDATE cars SET estado=? WHERE id=?").run(newEstado, car.id);
     }
 
-    // Maintenance task alerts
-    const tasks = getDb().prepare("SELECT * FROM maintenance_tasks WHERE car_id=? AND completed=0").all(carId) as any[];
     for (const t of tasks) {
       if (t.next_km && t.next_km <= car.km_actuales) {
         alerts.push({ type: 'critical', message: `${t.part_name}: taller necesario (${t.next_km.toLocaleString("es-ES")} km)` });
@@ -106,7 +107,7 @@ function daysUntil(dateStr: string | null): number | null {
   return Math.ceil((new Date(dateStr + "T12:00:00").getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
-export function computeCarEstado(car: any): string {
+export function computeCarEstado(car: any, tasks?: any[]): string {
   const daysItv = daysUntil(car.fecha_ultima_itv);
   const daysSeg = daysUntil(car.fecha_vencimiento_seguro);
   if (!car.fecha_ultima_itv) return "A revisar"; // no ITV registered
@@ -117,7 +118,9 @@ export function computeCarEstado(car: any): string {
   if (daysSeg !== null && daysSeg! < 0) return "Seguro Caducado";
 
   // Check maintenance tasks
-  const tasks = getDb().prepare("SELECT * FROM maintenance_tasks WHERE car_id=? AND completed=0").all(car.id) as any[];
+  if (!tasks) {
+    tasks = getDb().prepare("SELECT * FROM maintenance_tasks WHERE car_id=? AND completed=0").all(car.id) as any[];
+  }
   const overdueTask = tasks.find((t: any) => t.next_km && t.next_km <= car.km_actuales);
   if (overdueTask) return "Taller necesario";
 
