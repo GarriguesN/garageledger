@@ -135,8 +135,10 @@ export function getCarMetrics(carId: number) {
   return { monthly, diy, fuel, totalCostPerKm, projectedAnnual, alerts, estado };
 }
 
-export function getTimeline(carId: number, limit = 50): any[] {
-  return getDb().prepare("SELECT id, date, tipo, tipo_id, importe, descripcion, referencia, litros, km, coste_estimado_taller, maintenance_task_id, preset_key, 'expense' as entry_type FROM expenses WHERE car_id=? ORDER BY date DESC, id DESC LIMIT ?").all(carId, limit) as any[];
+// `offset` existe para permitir paginar en el futuro (audit:B-4) sin romper
+// a los llamadores actuales, que siempre piden desde el principio.
+export function getTimeline(carId: number, limit = 50, offset = 0): any[] {
+  return getDb().prepare("SELECT id, date, tipo, tipo_id, importe, descripcion, referencia, litros, km, coste_estimado_taller, maintenance_task_id, preset_key, 'expense' as entry_type FROM expenses WHERE car_id=? ORDER BY date DESC, id DESC LIMIT ? OFFSET ?").all(carId, limit, offset) as any[];
 }
 
 export function getMonthlyHistory(carId: number, months = 6): { month: string; total: number }[] {
