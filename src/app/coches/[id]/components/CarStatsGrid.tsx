@@ -8,12 +8,13 @@
 // cálculo: este ticket es SOLO JSX/clases Tailwind.
 
 import {
-  TrendingUp, BarChart3, PiggyBank, Droplet, TrendingDown, Euro, Receipt,
+  TrendingUp, BarChart3, PiggyBank, Droplet, Euro, Receipt,
 } from "lucide-react";
 import { fmt0, fmtOrDash } from "../lib/format";
 import type { CarMetrics } from "../lib/types";
 import type { KmStats } from "@/lib/db/cars";
 import Link from "next/link";
+import { TEXT_DARK, TEXT_GRAY } from "@/lib/constants";
 
 interface CarStatsGridProps {
   carId: number;
@@ -31,9 +32,6 @@ const ICON_BG_BLUE   = "#e7eef7";
 const ICON_FG_BLUE   = "#3b82f6";
 const ICON_BG_GRAY   = "#f2f2f3";
 const ICON_FG_GRAY   = "#4a4548"; // text-secondary
-
-const TEXT_DARK = "#211a1e";
-const TEXT_GRAY = "#8a8588";
 
 export default function CarStatsGrid({ carId, metrics, kmStats }: CarStatsGridProps) {
   // Helper que distingue número finito real (incluido 0) de null/undefined
@@ -288,10 +286,4 @@ function DiffNote({ safeDiff }: { safeDiff: number | null }) {
       <span>{sign}{fmtOrDash(abs, 2)}€ vs mes anterior</span>
     </span>
   );
-}
-
-function TrendIcon({ safeDiff }: { safeDiff: number | null }) {
-  return safeDiff !== null && safeDiff < 0
-    ? <TrendingDown size={20} strokeWidth={1.8} />
-    : <TrendingUp size={20} strokeWidth={1.8} />;
 }

@@ -15,6 +15,7 @@ import {
   CreditCard, Barcode, MoreHorizontal,
 } from "lucide-react";
 import type { Car } from "../lib/types";
+import { TEXT_DARK, TEXT_GRAY } from "@/lib/constants";
 
 interface CarHeaderProps {
   car: Car;
@@ -22,9 +23,7 @@ interface CarHeaderProps {
 
 // Paleta local coherente con el rediseño Ticket 1.5 y con VehicleCard.
 const HEADER_ICON_BG = "#f2f2f3";
-const HEADER_ICON_FG = "#c3423f"; // var(--accent)
-const TEXT_DARK = "#211a1e";
-const TEXT_GRAY = "#8a8588";
+const HEADER_ICON_FG = "var(--accent)";
 const KEBAB_COLOR = "#c7c7cc";
 
 export default function CarHeader({ car }: CarHeaderProps) {
@@ -159,10 +158,10 @@ function Chip({
   return (
     <span
       className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium whitespace-nowrap"
-      style={{ background: HEADER_ICON_BG, color: "#211a1e" }}
+      style={{ background: HEADER_ICON_BG, color: TEXT_DARK }}
       title={text}
     >
-      <span style={{ color: "#211a1e", flexShrink: 0 }} aria-hidden>{icon}</span>
+      <span style={{ color: TEXT_DARK, flexShrink: 0 }} aria-hidden>{icon}</span>
       <span className="truncate min-w-0" style={{ maxWidth: "100%" }}>{text}</span>
     </span>
   );

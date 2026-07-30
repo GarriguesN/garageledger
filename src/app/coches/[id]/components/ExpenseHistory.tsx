@@ -32,6 +32,7 @@ import type {
 } from "../lib/types";
 import { useState } from "react";
 import SwipeableRow from "./SwipeableRow";
+import { TEXT_DARK, TEXT_GRAY } from "@/lib/constants";
 
 interface ExpenseHistoryProps {
   timeline: TimelineEntry[];
@@ -45,9 +46,6 @@ interface ExpenseHistoryProps {
   /** Abre el modal con la lista completa de gastos. */
   onOpenAll: () => void;
 }
-
-const TEXT_DARK = "#211a1e";
-const TEXT_GRAY = "#8a8588";
 
 const VISIBLE_LIMIT = 5;
 

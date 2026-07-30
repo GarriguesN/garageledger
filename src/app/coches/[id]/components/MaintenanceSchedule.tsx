@@ -15,6 +15,7 @@ import { getIconForKey } from "@/lib/maintenance/presets";
 import type { Car, MaintenanceTask } from "../lib/types";
 import { useState } from "react";
 import SwipeableRow from "./SwipeableRow";
+import { TEXT_DARK, TEXT_GRAY } from "@/lib/constants";
 
 interface MaintenanceScheduleProps {
   tasks: MaintenanceTask[];
@@ -33,9 +34,6 @@ interface MaintenanceScheduleProps {
   /** Ticket 1.15: borrado desde la fila expandida. */
   onDelete?: (taskId: number) => void;
 }
-
-const TEXT_DARK = "#211a1e";
-const TEXT_GRAY = "#8a8588";
 
 const VISIBLE_LIMIT = 5;
 
@@ -209,7 +207,7 @@ export function MaintenanceRow({
           <div className="flex flex-col items-end gap-1 flex-shrink-0 min-w-[88px]">
             <span
               className="text-[12px] font-semibold"
-              style={{ color: overdue ? "#c3423f" : TEXT_DARK }}
+              style={{ color: overdue ? "var(--accent)" : TEXT_DARK }}
             >
               {fmt0(restantes)} km
             </span>
@@ -224,7 +222,7 @@ export function MaintenanceRow({
             >
               <div
                 className="h-full rounded-full transition-all"
-                style={{ width: `${progressPct}%`, background: "#c3423f" }}
+                style={{ width: `${progressPct}%`, background: "var(--accent)" }}
               />
             </div>
           </div>

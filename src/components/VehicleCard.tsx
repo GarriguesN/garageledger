@@ -42,9 +42,9 @@ const DIVIDER = "#eeeeef";
 
 const statusColor = (estado: string) => {
   const e = estado.toLowerCase();
-  if (e.includes("caducad") || e.includes("taller necesario")) return "#ff3b30"; // critical
-  if (e.includes("revisar")) return "#f59e0b";                                  // warning
-  return null;                                                                  // ok → sin badge
+  if (e.includes("caducad") || e.includes("taller necesario")) return "var(--accent)"; // critical
+  if (e.includes("revisar")) return "#f59e0b";                                         // warning
+  return null;                                                                         // ok → sin badge
 };
 
 export default function VehicleCard({

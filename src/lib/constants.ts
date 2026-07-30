@@ -15,3 +15,17 @@ export const CATEGORIES = [
 export const CATEGORY_MAP = Object.fromEntries(
   CATEGORIES.map((c) => [c.id, c])
 ) as Record<string, (typeof CATEGORIES)[number]>;
+
+// audit:M-3 — tonos de texto compartidos por las cards del detalle de coche.
+// Antes redeclarados como hex literal en CarStatsGrid, CarHeader,
+// ExpenseHistory y MaintenanceSchedule; usar var(...) enlaza directamente
+// con las custom properties de globals.css en vez de duplicar el hex.
+export const TEXT_DARK = "var(--text-primary)";
+export const TEXT_GRAY = "var(--text-muted)";
+
+// audit:M-3 — paleta de severidad de alertas (ITV/seguro/mantenimiento).
+// Antes duplicada byte a byte en AlertBanner.tsx y TopBar.tsx.
+export const ALERT_SEVERITY_COLORS = {
+  critical: { bg: "#fde7e6", iconBg: "#fff", fg: "var(--accent)", title: "var(--accent-hover)" },
+  warning: { bg: "#fef3c7", iconBg: "#fef9c3", fg: "#f59e0b", title: "#92400e" },
+} as const;
