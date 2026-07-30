@@ -91,10 +91,13 @@ expect("NO hay window.prompt() en CarDetailClient", !ccdSource.includes("prompt(
 expect("NO hay window.alert() en CarDetailClient", !ccdSource.includes("alert("));
 expect("CarDetailClient importa CompleteMaintenanceModal", ccdSource.includes("CompleteMaintenanceModal"));
 
-// El form de gasto también debe pre-rellenar km:
-expect("AddExpenseForm km defaults from car.km_actuales",
-  ccdSource.includes('km: String(initialCar.km_actuales') ||
-  ccdSource.includes('km: String(car.km_actuales'));
+// El form de gasto también debe pre-rellenar km. Esta lógica vive en
+// hooks/useExpenseForm.ts (extraída de CarDetailClient — ver refactor
+// "god component").
+const expenseHookPath = resolve(__dirname, "../src/app/coches/[id]/hooks/useExpenseForm.ts");
+const expenseHookSource = readFileSync(expenseHookPath, "utf-8");
+expect("useExpenseForm km defaults from car.km_actuales",
+  expenseHookSource.includes("km: String(km || \"\")"));
 
 console.log(`\nTicket 1.14 — bumpKmIfHigher: Passed ${pass} / ${pass + fail}`);
 if (fail) process.exit(1);

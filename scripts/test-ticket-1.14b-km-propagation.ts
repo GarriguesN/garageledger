@@ -41,15 +41,20 @@ expect("car.km_actuales refleja el km del gasto", carAfter?.km_actuales === newK
 // en el path de "abrir modal", no solo al mount.
 // Ruta relativa al repo (no absoluta de mi sandbox). __dirname es el
 // directorio del script (scripts/), así que .. va al root del repo.
-const CCD_PATH = path.join(__dirname, "..", "src", "app", "coches", "[id]", "components", "CarDetailClient.tsx");
-const ccdContent = fs.readFileSync(CCD_PATH, "utf-8");
-expect("CarDetailClient tiene openExpenseForm que usa car?.km_actuales",
-  ccdContent.includes("openExpenseForm") &&
-  /openExpenseForm[\s\S]{0,500}car\?\.km_actuales/.test(ccdContent));
-expect("CarDetailClient pasa initialCar.km_actuales a emptyProgramMaintenanceForm",
-  /emptyProgramMaintenanceForm\(initialCar\.km_actuales\)/.test(ccdContent));
+//
+// Esta lógica vivía en CarDetailClient.tsx; el refactor "god component"
+// la movió a hooks/useExpenseForm.ts y hooks/useMaintenanceForm.ts (el
+// comportamiento es idéntico, solo cambió de archivo).
+const HOOKS_DIR = path.join(__dirname, "..", "src", "app", "coches", "[id]", "hooks");
+const expenseHookContent = fs.readFileSync(path.join(HOOKS_DIR, "useExpenseForm.ts"), "utf-8");
+const maintenanceHookContent = fs.readFileSync(path.join(HOOKS_DIR, "useMaintenanceForm.ts"), "utf-8");
+expect("useExpenseForm tiene openExpenseForm que usa car?.km_actuales",
+  expenseHookContent.includes("openExpenseForm") &&
+  /openExpenseForm[\s\S]{0,500}car\?\.km_actuales/.test(expenseHookContent));
+expect("useMaintenanceForm pasa initialCar.km_actuales a emptyProgramMaintenanceForm",
+  /emptyProgramMaintenanceForm\(initialCar\.km_actuales\)/.test(maintenanceHookContent));
 expect("openProgramMaintenance usa car?.km_actuales",
-  /openProgramMaintenance[\s\S]{0,500}car\?\.km_actuales/.test(ccdContent));
+  /openProgramMaintenance[\s\S]{0,500}car\?\.km_actuales/.test(maintenanceHookContent));
 
 // ── Cleanup: restaurar km y eliminar el gasto ──
 safeCall("restore km_actuales", () => bumpKmIfHigher(1, initialKm));
