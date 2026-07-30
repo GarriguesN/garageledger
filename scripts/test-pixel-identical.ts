@@ -30,7 +30,6 @@ const expectedFiles = [
   "ProgramMaintenanceFormBody.tsx",
   "ExpenseHistory.tsx",
   "MaintenanceSchedule.tsx",
-  "GloveBox.tsx",
 ];
 for (const f of expectedFiles) {
   const p = path.join(baseDir, "components", f);

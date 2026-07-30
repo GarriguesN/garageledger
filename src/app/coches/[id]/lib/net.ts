@@ -89,27 +89,3 @@ export async function fetchJsonWithToast(
 
   return { ok: true, data };
 }
-
-/**
- * Shortcut para errores de red en mutaciones: si `res` falló, lanza el toast
- * y devuelve `true` para que el llamador aborte la parte optimista (no cerrar
- * formularios, no vaciar inputs, no mostrar toast de éxito). Pensado para
- * mutaciones donde ya hay toast configurado por el llamador en éxito.
- */
-export function toastOnError(
-  res: { ok: boolean } | null,
-  fallbackMsg: string,
-  setToast: ToastFn,
-  action?: string,
-): void {
-  // Éxito: nada que hacer.
-  if (res && res.ok) return;
-  // Falla sin `res` (no se llegó a llamar fetchJsonWithToast) — confiamos
-  // en `fetchJsonWithToast` para redes caídas. Aquí solo cubrimos el caso
-  // defensivo en que un llamador construye su propio flujo.
-  if (!res) {
-    setToast({ msg: action ? `No se pudo ${action}. ${fallbackMsg}` : fallbackMsg, type: "error" });
-    return;
-  }
-  setToast({ msg: fallbackMsg, type: "error" });
-}
