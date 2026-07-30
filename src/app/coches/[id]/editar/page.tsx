@@ -55,31 +55,12 @@ export default function EditarCoche() {
           setPhotoPreview(`/api/attachments/${c.foto_attachment_id}`);
         }
         publishMatricula(c.matricula || null);
-        // Marca el DOM con la matrícula actual para que el TopBar la lea
-        // sincrónicamente (tanto en SSR como en hidratación cliente).
-        if (typeof document !== "undefined") {
-          let el = document.querySelector("[data-page-matricula]") as HTMLElement | null;
-          if (!el) {
-            el = document.createElement("div");
-            el.setAttribute("data-page-matricula", c.matricula || "");
-            el.style.display = "none";
-            document.body.prepend(el);
-          } else {
-            el.setAttribute("data-page-matricula", c.matricula || "");
-          }
-        }
       })
       .finally(() => setLoading(false));
   }, [carId]);
 
   useEffect(() => {
-    return () => {
-      publishMatricula(null);
-      if (typeof document !== "undefined") {
-        const el = document.querySelector("[data-page-matricula]");
-        if (el && el.parentElement === document.body) el.remove();
-      }
-    };
+    return () => publishMatricula(null);
   }, []);
 
   const onPhoto = (file: File | null) => {

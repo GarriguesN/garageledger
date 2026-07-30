@@ -8,6 +8,7 @@
 
 import { AlertTriangle } from "lucide-react";
 import type { CarMetrics } from "../lib/types";
+import { ALERT_SEVERITY_COLORS } from "@/lib/constants";
 
 // Mantenemos el tipo porque tests/mocks pueden importarlo.
 export type AlertTarget =
@@ -42,9 +43,7 @@ export default function AlertBanner({ metrics }: AlertBannerProps) {
     <div className="space-y-2">
       {metrics.alerts.map((a, i) => {
         const isCritical = a.type === "critical";
-        const bg = isCritical ? "#fde7e6" : "#fef3c7";
-        const fg = isCritical ? "#c3423f" : "#f59e0b";
-        const titleColor = isCritical ? "#a83633" : "#92400e";
+        const colors = isCritical ? ALERT_SEVERITY_COLORS.critical : ALERT_SEVERITY_COLORS.warning;
 
         const parsed = parseTitleAndDate(a.message);
 
@@ -52,13 +51,13 @@ export default function AlertBanner({ metrics }: AlertBannerProps) {
           <div
             key={i}
             className="flex items-center gap-3 w-full rounded-2xl px-4 py-3 text-left"
-            style={{ background: bg }}
+            style={{ background: colors.bg }}
             role="status"
             aria-label={parsed.title}
           >
             <div
               className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ background: isCritical ? "#fff" : "#fef9c3", color: fg }}
+              style={{ background: colors.iconBg, color: colors.fg }}
               aria-hidden
             >
               <AlertTriangle size={18} strokeWidth={1.8} />
@@ -66,7 +65,7 @@ export default function AlertBanner({ metrics }: AlertBannerProps) {
             <div className="flex-1 min-w-0">
               <p
                 className="text-[14px] font-semibold leading-tight"
-                style={{ color: titleColor }}
+                style={{ color: colors.title }}
               >
                 {parsed.title}
               </p>
@@ -89,8 +88,10 @@ export default function AlertBanner({ metrics }: AlertBannerProps) {
 /* ─────────────── helpers ─────────────── */
 
 // Parsea el mensaje del backend en { title, subtitle } cuando el formato
-// es "TITULO (YYYY-MM-DD)" o "TITULO (algo entre paréntesis)".
-function parseTitleAndDate(message: string): { title: string; subtitle: string | null } {
+// es "TITULO (YYYY-MM-DD)" o "TITULO (algo entre paréntesis)". Exportado
+// para que el panel de notificaciones del TopBar reutilice el mismo
+// formato en vez de duplicar la regex.
+export function parseTitleAndDate(message: string): { title: string; subtitle: string | null } {
   const m = message.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
   if (!m) return { title: message, subtitle: null };
   const title = m[1].trim();
