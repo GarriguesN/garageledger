@@ -12,10 +12,11 @@ export interface AppDatePickerProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> {
   label?: string;
   error?: string;
+  hint?: React.ReactNode;
 }
 
 const AppDatePicker = forwardRef<HTMLInputElement, AppDatePickerProps>(function AppDatePicker(
-  { label, error, className, id, ...props },
+  { label, error, hint, className, id, ...props },
   ref,
 ) {
   const autoId = useId();
@@ -40,11 +41,11 @@ const AppDatePicker = forwardRef<HTMLInputElement, AppDatePickerProps>(function 
         )}
         {...props}
       />
-      {error && (
-        <p role="alert" className="mt-1.5 text-caption text-danger">
-          {error}
-        </p>
-      )}
+      {error ? (
+        <p role="alert" className="mt-1.5 text-caption text-danger">{error}</p>
+      ) : hint ? (
+        <p className="mt-1.5 text-caption text-text-muted">{hint}</p>
+      ) : null}
     </div>
   );
 });

@@ -12,14 +12,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  AppSection, AppDocumentCard, AppButton, AppModal, AppToast,
-} from "@/components/ui";
+import { AppSection, AppDocumentCard, AppButton, AppModal, AppToast } from "@/components/ui";
 import { useToast } from "@/components/ui/AppToast";
 import { DOCUMENT_TYPES, type DocumentTypeId } from "@/lib/documents/catalog";
 import { documentStatus } from "@/lib/ui/documents";
 import type { CarDocuments, Attachment } from "@/lib/db/attachments";
-import UploadDocumentModal from "../components/UploadDocumentModal";
+import DocumentWizard, { type DocType } from "../components/DocumentWizard";
 
 export interface DocumentsClientProps {
   carId: number;
@@ -30,13 +28,13 @@ export default function DocumentsClient({ carId, documents }: DocumentsClientPro
   const router = useRouter();
   const { toast, show, dismiss } = useToast();
 
-  const [uploadFor, setUploadFor] = useState<DocumentTypeId | "otros" | null>(null);
+  const [uploadFor, setUploadFor] = useState<DocType | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadKey, setUploadKey] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<Attachment | null>(null);
 
-  function openUpload(type: DocumentTypeId | "otros" | null) {
+  function openUpload(type: DocType | null) {
     setUploadFor(type);
     // Remonta el modal para que vuelva al primer paso con la categoría nueva.
     setUploadKey((k) => k + 1);
@@ -128,10 +126,10 @@ export default function DocumentsClient({ carId, documents }: DocumentsClientPro
         Añadir documento
       </AppButton>
 
-      <UploadDocumentModal
+      <DocumentWizard
         key={uploadKey}
         open={uploadOpen}
-        presetType={uploadFor}
+        carId={carId} presetType={uploadFor as DocType | null}
         uploading={uploading}
         onClose={() => setUploadOpen(false)}
         onUpload={handleUpload}

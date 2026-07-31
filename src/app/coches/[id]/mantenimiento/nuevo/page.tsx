@@ -4,7 +4,7 @@
 import { AppHeader } from "@/components/ui";
 import { AppScreenMain } from "@/components/ui/AppLayout";
 import { requireCar } from "../../lib/loadCar";
-import ProgramMaintenanceForm from "./ProgramMaintenanceForm";
+import MaintenanceWizard from "./MaintenanceWizard";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +23,7 @@ export default async function NewMaintenancePage({
         back={`/coches/${car.id}/mantenimiento`}
       />
       <AppScreenMain hasBottomNav className="pt-2">
-        <ProgramMaintenanceForm carId={car.id} currentKm={car.km_actuales} />
+        <MaintenanceWizard carId={car.id} currentKm={car.km_actuales} />
       </AppScreenMain>
     </>
   );
