@@ -103,3 +103,19 @@ export function updateExpense(id: number, fields: Record<string, any>): Expense 
 export function deleteExpense(id: number): void {
   getDb().prepare("DELETE FROM expenses WHERE id=?").run(id);
 }
+
+/** Estaciones de servicio ya usadas en este coche, de la más reciente a la
+ *  más antigua. Alimenta el desplegable "Estación de servicio" del formulario
+ *  de combustible: casi siempre se reposta en los mismos dos o tres sitios,
+ *  así que ofrecerlos evita teclear. */
+export function getRecentStations(carId: number, limit = 8): string[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT referencia, MAX(date) as last_used FROM expenses
+       WHERE car_id=? AND (tipo_id='carburante' OR tipo='Carburante')
+         AND referencia IS NOT NULL AND TRIM(referencia) <> ''
+       GROUP BY referencia ORDER BY last_used DESC LIMIT ?`,
+    )
+    .all(carId, limit) as { referencia: string }[];
+  return rows.map((r) => r.referencia);
+}

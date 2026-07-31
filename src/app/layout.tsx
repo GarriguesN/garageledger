@@ -1,8 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import NavBar from "@/components/NavBar";
-import TopBar from "@/components/TopBar";
 import PinGate from "@/components/PinGate";
+import { colors } from "@/design/tokens";
+
+// El layout raíz ya no monta cabecera ni navbar: cada pantalla compone su
+// propio <AppLayout> con la cabecera y la barra inferior que le tocan según
+// el mockup (el garaje no tiene barra; el detalle del vehículo sí). Así se
+// acabó el truco de añadir clases al <main> desde el navbar para cuadrar el
+// padding inferior.
 
 export const metadata: Metadata = {
   title: "GarageLedger",
@@ -10,7 +15,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "GarageLedger",
   },
 };
@@ -21,7 +26,8 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: "#c3423f",
+  themeColor: colors.background,
+  colorScheme: "dark",
 };
 
 export default function RootLayout({
@@ -35,19 +41,8 @@ export default function RootLayout({
         <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" />
         <link rel="apple-touch-icon" href="/icons/apple-touch-180.png" />
       </head>
-      <body className="min-h-dvh flex flex-col">
-        <div className="app-container">
-            <PinGate>
-              <TopBar />
-              <NavBar />
-              <main
-                id="page-main"
-                className="flex-1 max-w-5xl w-full mx-auto px-4 pt-2 pb-[calc(3rem+env(safe-area-inset-bottom))] sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pt-2"
-              >
-                {children}
-              </main>
-            </PinGate>
-        </div>
+      <body className="min-h-dvh bg-background text-text antialiased">
+        <PinGate>{children}</PinGate>
         <script
           dangerouslySetInnerHTML={{
             __html: `

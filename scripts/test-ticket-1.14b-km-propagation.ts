@@ -41,15 +41,21 @@ expect("car.km_actuales refleja el km del gasto", carAfter?.km_actuales === newK
 // en el path de "abrir modal", no solo al mount.
 // Ruta relativa al repo (no absoluta de mi sandbox). __dirname es el
 // directorio del script (scripts/), así que .. va al root del repo.
-const CCD_PATH = path.join(__dirname, "..", "src", "app", "coches", "[id]", "components", "CarDetailClient.tsx");
-const ccdContent = fs.readFileSync(CCD_PATH, "utf-8");
-expect("CarDetailClient tiene openExpenseForm que usa car?.km_actuales",
-  ccdContent.includes("openExpenseForm") &&
-  /openExpenseForm[\s\S]{0,500}car\?\.km_actuales/.test(ccdContent));
-expect("CarDetailClient pasa initialCar.km_actuales a emptyProgramMaintenanceForm",
-  /emptyProgramMaintenanceForm\(initialCar\.km_actuales\)/.test(ccdContent));
-expect("openProgramMaintenance usa car?.km_actuales",
-  /openProgramMaintenance[\s\S]{0,500}car\?\.km_actuales/.test(ccdContent));
+//
+// Tras el rebuild esta lógica vive en AddExpenseWizard (gasto) y en
+// CompleteTaskButton (mantenimiento). Lo que se comprueba es lo mismo: el km
+// que se ofrece por defecto sale del coche en el momento de abrir el
+// formulario, no de una copia cacheada al montar la pantalla.
+const CAR_DIR = path.join(__dirname, "..", "src", "app", "coches", "[id]");
+const wizard = fs.readFileSync(path.join(CAR_DIR, "components", "AddExpenseWizard.tsx"), "utf-8");
+const completeBtn = fs.readFileSync(
+  path.join(CAR_DIR, "mantenimiento", "[taskId]", "CompleteTaskButton.tsx"), "utf-8");
+expect("AddExpenseWizard recibe currentKm por prop (no lo cachea)",
+  /currentKm:\s*number/.test(wizard));
+expect("AddExpenseWizard reinicia el formulario con currentKm",
+  /initialForm\(currentKm\)/.test(wizard));
+expect("CompleteTaskButton recibe currentKm por prop",
+  /currentKm:\s*number/.test(completeBtn));
 
 // ── Cleanup: restaurar km y eliminar el gasto ──
 safeCall("restore km_actuales", () => bumpKmIfHigher(1, initialKm));

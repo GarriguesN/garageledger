@@ -1,74 +1,162 @@
-// Server Component para /coches/[id]:
-// - Lee sesión server-side (defensa-en-profundidad al middleware: cierra el
-//   bucle si por lo que sea el matcher del middleware fallara; también blinda
-//   esta página contra cualquier acceso directo que esquivara PinGate cliente).
-// - Lee TODO el page-data directamente desde las funciones de src/lib/db/*
-//   (NO desde /api/car/[id]/page-data — esa ruta sigue existiendo para los
-//   refrescos client-side post-mutación, tal como exige el ticket).
-// - Pasa los datos iniciales al componente cliente que mantiene TODA la lógica
-//   interactiva (formularios, uploads, refrescos).
+// Pantalla 2 del mockup: Resumen del vehículo.
 //
-// Ticket 1.3 — Server Component (sin client hydration para carga inicial),
-// sin useEffect para el fetch inicial, sin skeleton cliente.
+// Es un Server Component: los datos se leen directamente de src/lib/db/* sin
+// pasar por la API ni por un useEffect, así que el HTML llega ya con la
+// puntuación y el próximo mantenimiento. Solo son cliente las piezas que
+// realmente interactúan (héroe con imagen, accesos rápidos).
 
-import { notFound, redirect } from "next/navigation";
-import { cookies } from "next/headers";
-
-import { getCar, getCarMetrics, getTimeline } from "@/lib/db";
+import Link from "next/link";
+import { AppHeader, AppCard, AppSection, AppProgress, AppIconChip, AppBadge } from "@/components/ui";
+import { AppScreenMain } from "@/components/ui/AppLayout";
+import { requireCar } from "./lib/loadCar";
+import CarHero from "./components/CarHero";
+import QuickActions from "./components/QuickActions";
+import { computeCarScore } from "@/lib/db/score";
 import { getMaintenanceTasks } from "@/lib/db/maintenance";
-import { getKmStats } from "@/lib/db/cars";
-import { readSessionFromValue } from "@/lib/auth";
+import { getMonthlySpend, getFuelConsumption } from "@/lib/db/metrics";
+import { toMaintenanceView, sortByUrgency } from "@/lib/ui/maintenance";
+import {
+  CONDITION_ACCENT, vehiclePhotoUrl, vehicleName, vehicleSubtitle,
+} from "@/lib/ui/vehicle";
+import {
+  formatCurrency, formatConsumption, percentChange,
+} from "@/lib/format";
 
-import CarDetailClient from "./components/CarDetailClient";
+export const dynamic = "force-dynamic";
 
 interface PageProps {
-  // En Next 16 los params llegan como Promise.
   params: Promise<{ id: string }>;
 }
 
-export default async function CarDetailPage({ params }: PageProps) {
-  // ── 1) Auth: leer y validar la cookie ANTES de tocar la DB.
-  // El middleware ya hace esta verificación (matcher ahora cubre /coches/**),
-  // pero replicamos en el Server Component como defensa-en-profundidad: si el
-  // matcher se queda corto en el futuro, este redirect sigue blindando el HTML.
-  const cookieStore = await cookies();
-  const session = readSessionFromValue(cookieStore.get("gl_sess")?.value);
-  if (!session) {
-    redirect("/");
-  }
+export default async function CarSummaryPage({ params }: PageProps) {
+  const car = await requireCar(params);
 
-  // ── 2) Carga inicial en el servidor (mismas queries que /api/.../page-data).
-  const { id } = await params;
-  const carId = parseInt(id);
-  if (!Number.isFinite(carId)) {
-    notFound();
-  }
+  const score = computeCarScore(car.id);
+  const accent = CONDITION_ACCENT[score.condition];
+  const tasks = getMaintenanceTasks(car.id);
+  const views = sortByUrgency(tasks.map((t) => toMaintenanceView(t, car.km_actuales)));
+  const next = views[0];
 
-  const car = getCar(carId);
-  if (!car) {
-    notFound();
-  }
+  const monthly = getMonthlySpend(car.id);
+  const spendDelta = percentChange(monthly.current, monthly.previous);
+  const fuel = getFuelConsumption(car.id);
 
-  // Reutilizamos EXACTAMENTE las mismas funciones que la ruta /api/.../page-data
-  // (no duplicamos queries ni lógica de cálculo de métricas).
-  const [metrics, timeline, maintenanceTasks, kmStats] = await Promise.all([
-    Promise.resolve(getCarMetrics(carId)),
-    Promise.resolve(getTimeline(carId, 100)),
-    Promise.resolve(getMaintenanceTasks(carId)),
-    Promise.resolve(getKmStats(carId)),
-  ]);
+  // Línea de identidad bajo el título: "2009 · 1.8 i-VTEC · 0016GMP".
+  const specLine = [vehicleSubtitle(car), car.matricula || null]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
-    <div data-page-matricula={car.matricula || ""} className="contents">
-      <CarDetailClient
-        carId={carId}
-        initialCar={car}
-        initialMetrics={metrics}
-        initialTimeline={timeline}
-        initialMaintenanceTasks={maintenanceTasks}
-        initialKmStats={kmStats}
-        matricula={car.matricula || ""}
+    <>
+      <AppHeader
+        title={vehicleName(car)}
+        align="center"
+        back="/"
+        actions={[
+          { icon: "more", label: "Editar vehículo", href: `/coches/${car.id}/editar` },
+        ]}
+        subtitle={
+          <div className="flex flex-col items-center gap-1">
+            {car.generacion && <AppBadge accent="primary">{car.generacion}</AppBadge>}
+            {specLine && <span className="text-caption text-text-secondary">{specLine}</span>}
+          </div>
+        }
       />
-    </div>
+
+      <AppScreenMain hasBottomNav className="space-y-6 pt-2">
+        <CarHero
+          photoUrl={vehiclePhotoUrl(car.foto_attachment_id)}
+          name={vehicleName(car)}
+          score={score.score}
+          scoreAccent={accent}
+          conditionLabel={`${score.label} estado`}
+          summary={score.summary}
+        />
+
+        {/* Sin mantenimientos programados el mockup no define nada, pero dejar
+            el hueco vacío es peor que invitar a programar el primero. */}
+        {!next && (
+          <AppCard href={`/coches/${car.id}/mantenimiento`}>
+            <p className="text-caption text-text-secondary">Próximo mantenimiento</p>
+            <div className="mt-2 flex items-center gap-3">
+              <AppIconChip icon="wrench" accent="blue" size="sm" />
+              <span className="min-w-0 flex-1 text-body font-semibold text-text">
+                Sin mantenimientos programados
+              </span>
+            </div>
+            <p className="mt-2 text-caption text-text-muted">
+              Programa uno para llevar el control de revisiones y cambios.
+            </p>
+          </AppCard>
+        )}
+
+        {next && (
+          <AppCard>
+            <p className="text-caption text-text-secondary">Próximo mantenimiento</p>
+            <div className="mt-2 flex items-center gap-3">
+              <AppIconChip
+                icon={next.icon}
+                accent={next.status === "critical" ? "danger" : next.status === "warning" ? "orange" : "green"}
+                size="sm"
+              />
+              <span className="min-w-0 flex-1 truncate text-body font-semibold text-text">
+                {next.title}
+              </span>
+              <span className="tabular shrink-0 text-caption font-semibold text-text">
+                {next.remaining}
+              </span>
+            </div>
+            {next.progress != null && (
+              <AppProgress
+                className="mt-3"
+                value={next.progress}
+                accent={next.status === "critical" ? "danger" : next.status === "warning" ? "orange" : "green"}
+                ariaLabel={`Progreso hacia ${next.title}`}
+              />
+            )}
+            {next.remainingDetail && (
+              <p className="mt-2 text-right text-caption text-text-muted">{next.remainingDetail}</p>
+            )}
+          </AppCard>
+        )}
+
+        <QuickActions carId={car.id} />
+
+        <AppSection>
+          <div className="grid grid-cols-2 gap-3">
+            <Link href={`/coches/${car.id}/gastos`} className="block">
+              <AppCard className="h-full">
+                <p className="text-caption text-text-secondary">Gasto este mes</p>
+                <p className="tabular mt-1 text-title font-bold text-text">
+                  {formatCurrency(monthly.current)}
+                </p>
+                {spendDelta != null && (
+                  <p
+                    className="mt-1 text-caption"
+                    style={{ color: spendDelta > 0 ? "var(--color-danger)" : "var(--color-green)" }}
+                  >
+                    {spendDelta > 0 ? "▲" : "▼"} {Math.abs(spendDelta)}% vs mes anterior
+                  </p>
+                )}
+              </AppCard>
+            </Link>
+
+            <Link href={`/coches/${car.id}/insights`} className="block">
+              <AppCard className="h-full">
+                <p className="text-caption text-text-secondary">Consumo medio</p>
+                <p className="tabular mt-1 text-title font-bold text-text">
+                  {fuel.l100km != null ? `${formatConsumption(fuel.l100km)} L/100km` : "—"}
+                </p>
+                <p className="mt-1 text-caption text-text-muted">
+                  {fuel.pricePerLiter != null
+                    ? `Último: ${fuel.pricePerLiter.toFixed(3)} €/L`
+                    : "Sin repostajes registrados"}
+                </p>
+              </AppCard>
+            </Link>
+          </div>
+        </AppSection>
+      </AppScreenMain>
+    </>
   );
 }

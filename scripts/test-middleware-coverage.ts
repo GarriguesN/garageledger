@@ -1,8 +1,22 @@
-// Verifica que el middleware del Ticket 0.1 cubre las páginas que el Ticket 1.3
-// quiere blindar. Si en el futuro alguien reduce el matcher y deja /coches/**
-// desprotegido, este test canta.
+// Guarda de seguridad: ninguna pantalla que lea la base de datos puede
+// servirse sin sesión válida.
+//
+// Hay dos barreras y este test comprueba las dos:
+//   1. El middleware, que corta la petición antes de llegar a la página.
+//   2. Cada Server Component, que revalida la cookie ANTES de tocar la BD.
+//
+// La segunda existe por si algún día el matcher del middleware se queda
+// corto: aunque la petición llegue, el HTML no puede salir con la matrícula
+// ni los gastos del usuario.
+//
+// Tras el rebuild de la UI esa revalidación está centralizada en requireCar()
+// (src/app/coches/[id]/lib/loadCar.ts). En vez de repetir la comprobación
+// pantalla a pantalla, el test recorre TODAS las rutas del vehículo y exige
+// que pasen por ahí: añadir una ruta nueva sin auth hace fallar este test sin
+// que nadie tenga que acordarse de actualizarlo.
 
 import * as fs from "fs";
+import * as path from "path";
 
 let pass = 0, fail = 0;
 const fails: string[] = [];
@@ -11,75 +25,97 @@ function expect(label: string, cond: boolean, hint = "") {
   else { fail++; fails.push(label); console.log(`  ❌ ${label} ${hint}`); }
 }
 
-const mw = fs.readFileSync("middleware.ts", "utf8");
+const ROOT = path.resolve(__dirname, "..");
+const read = (p: string) => fs.readFileSync(path.join(ROOT, p), "utf8");
 
-console.log("\n=== 1) matcher cubre /api/* salvo pin|session (compat Ticket 0.1) ===");
+const mw = read("middleware.ts");
+
+console.log("\n=== 1) El matcher cubre /api/* salvo pin y session ===");
 expect("matcher contiene /api/((?!pin|session).*)",
-  /matcher:\s*\[[^\]]*"\/api\/\(\(\?![^"]*pin[^"]*session[^"]*\)\*"/.test(mw) ||
-  /matcher:\s*\[[^\]]*["']\/api\/\(\(\?!.*pin.*session.*\)\*["']/.test(mw) ||
-  // Allow flexible patterns
   mw.includes("/api/((?!pin|session).*)") || /\/api\(\(\?![^"]*pin[^"]*session/.test(mw));
 
-console.log("\n=== 2) matcher cubre /coches/** (defensa contra SC que toca DB) ===");
+console.log("\n=== 2) El matcher cubre /coches/** ===");
 expect("matcher contiene /coches/:path*", mw.includes("/coches/:path*"));
 
-console.log("\n=== 3) matcher cubre /settings ===");
-expect("matcher contiene /settings", mw.includes("/settings"));
+console.log("\n=== 3) El matcher cubre las pantallas nuevas con datos del usuario ===");
+for (const route of ["/perfil", "/vehiculos", "/notificaciones", "/settings"]) {
+  expect(`matcher contiene ${route}`, mw.includes(`"${route}"`));
+}
 
-console.log("\n=== 3-bis) matcher NO incluye \"/\" (delega al SC) — Ticket 1.3-fix ===");
-expect("matcher NO contiene \"/\" suelto (delega al SC para \"primer uso\")",
-  !/matcher:\s*\[[^\]]*"\/"\s*[,\]]/.test(mw));
-expect("comentario del matcher documenta por qué / se delega al SC",
-  /home\s*\(\s*"\s*\/"\s*\)\s*is\s+INTENTIONALLY\s+NOT|delega al SC|delegated to the SC/.test(mw));
-expect("comentario obsoleto 'the home; it just renders PinGate' ya NO está",
-  !/\/\/\s*the home; it just renders PinGate/.test(mw));
+console.log('\n=== 4) "/" NO está en el matcher (se delega al Server Component) ===');
+// La home debe poder renderizarse sin sesión para el caso "primer uso, aún no
+// hay PIN": enseña la lista vacía y la PinGate ofrece el asistente.
+expect('matcher no contiene "/" suelto', !/matcher:\s*\[[^\]]*"\/"\s*[,\]]/.test(mw));
 
-console.log("\n=== 4) unauthorized redirige a / para páginas (no 401) ===");
-expect("unauthorized usa NextResponse.redirect",
-  mw.includes("NextResponse.redirect"));
-expect("redirect a / para páginas protegidas",
-  /url\.pathname\s*=\s*"\/"/.test(mw) || /url\.pathname = ['"]\/['"]/.test(mw));
-expect("401 JSON solo para rutas API",
-  /\{ error: "No autorizado" \}, \{ status: 401 \}\)/.test(mw));
+console.log("\n=== 5) unauthorized: redirect en páginas, 401 en API ===");
+expect("usa NextResponse.redirect", mw.includes("NextResponse.redirect"));
+expect("redirige a / las páginas protegidas", /url\.pathname\s*=\s*["']\/["']/.test(mw));
+expect("401 JSON para rutas de API", /\{ status: 401 \}/.test(mw));
 
-console.log("\n=== 5) Server Component en /coches/[id]/page.tsx (no 'use client') ===");
-const page = fs.readFileSync("src/app/coches/[id]/page.tsx", "utf8");
-expect("page.tsx NO tiene 'use client'",
-  !page.includes("\"use client\"") && !page.includes("'use client'"));
-expect("page.tsx es async", /export default async function/.test(page));
-expect("page.tsx valida session con readSessionFromValue (no readSessionCookie)",
-  page.includes("readSessionFromValue") && !page.includes("readSessionCookie"));
-expect("page.tsx redirige / si no hay sesión", page.includes('redirect("/")'));
+console.log("\n=== 6) requireCar valida la sesión ANTES de tocar la BD ===");
+const loadCar = read("src/app/coches/[id]/lib/loadCar.ts");
+expect("usa readSessionFromValue (no readSessionCookie)",
+  loadCar.includes("readSessionFromValue") && !loadCar.includes("readSessionCookie"));
+expect("lee la cookie con await cookies() (Next 16)", /await cookies\(\)/.test(loadCar));
+expect("redirige a / cuando no hay sesión", /if \(!session\) redirect\("\/"\)/.test(loadCar));
+// El orden importa: si getCar() se llamara antes del redirect, la consulta se
+// ejecutaría igualmente aunque después no se mostrara nada.
+expect("el redirect ocurre ANTES de leer el coche",
+  loadCar.indexOf('redirect("/")') < loadCar.indexOf("getCar("));
 
-console.log("\n=== 6) CarDetailClient existe con props initial* ===");
-const client = fs.readFileSync("src/app/coches/[id]/components/CarDetailClient.tsx", "utf8");
-expect("CarDetailClient.tsx existe y tiene 'use client'",
-  client.includes('"use client"'));
-expect("CarDetailClient tiene prop initialCar", client.includes("initialCar"));
-expect("CarDetailClient tiene prop initialMetrics", client.includes("initialMetrics"));
-expect("CarDetailClient ya no tiene skeleton client-side",
-  !/skeleton h-(32|64)/.test(client));
+const carDir = path.join(ROOT, "src/app/coches/[id]");
+function findPages(dir: string, out: string[] = []): string[] {
+  for (const entry of fs.readdirSync(dir)) {
+    const full = path.join(dir, entry);
+    if (fs.statSync(full).isDirectory()) findPages(full, out);
+    else if (entry === "page.tsx" || entry === "layout.tsx") out.push(full);
+  }
+  return out;
+}
+const carPages = findPages(carDir);
 
-console.log("\n=== 7) /api/car/[id]/page-data sigue existiendo (para load() cliente) ===");
-expect("ruta page-data existe", fs.existsSync("src/app/api/car/[id]/page-data/route.ts"));
+console.log("\n=== 7) Toda ruta del vehículo que lea la BD pasa por requireCar ===");
+for (const file of carPages) {
+  const rel = path.relative(ROOT, file);
+  const src = fs.readFileSync(file, "utf8");
+  const guarded = src.includes("requireCar");
+  // Una pantalla puede delegar la comprobación en su layout, pero entonces no
+  // debe leer la BD por su cuenta.
+  const readsDb = /from "@\/lib\/db/.test(src);
+  expect(`${rel} protegida`, guarded || !readsDb,
+    guarded ? "" : "→ lee la BD sin llamar a requireCar()");
+}
 
-console.log("\n=== 8) Server Component en / (GaragePage) — Ticket 1.3-fix ===");
-const home = fs.readFileSync("src/app/page.tsx", "utf8");
-expect("page.tsx NO tiene 'use client'",
-  !home.includes("\"use client\"") && !home.includes("'use client'"));
-expect("page.tsx importa readSessionFromValue (no readSessionCookie)",
-  /import\s+\{[^}]*readSessionFromValue[^}]*\}\s+from\s+["']@\/lib\/auth["']/.test(home) &&
-  !/import\s+\{[^}]*readSessionCookie[^}]*\}\s+from\s+["']@\/lib\/auth["']/.test(home));
-expect("page.tsx es un async Server Component",
-  /export default async function/.test(home));
-expect("page.tsx lee cookies() con await (Next 16)",
-  /await cookies\(\)/.test(home));
-expect("page.tsx redirige / si no hay sesión (defensa-en-profundidad)",
-  /session \? getCarDashboardData/.test(home));
-expect("page.tsx respeta \"primer uso sin PIN\" (cars=[] si !session, no redirige)",
-  /const cars = session \? getCarDashboardData\(\) : \[\]/.test(home));
+console.log("\n=== 8) Quien lee la BD lo hace desde el servidor ===");
+// La invariante real no es "todo Server Component", sino que los datos
+// sensibles no se lean desde el cliente: una pantalla cliente que pide los
+// datos a la API es legítima, porque esa API sí la cubre el middleware. Lo
+// que no puede pasar es importar @/lib/db en un componente cliente.
+for (const file of carPages) {
+  const rel = path.relative(ROOT, file);
+  const src = fs.readFileSync(file, "utf8");
+  const isClient = /["']use client["']/.test(src);
+  const readsDb = /from "@\/lib\/db/.test(src);
+  expect(`${rel} no lee la BD desde el cliente`, !(isClient && readsDb));
+}
+
+console.log("\n=== 9) /api/car/[id]/page-data sigue existiendo ===");
+expect("ruta page-data existe",
+  fs.existsSync(path.join(ROOT, "src/app/api/car/[id]/page-data/route.ts")));
+
+console.log("\n=== 10) El garaje (/) revalida la sesión antes de leer la BD ===");
+const home = read("src/app/page.tsx");
+expect('no tiene "use client"', !/["']use client["']/.test(home));
+expect("es un async Server Component", /export default async function/.test(home));
+expect("lee cookies() con await", /await cookies\(\)/.test(home));
+expect("importa readSessionFromValue (no readSessionCookie)",
+  /readSessionFromValue/.test(home) && !/readSessionCookie/.test(home));
+// "Primer uso sin PIN": sin sesión la lista queda vacía en vez de redirigir,
+// para que la PinGate pueda ofrecer el asistente de crear PIN.
+expect("sin sesión la lista de vehículos queda vacía (no redirige)",
+  /session \? getGarageVehicles\(\) : \[\]/.test(home));
 
 console.log("\n---");
-console.log(`Middleware check: Passed ${pass} / ${pass + fail}`);
-if (fail > 0) { console.log("FALLOS:"); fails.forEach(f => console.log(" - " + f)); process.exit(1); }
-console.log("\n✅ Middleware / SC / CarDetailClient alineados con Ticket 1.3");
+console.log(`Cobertura de auth: Passed ${pass} / ${pass + fail}`);
+if (fail > 0) { console.log("FALLOS:"); fails.forEach((f) => console.log(" - " + f)); process.exit(1); }
+console.log("\n✅ Middleware y Server Components alineados");

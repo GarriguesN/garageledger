@@ -1,85 +1,103 @@
-// Server Component para "/" (Garaje).
+// Pantalla 1 del mockup: Garaje.
 //
-// Defensa-en-profundidad (mismo patrón que src/app/coches/[id]/page.tsx del
-// Ticket 1.3):
-//   - Lee la cookie de sesión server-side ANTES de tocar getCarDashboardData().
-//   - Sin sesión válida: NO llama a getCarDashboardData() (cars queda []).
-//     El HTML resultante NO contiene marca/modelo/matrícula/VIN/gastoMensual.
-//   - La PinGate cliente (envuelta en src/app/layout.tsx) está SIEMPRE montada
-//     en el layout raíz y se encarga de mostrar el candado (si hay PIN) o el
-//     wizard "Establecer PIN" (si no hay PIN, "primer uso"). Esta doble
-//     barrera (SC con cars=[] + layout con PinGate) garantiza que un curl sin
-//     cookie NUNCA vea datos sensibles, ni siquiera si alguien borrara el SC.
+// Es el selector de vehículos y la única pantalla que no tiene barra inferior
+// contextual (esa solo existe dentro de un coche).
 //
-// Esto cierra el agujero del Ticket 1.3-fix: antes, "/" NO estaba en el
-// matcher del middleware Y GaragePage renderizaba getCarDashboardData() sin
-// comprobar sesión, así que un curl sin cookie recibía el HTML completo.
+// Defensa en profundidad, heredada del diseño anterior y que se mantiene: se
+// valida la cookie de sesión ANTES de tocar la base de datos. Sin sesión, la
+// lista queda vacía y el HTML no contiene ni marca, ni matrícula, ni gastos;
+// la PinGate del layout raíz se encarga de pedir el PIN. Así un `curl` sin
+// cookie nunca ve datos, aunque alguien tocara la PinGate.
 
-import Link from "next/link";
 import { cookies } from "next/headers";
-import { Car, Plus } from "lucide-react";
-import VehicleCard from "@/components/VehicleCard";
-import { getCarDashboardData } from "@/lib/db";
+import { AppSection, AppVehicleCard, AppEmptyState, AppButton } from "@/components/ui";
+import GarageShell from "./components/GarageShell";
+import { getGarageVehicles } from "@/lib/db/garage";
 import { readSessionFromValue } from "@/lib/auth";
+import { formatCurrency, formatConsumption } from "@/lib/format";
+import {
+  CONDITION_ACCENT, vehiclePhotoUrl, vehicleSubtitle, vehicleName, vehicleMileage,
+} from "@/lib/ui/vehicle";
 
 export const dynamic = "force-dynamic";
 
 export default async function GaragePage() {
-  // ── 1) Auth: leer y validar la cookie ANTES de tocar la DB de coches.
   const cookieStore = await cookies();
   const session = readSessionFromValue(cookieStore.get("gl_sess")?.value);
+  const vehicles = session ? getGarageVehicles() : [];
 
-  // ── 2) Carga inicial en el servidor (solo si hay sesión válida).
-  // Si no hay sesión devolvemos lista vacía: NO se filtra NINGÚN dato de
-  // coche al HTML. La PinGate cliente (montada en src/app/layout.tsx) se
-  // encarga de mostrar el unlock o el wizard de "Establecer PIN".
-  const cars = session ? getCarDashboardData() : [];
+  const hasAlerts = vehicles.some((v) => v.score.factors.length > 0);
 
   return (
-    <div className="space-y-5">
-      {/* Empty state */}
-      {cars.length === 0 ? (
-        <div className="card text-center py-12">
-          <Car size={48} className="mx-auto mb-3 text-[var(--text-muted)]" />
-          <h2 className="text-lg font-bold mb-1">No hay vehículos</h2>
-          <p className="text-sm text-[var(--text-secondary)] mb-4">
-            Añade tu primer vehículo para empezar a controlar tus gastos
-          </p>
-          <Link href="/coches/nuevo" className="btn btn-primary">
-            <Plus size={16} /> Añadir vehículo
-          </Link>
-        </div>
+    <GarageShell title="Garaje" hasAlerts={hasAlerts}>
+      {vehicles.length === 0 ? (
+        <AppEmptyState
+          icon="car"
+          title="No hay vehículos"
+          description="Añade tu primer vehículo para empezar a controlar sus gastos y mantenimientos."
+          actionLabel="Añadir vehículo"
+          actionHref="/coches/nuevo"
+        />
       ) : (
-        <>
-          {/* Añadir vehículo — siempre visible (no solo en empty state) */}
-          <div className="flex items-center justify-end gap-3 mb-2">
-            <Link href="/coches/nuevo" className="btn btn-primary text-sm">
-              <Plus size={16} /> Añadir vehículo
-            </Link>
+        <div className="space-y-4 pt-2">
+          <div className="flex justify-end">
+            <AppButton href="/coches/nuevo" icon="plus" ariaLabel="Añadir vehículo">
+              Añadir
+            </AppButton>
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            {cars.map((car) => (
-              <VehicleCard
-                key={car.id}
-                id={String(car.id)}
-                marca={car.marca}
-                modelo={car.modelo}
-                generacion={car.generacion}
-                ano={car.ano ?? 0}
-                motor={car.motor}
-                matricula={car.matricula}
-                bastidor={car.bastidor}
-                combustible={car.combustible}
-                kmActuales={car.km_actuales}
-                estado={car.estado}
-                gastoMensual={car.gastoMensual}
-                fotoAttachmentId={car.foto_attachment_id}
-                archivado={car.archivado === 1}
-              />
-            ))}
-          </div>
-        </>
+
+          <AppSection title="Mis vehículos">
+            <div className="space-y-4">
+              {vehicles.map(({ car, score, consumption }) => (
+                <AppVehicleCard
+                  key={car.id}
+                  href={`/coches/${car.id}`}
+                  name={vehicleName(car)}
+                  trim={car.generacion || undefined}
+                  subtitle={vehicleSubtitle(car)}
+                  mileage={vehicleMileage(car)}
+                  photoUrl={vehiclePhotoUrl(car.foto_attachment_id)}
+                  status={{
+                    label: score.label,
+                    accent: CONDITION_ACCENT[score.condition],
+                  }}
+                  metrics={[
+                    {
+                      label: "Salud",
+                      value: `${score.score}/100`,
+                      accent: CONDITION_ACCENT[score.condition],
+                    },
+                    {
+                      label: "Gasto/mes",
+                      value: formatCurrency(car.gastoMensual),
+                      accent: "primary",
+                    },
+                    {
+                      label: "Consumo",
+                      value:
+                        consumption != null
+                          ? `${formatConsumption(consumption)} L/100km`
+                          : "—",
+                      accent: "blue",
+                    },
+                  ]}
+                />
+              ))}
+            </div>
+          </AppSection>
+
+          {/* Botón de contorno discontinuo del mockup, al final de la lista. */}
+          <AppButton
+            href="/coches/nuevo"
+            variant="secondary"
+            size="lg"
+            icon="plus"
+            className="border-dashed"
+          >
+            Añadir vehículo
+          </AppButton>
+        </div>
       )}
-    </div>
+    </GarageShell>
   );
 }

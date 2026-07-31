@@ -22,9 +22,16 @@ export const config = {
   // shape (matcher covers everything sensitive, SC handles "/" alone) is the
   // correct one: tested with curl +13 assertions in
   // scripts/test-middleware-coverage.ts.
+  // /vehiculos, /perfil y /notificaciones nacieron con el rebuild de la UI y
+  // enseñan datos del usuario (lista de coches, avisos de ITV y seguro), así
+  // que entran en el matcher igual que /coches/**. /settings sigue en la
+  // lista aunque ahora solo redirija a /perfil.
   matcher: [
     "/api/((?!pin|session).*)",
     "/coches/:path*",
+    "/vehiculos",
+    "/perfil",
+    "/notificaciones",
     "/settings",
   ],
 };

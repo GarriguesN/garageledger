@@ -2,28 +2,11 @@
 // no tengan que andar duplicando `any`. Origen de verdad: src/lib/db/* pero
 // afinamos los shapes que el detalle usa.
 
-// Re-exportamos MaintenanceTask desde su definición de BD. Lo centralizamos
-// para que no haya dos interfaces incompatibles en el código.
+// Re-exportamos MaintenanceTask y Car desde su definición de BD. Lo
+// centralizamos para que no haya dos interfaces incompatibles en el código
+// (audit:M-2 — antes Car se redefinía aquí como subconjunto de campos).
 export type { MaintenanceTask } from "@/lib/db/maintenance";
-
-export interface Car {
-  id: number;
-  marca: string;
-  modelo: string;
-  generacion: string;
-  motor: string;
-  ano: number | null;
-  puertas: number;
-  km_actuales: number;
-  estado: string;
-  fecha_ultima_itv: string | null;
-  fecha_vencimiento_seguro: string | null;
-  matricula: string;
-  bastidor: string;
-  combustible: string;
-  foto_attachment_id: number | null;
-  archivado?: number;
-}
+export type { Car } from "@/lib/db/cars";
 
 export interface TimelineEntry {
   id: number;
@@ -91,17 +74,10 @@ export interface CarEditFormState {
   fecha_vencimiento_seguro: string;
 }
 
-export interface Note {
-  id: number;
-  content: string;
-}
-
-export interface Attachment {
-  id: number;
-  original_name: string;
-  file_size: number;
-  mime_type: string;
-}
+// Re-exportamos CarNote/Attachment desde su definición de BD (mismo motivo
+// que Car/MaintenanceTask arriba: una sola fuente de verdad).
+export type { CarNote as Note } from "@/lib/db/notes";
+export type { Attachment } from "@/lib/db/attachments";
 
 export interface CarMetrics {
   monthly: { current: number; previous: number };

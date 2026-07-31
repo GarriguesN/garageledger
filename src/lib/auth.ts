@@ -63,8 +63,6 @@ function getSecret(): string {
   return "garageledger-dev-secret-do-not-use-in-prod-min-32chars";
 }
 
-export const SESSION_COOKIE_NAME = COOKIE_NAME;
-
 export interface SessionPayload {
   uid: string;       // user id (we only have one, so a fixed string)
   iat: number;       // issued-at (ms)

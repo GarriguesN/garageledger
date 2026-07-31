@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCar, getCarMetrics, getTimeline } from "@/lib/db";
 import { getCarNotes } from "@/lib/db/notes";
-import { getAttachments } from "@/lib/db/attachments";
+import { getCarDocuments } from "@/lib/db/attachments";
 import { getMaintenanceTasks } from "@/lib/db/maintenance";
 import { getKmStats } from "@/lib/db/cars";
 
@@ -17,14 +17,14 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const [metrics, timeline, notes, attachments, maintenanceTasks, kmStats] = await Promise.all([
+  const [metrics, timeline, notes, documents, maintenanceTasks, kmStats] = await Promise.all([
     Promise.resolve(getCarMetrics(carId)),
     Promise.resolve(getTimeline(carId, 100)),
     Promise.resolve(getCarNotes(carId)),
-    Promise.resolve(getAttachments(carId)),
+    Promise.resolve(getCarDocuments(carId)),
     Promise.resolve(getMaintenanceTasks(carId)),
     Promise.resolve(getKmStats(carId)),
   ]);
 
-  return NextResponse.json({ car, metrics, timeline, notes, attachments, maintenanceTasks, kmStats });
+  return NextResponse.json({ car, metrics, timeline, notes, documents, maintenanceTasks, kmStats });
 }

@@ -135,8 +135,10 @@ export function getCarMetrics(carId: number) {
   return { monthly, diy, fuel, totalCostPerKm, projectedAnnual, alerts, estado };
 }
 
-export function getTimeline(carId: number, limit = 50): any[] {
-  return getDb().prepare("SELECT id, date, tipo, tipo_id, importe, descripcion, referencia, litros, km, coste_estimado_taller, maintenance_task_id, preset_key, 'expense' as entry_type FROM expenses WHERE car_id=? ORDER BY date DESC, id DESC LIMIT ?").all(carId, limit) as any[];
+// `offset` existe para permitir paginar en el futuro (audit:B-4) sin romper
+// a los llamadores actuales, que siempre piden desde el principio.
+export function getTimeline(carId: number, limit = 50, offset = 0): any[] {
+  return getDb().prepare("SELECT id, date, tipo, tipo_id, importe, descripcion, referencia, litros, km, coste_estimado_taller, maintenance_task_id, preset_key, 'expense' as entry_type FROM expenses WHERE car_id=? ORDER BY date DESC, id DESC LIMIT ? OFFSET ?").all(carId, limit, offset) as any[];
 }
 
 export function getMonthlyHistory(carId: number, months = 6): { month: string; total: number }[] {
@@ -170,4 +172,51 @@ export function computeCarEstado(car: any, tasks?: any[]): string {
   if (nearTask || nearItv || nearSeg || (daysItv !== null && daysItv! < 0)) return "A revisar";
 
   return "Al dia";
+}
+
+/** Kilómetros recorridos por mes, deducidos de las lecturas de cuentakilómetros
+ *  que el usuario apunta al registrar gastos.
+ *
+ *  No hay una tabla de odómetro: lo que hay son lecturas sueltas. Los km de un
+ *  mes se calculan como la diferencia entre su última lectura y la última
+ *  lectura anterior al mes. Un mes sin ninguna lectura sale a 0 —que es
+ *  honesto: no sabemos cuánto se condujo, no que no se condujera— y por eso
+ *  Insights lo pinta apagado en vez de como un valle real.
+ */
+export function getMonthlyKm(carId: number, months = 6): { month: string; km: number }[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT strftime('%Y-%m', date) as month, MAX(km) as km
+       FROM expenses
+       WHERE car_id=? AND km IS NOT NULL AND km > 0
+       GROUP BY month ORDER BY month ASC`,
+    )
+    .all(carId) as { month: string; km: number }[];
+
+  if (rows.length === 0) return [];
+
+  // Serie continua de los últimos `months` meses, incluidos los vacíos.
+  const out: { month: string; km: number }[] = [];
+  const now = new Date();
+  let previousReading: number | null = null;
+
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+
+    // Última lectura hasta el final de este mes.
+    const upTo = rows.filter((r) => r.month <= ym);
+    const reading = upTo.length ? upTo[upTo.length - 1].km : null;
+    const hasOwnReading = rows.some((r) => r.month === ym);
+
+    const km =
+      hasOwnReading && previousReading != null && reading != null && reading > previousReading
+        ? reading - previousReading
+        : 0;
+
+    out.push({ month: ym, km });
+    if (reading != null) previousReading = reading;
+  }
+
+  return out;
 }
