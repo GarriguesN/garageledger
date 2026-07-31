@@ -31,7 +31,10 @@ export const colors = {
   // ── Texto ───────────────────────────────────────────────────────
   text: "#FFFFFF",
   textSecondary: "#A0A5AD",
-  textMuted: "#6B7280",
+  /* Sube a 4.95:1 sobre superficie. El #6B7280 anterior se quedaba en
+     3.57:1, por debajo del AA de texto normal, y este tono se usa en
+     metadatos de 12px — texto pequeño, justo donde más falta hace. */
+  textMuted: "#828A96",
   /** Texto sobre superficies de color sólido (primario, badges llenos). */
   textOnColor: "#FFFFFF",
 } as const;

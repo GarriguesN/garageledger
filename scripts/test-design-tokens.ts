@@ -100,12 +100,10 @@ check("2 sombras", Object.keys(shadows).length === 2, `hay ${Object.keys(shadows
 check("6 radios", Object.keys(radius).length === 6);
 
 // ── 3. Pureza de los componentes migrados ────────────────────────────
-// Archivos todavía con la UI antigua. Esta lista SOLO puede encoger: al
-// migrar una pantalla se borra su línea. Cuando quede vacía, la migración
-// está terminada y el gate cubre todo src/.
+// Lista de archivos exentos. Está VACÍA: la migración terminó y el gate
+// cubre todo src/. Si alguien vuelve a añadir una línea aquí, que sea con
+// una razón escrita al lado y fecha de caducidad.
 const LEGACY = new Set<string>([
-  "src/app/coches/nuevo/page.tsx",
-  "src/app/coches/[id]/editar/page.tsx",
 ]);
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -181,3 +179,56 @@ if (failures > 0) {
   process.exit(1);
 }
 console.log("\n✓ test-design-tokens: sistema de diseño coherente\n");
+
+// ── 4. Contraste AA ──────────────────────────────────────────────────
+// WCAG 2.1 AA: 4.5:1 para texto normal y 3:1 para texto grande (≥24px, o
+// ≥18.66px en negrita) y para elementos de interfaz. Los acentos de color
+// sobre superficie oscura son los candidatos a fallar, así que se comprueban
+// todos en vez de confiar en el ojo.
+
+function luminance(hex: string): number {
+  const h = hex.replace("#", "");
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const [r, g, b] = [0, 2, 4].map((i) => {
+    const v = parseInt(full.slice(i, i + 2), 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrast(a: string, b: string): number {
+  const [l1, l2] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (l1 + 0.05) / (l2 + 0.05);
+}
+
+console.log("\n4. Contraste AA");
+
+/** [nombre, primer plano, fondo, mínimo] */
+const PAIRS: [string, string, string, number][] = [
+  ["texto sobre fondo",             colors.text,          colors.background,      4.5],
+  ["texto sobre superficie",        colors.text,          colors.surface,         4.5],
+  ["texto sobre superficie elevada", colors.text,         colors.surfaceElevated, 4.5],
+  ["secundario sobre fondo",        colors.textSecondary, colors.background,      4.5],
+  ["secundario sobre superficie",   colors.textSecondary, colors.surface,         4.5],
+  // El texto atenuado solo se usa en metadatos, que son "texto normal": si no
+  // llegara a 4.5 habría que aclararlo, no rebajar el listón.
+  ["atenuado sobre fondo",          colors.textMuted,     colors.background,      4.5],
+  ["atenuado sobre superficie",     colors.textMuted,     colors.surface,         4.5],
+  ["atenuado sobre superficie elevada", colors.textMuted, colors.surfaceElevated, 4.5],
+  // Los acentos se usan en cifras grandes y en badges, no en párrafos: el
+  // umbral aplicable es el de texto grande / componente de interfaz (3:1).
+  ["primario sobre superficie",     colors.primary,       colors.surface,         3],
+  ["verde sobre superficie",        colors.green,         colors.surface,         3],
+  ["naranja sobre superficie",      colors.orange,        colors.surface,         3],
+  ["azul sobre superficie",         colors.blue,          colors.surface,         3],
+  ["morado sobre superficie",       colors.purple,        colors.surface,         3],
+  ["cian sobre superficie",         colors.cyan,          colors.surface,         3],
+  ["peligro sobre superficie",      colors.danger,        colors.surface,         3],
+  ["blanco sobre primario",         colors.textOnColor,   colors.primary,         3],
+  ["borde sobre superficie",        colors.border,        colors.surface,         1.2],
+];
+
+for (const [name, fg, bg, min] of PAIRS) {
+  const ratio = contrast(fg, bg);
+  check(`${name}: ${ratio.toFixed(2)}:1 (mín ${min})`, ratio >= min);
+}

@@ -35,6 +35,7 @@ export { default as AppListTile } from "./AppListTile";
 export { default as AppModal } from "./AppModal";
 export { default as AppDivider } from "./AppDivider";
 export { default as AppIconChip } from "./AppIconChip";
+export { default as AppIcon } from "./AppIcon";
 export { default as AppTypeTile } from "./AppTypeTile";
 export { default as AppTabs } from "./AppTabs";
 export type { AppTab } from "./AppTabs";

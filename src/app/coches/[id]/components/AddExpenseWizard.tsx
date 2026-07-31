@@ -14,7 +14,7 @@
 // Guardar un valor derivado es pedir que un día no cuadre con sus dos
 // factores.
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AppModal, AppTypeTile, AppInput, AppTextarea, AppSelect, AppDatePicker, AppButton,
@@ -67,18 +67,15 @@ export default function AddExpenseWizard({
   open, onClose, carId, currentKm, stations, initialCategoryId,
 }: AddExpenseWizardProps) {
   const router = useRouter();
-  const [category, setCategory] = useState<ExpenseCategory | null>(null);
+  // El estado inicial se calcula una vez: CarShell remonta el asistente en
+  // cada apertura (via `key`), así que no hace falta un efecto que lo
+  // resincronice —y ese efecto era justo el que disparaba renders en cascada.
+  const [category, setCategory] = useState<ExpenseCategory | null>(
+    () => (initialCategoryId ? EXPENSE_CATEGORY_MAP[initialCategoryId] ?? null : null),
+  );
   const [form, setForm] = useState<FormState>(() => initialForm(currentKm));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Al abrirse con una categoría preseleccionada se salta el paso 1. Se
-  // aplica en cada apertura (no solo al montar) porque el asistente
-  // permanece montado entre aperturas.
-  useEffect(() => {
-    if (!open) return;
-    setCategory(initialCategoryId ? EXPENSE_CATEGORY_MAP[initialCategoryId] ?? null : null);
-  }, [open, initialCategoryId]);
 
   const isFuel = category?.form === "fuel";
 

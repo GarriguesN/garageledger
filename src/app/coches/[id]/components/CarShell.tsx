@@ -39,9 +39,13 @@ export interface CarShellProps {
 export default function CarShell({ carId, currentKm, stations, children }: CarShellProps) {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [presetCategory, setPresetCategory] = useState<string | undefined>();
+  // Cambia en cada apertura para remontar el asistente: así empieza limpio
+  // (paso y campos) sin necesidad de un efecto que resetee su estado.
+  const [wizardKey, setWizardKey] = useState(0);
 
   function openExpenseWizard(categoryId?: string) {
     setPresetCategory(categoryId);
+    setWizardKey((k) => k + 1);
     setWizardOpen(true);
   }
 
@@ -53,6 +57,7 @@ export default function CarShell({ carId, currentKm, stations, children }: CarSh
       </AppScreenFrame>
 
       <AddExpenseWizard
+        key={wizardKey}
         open={wizardOpen}
         onClose={() => setWizardOpen(false)}
         carId={carId}

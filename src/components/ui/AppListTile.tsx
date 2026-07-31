@@ -5,8 +5,9 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { resolveIcon, type IconName } from "@/design/tokens/icons";
-import { iconSize, strokeWidth, duration, easing } from "@/design/tokens";
+import type { IconName } from "@/design/tokens/icons";
+import { duration, easing } from "@/design/tokens";
+import AppIcon from "./AppIcon";
 import { cn } from "./cn";
 
 export interface AppListTileProps {
@@ -35,20 +36,11 @@ export default function AppListTile({
   trailing,
   className,
 }: AppListTileProps) {
-  const Icon = icon ? resolveIcon(icon) : null;
-  const ChevronRight = resolveIcon("chevronRight");
   const interactive = !!(href || onClick);
 
   const content = (
     <>
-      {Icon && (
-        <Icon
-          size={iconSize.md}
-          strokeWidth={strokeWidth.default}
-          aria-hidden="true"
-          className="shrink-0 text-text-secondary"
-        />
-      )}
+      {icon && <AppIcon name={icon} className="shrink-0 text-text-secondary" />}
       <span className="min-w-0 flex-1">
         <span className="block truncate text-body font-medium text-text">{label}</span>
         {description && (
@@ -59,12 +51,7 @@ export default function AppListTile({
         <>
           {value && <span className="shrink-0 text-caption text-text-secondary">{value}</span>}
           {interactive && chevron && (
-            <ChevronRight
-              size={iconSize.md}
-              strokeWidth={strokeWidth.default}
-              aria-hidden="true"
-              className="shrink-0 text-text-muted"
-            />
+            <AppIcon name="chevronRight" className="shrink-0 text-text-muted" />
           )}
         </>
       )}

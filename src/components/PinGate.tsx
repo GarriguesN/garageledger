@@ -60,51 +60,20 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, []);
 
-  // Al completar la longitud conocida del PIN se verifica solo: en un teclado
-  // numérico de móvil, pulsar además "Desbloquear" es un paso de más.
-  useEffect(() => {
-    if (pinConfigured && pin.length === pinLength && pinLength > 0 && !verifying) {
-      setVerifying(true);
-      fetch("/api/pin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ action: "verify", pin }),
-      })
-        .then(async (r) => {
-          const data = await r.json().catch(() => ({ valid: false }));
-          if (data.valid) {
-            setUnlocked(true);
-            sessionStorage.setItem("garageledger_unlocked", "true");
-          } else if (r.status === 429) {
-            setError("Demasiados intentos. Espera un minuto.");
-            setPin("");
-          } else {
-            setError("PIN incorrecto");
-            setPin("");
-            setTimeout(() => setError(""), 800);
-          }
-        })
-        .catch(() => setError("No se ha podido verificar el PIN"))
-        .finally(() => setVerifying(false));
-    }
-  }, [pin, pinConfigured, pinLength, verifying]);
-
-  useEffect(() => {
-    if (!unlocked && inputRef.current) inputRef.current.focus();
-  }, [unlocked, pinConfigured]);
-
-  async function handleVerify(e: React.FormEvent) {
-    e.preventDefault();
+  /** Comprueba el PIN contra el servidor. Compartido por el envío manual y
+   *  por la verificación automática al completar la longitud. */
+  async function verifyPin(value: string) {
+    if (verifying) return;
+    setVerifying(true);
     setError("");
     try {
       const res = await fetch("/api/pin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ action: "verify", pin }),
+        body: JSON.stringify({ action: "verify", pin: value }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({ valid: false }));
       if (data.valid) {
         setUnlocked(true);
         sessionStorage.setItem("garageledger_unlocked", "true");
@@ -117,7 +86,32 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
       }
     } catch {
       setError("No se ha podido verificar el PIN");
+    } finally {
+      setVerifying(false);
     }
+  }
+
+  /** Al alcanzar la longitud conocida del PIN se verifica solo: con un teclado
+   *  numérico en el móvil, pulsar además "Desbloquear" es un paso de más.
+   *
+   *  Va en el manejador del cambio y no en un efecto a propósito: escribir es
+   *  el evento que dispara la comprobación, y hacerlo en un efecto encadenaba
+   *  un render extra por cada tecla. */
+  function handlePinChange(value: string) {
+    setPin(value);
+    setError("");
+    if (pinConfigured && pinLength > 0 && value.length === pinLength) {
+      void verifyPin(value);
+    }
+  }
+
+  useEffect(() => {
+    if (!unlocked && inputRef.current) inputRef.current.focus();
+  }, [unlocked, pinConfigured]);
+
+  function handleVerify(e: React.FormEvent) {
+    e.preventDefault();
+    void verifyPin(pin);
   }
 
   async function handleSetPin(e: React.FormEvent) {
@@ -241,7 +235,7 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
           aria-label="PIN"
           placeholder="••••"
           value={pin}
-          onChange={(e) => setPin(e.target.value)}
+          onChange={(e) => handlePinChange(e.target.value)}
           className="text-center"
           error={error || undefined}
         />

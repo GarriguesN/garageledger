@@ -2,8 +2,9 @@
 // mantenimientos, documentos, gastos, entradas del timeline y métricas.
 // Fondo = acento al 12%, icono = acento a plena saturación.
 
-import { colors, accents, accentDim, iconSize, strokeWidth, radius, type AccentToken } from "@/design/tokens";
-import { resolveIcon, type IconName } from "@/design/tokens/icons";
+import { colors, accents, accentDim, iconSize, radius, type AccentToken } from "@/design/tokens";
+import type { IconName } from "@/design/tokens/icons";
+import AppIcon from "./AppIcon";
 import { cn } from "./cn";
 
 const SIZES = {
@@ -29,7 +30,6 @@ export default function AppIconChip({
   className,
 }: AppIconChipProps) {
   const { box, icon: iconPx } = SIZES[size];
-  const Icon = resolveIcon(icon);
   const color = accents[accent];
 
   return (
@@ -43,7 +43,7 @@ export default function AppIconChip({
         backgroundColor: solid ? color : accentDim(accent),
       }}
     >
-      <Icon size={iconPx} strokeWidth={strokeWidth.default} color={solid ? colors.textOnColor : color} />
+      <AppIcon name={icon} size={iconPx} color={solid ? colors.textOnColor : color} />
     </span>
   );
 }

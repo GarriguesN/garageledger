@@ -7,9 +7,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  colors, fabGlow, iconSize, strokeWidth, fabSpring, duration, easing, radius,
+  colors, fabGlow, fabSpring, duration, easing, radius,
 } from "@/design/tokens";
-import { resolveIcon, type IconName } from "@/design/tokens/icons";
+import type { IconName } from "@/design/tokens/icons";
+import AppIcon from "./AppIcon";
 import { cn } from "./cn";
 
 export interface FabAction {
@@ -45,8 +46,6 @@ export default function AppFloatingButton({
   className,
 }: AppFloatingButtonProps) {
   const [open, setOpen] = useState(false);
-  const Icon = resolveIcon(icon);
-  const CloseIcon = resolveIcon("close");
   const box = BOX[size];
   const hasMenu = !!actions?.length;
 
@@ -73,11 +72,7 @@ export default function AppFloatingButton({
         transition={fabSpring}
         className="flex items-center justify-center"
       >
-        {open ? (
-          <CloseIcon size={size === "lg" ? iconSize.xl : iconSize.lg} strokeWidth={strokeWidth.bold} />
-        ) : (
-          <Icon size={size === "lg" ? iconSize.xl : iconSize.lg} strokeWidth={strokeWidth.bold} />
-        )}
+        <AppIcon name={open ? "close" : icon} size={size === "lg" ? "xl" : "lg"} bold />
       </motion.span>
     </motion.button>
   );
@@ -90,7 +85,7 @@ export default function AppFloatingButton({
         className="flex items-center justify-center rounded-pill text-white"
         style={{ width: box, height: box, backgroundColor: colors.primary, boxShadow: fabGlow }}
       >
-        <Icon size={size === "lg" ? iconSize.xl : iconSize.lg} strokeWidth={strokeWidth.bold} />
+        <AppIcon name={icon} size={size === "lg" ? "xl" : "lg"} bold />
       </Link>
     </motion.span>
   ) : (
@@ -128,13 +123,12 @@ export default function AppFloatingButton({
               style={{ bottom: box + 12 }}
             >
               {actions!.map((a) => {
-                const AIcon = resolveIcon(a.icon);
                 const item = (
                   <span
                     className="flex items-center gap-3 bg-surface px-4 py-3 text-body font-semibold text-text shadow-floating"
                     style={{ borderRadius: radius.button }}
                   >
-                    <AIcon size={iconSize.md} strokeWidth={strokeWidth.default} />
+                    <AppIcon name={a.icon} />
                     {a.label}
                   </span>
                 );

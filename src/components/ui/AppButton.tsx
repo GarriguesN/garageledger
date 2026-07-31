@@ -5,8 +5,9 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { duration, easing, iconSize, strokeWidth } from "@/design/tokens";
-import { resolveIcon, type IconName } from "@/design/tokens/icons";
+import { duration, easing } from "@/design/tokens";
+import type { IconName } from "@/design/tokens/icons";
+import AppIcon from "./AppIcon";
 import { cn } from "./cn";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
@@ -54,8 +55,6 @@ export default function AppButton({
   className,
   ariaLabel,
 }: AppButtonProps) {
-  const Icon = icon ? resolveIcon(icon) : null;
-
   const classes = cn(
     "inline-flex items-center justify-center gap-2 rounded-button font-semibold",
     "transition-colors select-none",
@@ -67,9 +66,9 @@ export default function AppButton({
 
   const content = (
     <>
-      {Icon && !iconAfter && <Icon size={iconSize.md} strokeWidth={strokeWidth.default} />}
+      {icon && !iconAfter && <AppIcon name={icon} />}
       {children}
-      {Icon && iconAfter && <Icon size={iconSize.md} strokeWidth={strokeWidth.default} />}
+      {icon && iconAfter && <AppIcon name={icon} />}
     </>
   );
 

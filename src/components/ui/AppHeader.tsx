@@ -13,8 +13,9 @@
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { iconSize, strokeWidth, duration, easing } from "@/design/tokens";
-import { resolveIcon, type IconName } from "@/design/tokens/icons";
+import { duration, easing } from "@/design/tokens";
+import type { IconName } from "@/design/tokens/icons";
+import AppIcon from "./AppIcon";
 import { cn } from "./cn";
 
 export interface HeaderAction {
@@ -43,10 +44,9 @@ export interface AppHeaderProps {
 
 function IconButton({ action }: { action: HeaderAction }) {
   const { icon, label, onClick, href, badge } = action;
-  const Icon = resolveIcon(icon);
   const inner = (
     <span className="relative inline-flex size-11 items-center justify-center text-text">
-      <Icon size={iconSize.lg} strokeWidth={strokeWidth.default} />
+      <AppIcon name={icon} size="lg" />
       {badge && (
         <span
           aria-hidden="true"

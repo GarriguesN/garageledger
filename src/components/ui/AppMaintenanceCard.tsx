@@ -7,10 +7,9 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { resolveIcon, type IconName } from "@/design/tokens/icons";
-import {
-  iconSize, strokeWidth, statusColors, duration, easing, type StatusToken,
-} from "@/design/tokens";
+import type { IconName } from "@/design/tokens/icons";
+import { statusColors, duration, easing, type StatusToken } from "@/design/tokens";
+import AppIcon from "./AppIcon";
 import AppIconChip from "./AppIconChip";
 import { cn } from "./cn";
 
@@ -48,7 +47,6 @@ export default function AppMaintenanceCard({
   onClick,
   className,
 }: AppMaintenanceCardProps) {
-  const ChevronRight = resolveIcon("chevronRight");
   const isLate = status === "critical";
   const lineColor = isLate ? statusColors.critical : undefined;
 
@@ -82,12 +80,7 @@ export default function AppMaintenanceCard({
       </span>
 
       {(href || onClick) && (
-        <ChevronRight
-          size={iconSize.md}
-          strokeWidth={strokeWidth.default}
-          aria-hidden="true"
-          className="shrink-0 self-center text-text-muted"
-        />
+        <AppIcon name="chevronRight" className="shrink-0 self-center text-text-muted" />
       )}
     </>
   );

@@ -37,6 +37,8 @@ export default function UploadDocumentModal({
   open, presetType, uploading, onClose, onUpload,
 }: UploadDocumentModalProps) {
   const [step, setStep] = useState<Step>("choose");
+  // Igual que el asistente de gasto: DocumentsClient remonta el modal en
+  // cada apertura, así que el valor inicial basta y no hace falta un efecto.
   const [category, setCategory] = useState<DocumentTypeId | "otros" | "">(presetType || "");
   const [validUntil, setValidUntil] = useState("");
   const [finalFile, setFinalFile] = useState<File | Blob | null>(null);
@@ -64,12 +66,6 @@ export default function UploadDocumentModal({
       objectUrls.current = [];
     };
   }, []);
-
-  // Al reabrirlo, la categoría vuelve a la que corresponda: si se abrió desde
-  // la fila de "Seguro", queda preseleccionada.
-  useEffect(() => {
-    if (open) setCategory(presetType || "");
-  }, [open, presetType]);
 
   function handlePlainFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];

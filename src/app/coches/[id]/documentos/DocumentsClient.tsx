@@ -32,11 +32,14 @@ export default function DocumentsClient({ carId, documents }: DocumentsClientPro
 
   const [uploadFor, setUploadFor] = useState<DocumentTypeId | "otros" | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadKey, setUploadKey] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<Attachment | null>(null);
 
   function openUpload(type: DocumentTypeId | "otros" | null) {
     setUploadFor(type);
+    // Remonta el modal para que vuelva al primer paso con la categoría nueva.
+    setUploadKey((k) => k + 1);
     setUploadOpen(true);
   }
 
@@ -126,6 +129,7 @@ export default function DocumentsClient({ carId, documents }: DocumentsClientPro
       </AppButton>
 
       <UploadDocumentModal
+        key={uploadKey}
         open={uploadOpen}
         presetType={uploadFor}
         uploading={uploading}

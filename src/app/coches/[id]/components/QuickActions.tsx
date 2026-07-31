@@ -9,8 +9,9 @@
 
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { duration, easing, iconSize, strokeWidth, accents, type AccentToken } from "@/design/tokens";
-import { resolveIcon, type IconName } from "@/design/tokens/icons";
+import { duration, easing, accents, type AccentToken } from "@/design/tokens";
+import type { IconName } from "@/design/tokens/icons";
+import { AppIcon } from "@/components/ui";
 import { useCarShell } from "./CarShell";
 
 interface Action {
@@ -39,9 +40,7 @@ export default function QuickActions({ carId }: { carId: number }) {
 
   return (
     <div className="grid grid-cols-3 gap-2">
-      {actions.map((a) => {
-        const Icon = resolveIcon(a.icon);
-        return (
+      {actions.map((a) => (
           <motion.button
             key={a.label}
             type="button"
@@ -53,16 +52,10 @@ export default function QuickActions({ carId }: { carId: number }) {
             }}
             className="flex min-h-20 flex-col items-center justify-center gap-2 rounded-chip border border-border bg-surface p-3"
           >
-            <Icon
-              size={iconSize.md}
-              strokeWidth={strokeWidth.default}
-              color={accents[a.accent]}
-              aria-hidden="true"
-            />
+            <AppIcon name={a.icon} color={accents[a.accent]} />
             <span className="text-caption font-medium text-text">{a.label}</span>
           </motion.button>
-        );
-      })}
+      ))}
     </div>
   );
 }
