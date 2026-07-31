@@ -157,3 +157,41 @@ export function completeMaintenanceTask(
 export function deleteMaintenanceTask(id: number): void {
   getDb().prepare("DELETE FROM maintenance_tasks WHERE id=?").run(id);
 }
+
+/** Historial de una tarea recurrente: todas las veces que se ha hecho esa
+ *  misma pieza en este coche, de la más reciente a la más antigua, con el
+ *  importe del gasto asociado si lo hubo.
+ *
+ *  Se agrupa por `preset_key` cuando existe (identificador estable del
+ *  catálogo) y por `part_name` cuando no, que es el caso de las tareas
+ *  escritas a mano. Así "Aceite de motor y filtro" y "Aceite y filtro"
+ *  siguen contando como la misma pieza si comparten preset. */
+export function getMaintenanceHistory(
+  carId: number,
+  opts: { presetKey?: string | null; partName: string },
+): { id: number; date: string | null; km: number | null; importe: number | null }[] {
+  const db = getDb();
+  const rows = (opts.presetKey
+    ? db.prepare(
+        `SELECT id, current_date as date, current_km as km FROM maintenance_tasks
+         WHERE car_id=? AND completed=1 AND preset_key=? ORDER BY current_date DESC, id DESC`,
+      ).all(carId, opts.presetKey)
+    : db.prepare(
+        `SELECT id, current_date as date, current_km as km FROM maintenance_tasks
+         WHERE car_id=? AND completed=1 AND part_name=? ORDER BY current_date DESC, id DESC`,
+      ).all(carId, opts.partName)) as { id: number; date: string | null; km: number | null }[];
+
+  // Importe: el gasto que cerró cada tarea, si el usuario lo registró.
+  const amountFor = db.prepare(
+    "SELECT importe FROM expenses WHERE maintenance_task_id=? LIMIT 1",
+  );
+  return rows.map((r) => {
+    const hit = amountFor.get(r.id) as { importe: number } | undefined;
+    return { ...r, importe: hit?.importe ?? null };
+  });
+}
+
+/** Una tarea por id, sin filtrar por completada. */
+export function getMaintenanceTask(id: number): MaintenanceTask | undefined {
+  return getDb().prepare("SELECT * FROM maintenance_tasks WHERE id=?").get(id) as MaintenanceTask | undefined;
+}

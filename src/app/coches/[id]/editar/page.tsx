@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from "next/navigation";
 import { Car, ArrowLeft, Save, X, Gauge, Calendar, Euro, Hash, Wrench, Fuel } from "lucide-react";
-import { publishMatricula } from "@/components/TopBarContext";
 
 const COMBUSTIBLES = ["Gasolina", "Diésel", "Híbrido", "Eléctrico", "GLP"];
 
@@ -54,14 +53,9 @@ export default function EditarCoche() {
         if (c.foto_attachment_id) {
           setPhotoPreview(`/api/attachments/${c.foto_attachment_id}`);
         }
-        publishMatricula(c.matricula || null);
       })
       .finally(() => setLoading(false));
   }, [carId]);
-
-  useEffect(() => {
-    return () => publishMatricula(null);
-  }, []);
 
   const onPhoto = (file: File | null) => {
     setPhoto(file);

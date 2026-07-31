@@ -1,31 +1,36 @@
 "use client";
 
-// Modal "Subir documento": dos vías de entrada (Seleccionar archivos /
+// Modal "Subir documento": dos vías de entrada (Seleccionar archivo /
 // Escanear) que confluyen en el mismo formulario pequeño (categoría +
-// fecha opcional). El flujo de escaneo hace detección de bordes real:
-// captura una foto con la cámara nativa (<input capture="environment">,
-// no hay preview en vivo — ver nota abajo), y luego recorta/corrige la
-// perspectiva con jscanify + OpenCV.js, ambos cargados con import()
-// dinámico para no meter varios MB de WASM en el bundle principal.
+// fecha de caducidad opcional).
 //
-// "Usar foto original sin recortar" es la vía de escape: la detección de
-// bordes sobre una foto real no siempre acierta, así que el usuario
-// siempre puede seguir con la foto tal cual salió de la cámara.
+// El escaneo hace detección de bordes real: captura una foto con la cámara
+// nativa (<input capture="environment">, sin preview en vivo) y luego
+// recorta y corrige la perspectiva con jscanify + OpenCV.js, ambos con
+// import() dinámico para no meter varios MB de WASM en el bundle inicial.
+//
+// "Usar la foto original" es la vía de escape: la detección de bordes sobre
+// una foto real no siempre acierta, y el usuario no debe quedarse atascado.
 
-import { useRef, useState } from "react";
-import { Upload, Camera, X, RotateCcw } from "lucide-react";
-import Modal from "@/components/Modal";
+import { useEffect, useRef, useState } from "react";
+import {
+  AppModal, AppButton, AppSelect, AppDatePicker, AppSkeleton,
+} from "@/components/ui";
 import { DOCUMENT_TYPES, type DocumentTypeId } from "@/lib/documents/catalog";
-import { TEXT_DARK, TEXT_GRAY } from "@/lib/constants";
 
 type Step = "choose" | "scanning" | "scanPreview" | "scanFailed" | "form";
 
-interface UploadDocumentModalProps {
+export interface UploadDocumentModalProps {
   open: boolean;
   presetType: DocumentTypeId | "otros" | null;
   uploading: boolean;
   onClose: () => void;
-  onUpload: (opts: { file: File | Blob; filename?: string; documentType?: string | null; validUntil?: string | null }) => Promise<void>;
+  onUpload: (opts: {
+    file: File | Blob;
+    filename?: string;
+    documentType?: string | null;
+    validUntil?: string | null;
+  }) => Promise<void>;
 }
 
 export default function UploadDocumentModal({
@@ -44,6 +49,27 @@ export default function UploadDocumentModal({
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Las URLs de objeto ocupan memoria hasta que se revocan explícitamente.
+  // Se lleva la lista aparte para poder soltarlas todas al desmontar sin
+  // depender de qué paso del asistente estuviera activo.
+  const objectUrls = useRef<string[]>([]);
+  function trackUrl(url: string) {
+    objectUrls.current.push(url);
+    return url;
+  }
+  useEffect(() => {
+    return () => {
+      objectUrls.current.forEach((u) => URL.revokeObjectURL(u));
+      objectUrls.current = [];
+    };
+  }, []);
+
+  // Al reabrirlo, la categoría vuelve a la que corresponda: si se abrió desde
+  // la fila de "Seguro", queda preseleccionada.
+  useEffect(() => {
+    if (open) setCategory(presetType || "");
+  }, [open, presetType]);
 
   function handlePlainFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -77,25 +103,25 @@ export default function UploadDocumentModal({
       const scanner = new JScanify();
 
       const canvas = scanner.extractPaper(img, img.naturalWidth, img.naturalHeight);
-      const origUrl = URL.createObjectURL(file);
-      setOriginalUrl(origUrl);
+      setOriginalUrl(trackUrl(URL.createObjectURL(file)));
 
       if (!canvas) {
         setStep("scanFailed");
         return;
       }
 
-      const blob: Blob | null = await new Promise((resolve) => canvas.toBlob((b: Blob | null) => resolve(b), "image/jpeg", 0.92));
+      const blob: Blob | null = await new Promise((resolve) =>
+        canvas.toBlob((b: Blob | null) => resolve(b), "image/jpeg", 0.92),
+      );
       if (!blob) {
         setStep("scanFailed");
         return;
       }
       setProcessedBlob(blob);
-      setProcessedUrl(URL.createObjectURL(blob));
+      setProcessedUrl(trackUrl(URL.createObjectURL(blob)));
       setStep("scanPreview");
     } catch {
-      const origUrl = URL.createObjectURL(file);
-      setOriginalUrl(origUrl);
+      setOriginalUrl(trackUrl(URL.createObjectURL(file)));
       setStep("scanFailed");
     }
   }
@@ -133,131 +159,149 @@ export default function UploadDocumentModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Subir documento" mainId="page-main">
-      <div className="space-y-4">
-        {step === "choose" && (
-          <div className="space-y-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,application/pdf"
-              className="hidden"
-              onChange={handlePlainFile}
+    <AppModal
+      open={open}
+      onClose={onClose}
+      title="Subir documento"
+      onBack={step !== "choose" ? retry : undefined}
+      footer={
+        step === "form" ? (
+          <AppButton
+            size="lg"
+            onClick={confirm}
+            disabled={!category || uploading}
+            loading={uploading}
+          >
+            {uploading ? "Subiendo…" : "Guardar documento"}
+          </AppButton>
+        ) : undefined
+      }
+    >
+      {step === "choose" && (
+        <div className="space-y-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,application/pdf"
+            className="hidden"
+            onChange={handlePlainFile}
+          />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleCameraCapture}
+          />
+          <AppButton
+            variant="secondary"
+            size="lg"
+            icon="upload"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            Seleccionar archivo
+          </AppButton>
+          <AppButton
+            variant="secondary"
+            size="lg"
+            icon="camera"
+            onClick={() => cameraInputRef.current?.click()}
+          >
+            Escanear con la cámara
+          </AppButton>
+        </div>
+      )}
+
+      {step === "scanning" && (
+        <div className="space-y-3 py-6">
+          <AppSkeleton height={220} rounded="image" />
+          <p className="text-center text-body text-text-secondary">
+            Detectando los bordes del documento…
+          </p>
+        </div>
+      )}
+
+      {step === "scanPreview" && processedUrl && (
+        <div className="space-y-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={processedUrl}
+            alt="Documento escaneado"
+            className="w-full rounded-image border border-border"
+          />
+          <AppButton size="lg" onClick={useProcessed}>
+            Usar esta
+          </AppButton>
+          <AppButton variant="secondary" size="lg" onClick={useOriginal}>
+            Usar la foto original sin recortar
+          </AppButton>
+          <AppButton variant="ghost" size="lg" icon="rotate" onClick={retry}>
+            Reintentar
+          </AppButton>
+        </div>
+      )}
+
+      {step === "scanFailed" && (
+        <div className="space-y-3">
+          {originalUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={originalUrl}
+              alt="Foto original"
+              className="w-full rounded-image border border-border"
             />
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handleCameraCapture}
+          )}
+          <p className="text-caption text-text-secondary">
+            No se ha detectado el documento automáticamente. Puedes usar la foto tal cual o
+            volver a intentarlo.
+          </p>
+          <AppButton size="lg" onClick={useOriginal}>
+            Usar la foto original
+          </AppButton>
+          <AppButton variant="ghost" size="lg" icon="rotate" onClick={retry}>
+            Reintentar
+          </AppButton>
+        </div>
+      )}
+
+      {step === "form" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3 rounded-chip border border-border bg-surface-elevated p-3">
+            <span className="min-w-0 truncate text-body font-medium text-text">
+              {finalFilename}
+            </span>
+            <button
+              type="button"
+              aria-label="Quitar archivo"
+              onClick={() => setStep("choose")}
+              className="shrink-0 text-caption font-semibold text-primary"
+            >
+              Cambiar
+            </button>
+          </div>
+
+          {!presetType && (
+            <AppSelect
+              label="Categoría"
+              placeholder="Selecciona una categoría"
+              value={category}
+              onChange={(e) => setCategory(e.target.value as DocumentTypeId | "otros")}
+              options={[
+                ...DOCUMENT_TYPES.map((d) => ({ value: d.id, label: d.label })),
+                { value: "otros", label: "Otros" },
+              ]}
             />
-            <button
-              type="button"
-              className="btn btn-secondary w-full justify-start gap-3 !py-3"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload size={18} /> Seleccionar archivos
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary w-full justify-start gap-3 !py-3"
-              onClick={() => cameraInputRef.current?.click()}
-            >
-              <Camera size={18} /> Escanear
-            </button>
-          </div>
-        )}
+          )}
 
-        {step === "scanning" && (
-          <div className="flex flex-col items-center gap-3 py-10">
-            <div className="w-8 h-8 border-2 rounded-full animate-spin" style={{ borderColor: "var(--border-color)", borderTopColor: "var(--accent)" }} />
-            <p className="text-sm" style={{ color: TEXT_GRAY }}>Detectando bordes del documento...</p>
-          </div>
-        )}
-
-        {step === "scanPreview" && processedUrl && (
-          <div className="space-y-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={processedUrl} alt="Documento escaneado" className="w-full rounded-lg border" style={{ borderColor: "var(--border-color)" }} />
-            <div className="flex flex-col gap-2">
-              <button type="button" className="btn btn-primary text-sm" onClick={useProcessed}>Usar esta</button>
-              <button type="button" className="btn btn-secondary text-sm" onClick={retry}>
-                <RotateCcw size={14} /> Reintentar
-              </button>
-              <button type="button" className="btn btn-secondary text-sm" onClick={useOriginal}>
-                Usar foto original sin recortar
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === "scanFailed" && (
-          <div className="space-y-3">
-            {originalUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={originalUrl} alt="Foto original" className="w-full rounded-lg border" style={{ borderColor: "var(--border-color)" }} />
-            )}
-            <p className="text-xs" style={{ color: TEXT_GRAY }}>
-              No se detectó el documento automáticamente. Puedes usar la foto tal cual o volver a intentarlo.
-            </p>
-            <div className="flex flex-col gap-2">
-              <button type="button" className="btn btn-primary text-sm" onClick={useOriginal}>Usar foto original</button>
-              <button type="button" className="btn btn-secondary text-sm" onClick={retry}>
-                <RotateCcw size={14} /> Reintentar
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === "form" && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold" style={{ color: TEXT_DARK }}>{finalFilename}</p>
-              <button
-                type="button"
-                aria-label="Quitar archivo"
-                className="p-1 text-[var(--text-muted)] hover:text-red-500"
-                onClick={() => setStep("choose")}
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {!presetType && (
-              <div>
-                <label className="text-xs font-semibold block mb-1" style={{ color: TEXT_GRAY }}>Categoría</label>
-                <select
-                  className="select"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value as DocumentTypeId | "otros")}
-                >
-                  <option value="">Selecciona una categoría</option>
-                  {DOCUMENT_TYPES.map((d) => (
-                    <option key={d.id} value={d.id}>{d.label}</option>
-                  ))}
-                  <option value="otros">Otros</option>
-                </select>
-              </div>
-            )}
-
-            <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: TEXT_GRAY }}>Válido hasta (opcional)</label>
-              <input type="date" className="input" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
-            </div>
-
-            <button
-              type="button"
-              className="btn btn-primary w-full"
-              disabled={!category || uploading}
-              onClick={confirm}
-            >
-              {uploading ? "Subiendo..." : "Guardar documento"}
-            </button>
-          </div>
-        )}
-      </div>
-    </Modal>
+          <AppDatePicker
+            label="Válido hasta (opcional)"
+            value={validUntil}
+            onChange={(e) => setValidUntil(e.target.value)}
+          />
+        </div>
+      )}
+    </AppModal>
   );
 }
 
@@ -276,6 +320,8 @@ function loadImage(file: File): Promise<HTMLImageElement> {
 async function readyOpenCv(cvModule: any): Promise<any> {
   if (cvModule instanceof Promise) return cvModule;
   if (cvModule.Mat) return cvModule;
-  await new Promise<void>((resolve) => { cvModule.onRuntimeInitialized = () => resolve(); });
+  await new Promise<void>((resolve) => {
+    cvModule.onRuntimeInitialized = () => resolve();
+  });
   return cvModule;
 }

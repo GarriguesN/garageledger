@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMaintenanceTasks, getOpenMaintenanceTasksByPreset, getOpenMaintenanceTasksByName, createMaintenanceTask, updateMaintenanceTask, completeMaintenanceTask, deleteMaintenanceTask } from "@/lib/db";
+import { getMaintenanceTasks, getMaintenanceTask, getOpenMaintenanceTasksByPreset, getOpenMaintenanceTasksByName, createMaintenanceTask, updateMaintenanceTask, completeMaintenanceTask, deleteMaintenanceTask } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -26,8 +26,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Cuerpo JSON inválido" }, { status: 400 });
   }
   if (body.action === "complete") {
-    const updated = completeMaintenanceTask(body.id, body.currentKm, body.currentDate);
-    return updated ? NextResponse.json(updated) : NextResponse.json({ error: "Not found" }, { status: 404 });
+    // `completeMaintenanceTask` devuelve la tarea SIGUIENTE, que no existe
+    // cuando la tarea no es recurrente o cuando se pide no reprogramar. Antes
+    // se devolvía 404 en ese caso, así que completar una tarea puntual —algo
+    // perfectamente normal— parecía un error. Comprobamos la existencia por
+    // separado para no confundir "no hay siguiente" con "no existe".
+    const id = parseInt(body.id);
+    const exists = getMaintenanceTask(id);
+    if (!exists) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    const scheduleNext = body.scheduleNext !== false;
+    const next = completeMaintenanceTask(id, body.currentKm, body.currentDate, scheduleNext);
+    return NextResponse.json({ completed: true, next: next ?? null });
   }
   const task = createMaintenanceTask(body.carId, body.part_name, body);
   return NextResponse.json(task, { status: 201 });
