@@ -9,9 +9,12 @@
 //
 //   - Dentro de /coches/[id]: navbar contextual del coche, fijo abajo
 //     (móvil y escritorio), con tres entradas:
-//       · Resumen    → scroll al top de la página
+//       · Resumen    → cambia CarDetailClient a la pestaña Resumen
 //       · [+] rojo   → abre el formulario "Añadir gasto" del coche
-//       · Documentos → scroll al bloque "Guantera" de la página
+//       · Documentos → cambia CarDetailClient a la pestaña Documentos
+//     Resumen y Documentos son pestañas reales (una oculta a la otra, no
+//     scroll dentro de la misma página) — ver CarViewContext.tsx. El botón
+//     activo se pinta en rojo, igual que el resto de la app.
 //
 // El botón [+] del navbar contextual dispara un CustomEvent
 // ("garageledger:car-nav-add-expense") que el padre (CarDetailClient)
@@ -22,6 +25,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { Car, Plus, Settings, FileText } from "lucide-react";
+import { requestCarView, useCarViewFromEvents } from "./CarViewContext";
 
 const links = [
   { href: "/", label: "Garaje", icon: Car },
@@ -82,20 +86,18 @@ function GlobalTopBar({ pathname }: { pathname: string }) {
  *  Aparece dentro de /coches/[id] en todas las vistas (móvil y escritorio),
  *  fijo abajo, para no romper el flujo del usuario en la pantalla de detalle. */
 function CarContextBottomBar() {
-  function scrollTo(selector: string) {
-    const el = document.querySelector(selector);
-    if (!el) return;
-    el.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
+  const activeView = useCarViewFromEvents();
 
   function handleSummary() {
+    requestCarView("resumen");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   function handleAdd() {
     fireToggleAddExpense();
   }
   function handleDocs() {
-    scrollTo("[data-glovebox-anchor]");
+    requestCarView("documentos");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   return (
@@ -107,8 +109,10 @@ function CarContextBottomBar() {
         <button
           type="button"
           onClick={handleSummary}
-          className="flex flex-col items-center justify-center gap-0.5 text-[var(--accent)] min-h-[44px]"
+          className="flex flex-col items-center justify-center gap-0.5 min-h-[44px]"
+          style={{ color: activeView === "resumen" ? "var(--accent)" : "var(--text-secondary)" }}
           aria-label="Resumen"
+          aria-current={activeView === "resumen" ? "page" : undefined}
         >
           <Car size={22} />
           <span className="text-[11px] font-semibold">Resumen</span>
@@ -128,8 +132,10 @@ function CarContextBottomBar() {
         <button
           type="button"
           onClick={handleDocs}
-          className="flex flex-col items-center justify-center gap-0.5 text-[var(--text-secondary)] min-h-[44px]"
+          className="flex flex-col items-center justify-center gap-0.5 min-h-[44px]"
+          style={{ color: activeView === "documentos" ? "var(--accent)" : "var(--text-secondary)" }}
           aria-label="Documentos"
+          aria-current={activeView === "documentos" ? "page" : undefined}
         >
           <FileText size={22} />
           <span className="text-[11px] font-semibold">Documentos</span>

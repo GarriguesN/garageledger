@@ -3,6 +3,9 @@ import path from "path";
 import fs from "fs";
 import { getDb } from "@/lib/db/core";
 import { isAllowedMime, safeDownloadFilename } from "@/lib/attachments";
+import { updateAttachmentMeta } from "@/lib/db/attachments";
+import { isValidDocumentType } from "@/lib/documents/catalog";
+import { parseDate } from "@/lib/validate";
 import type { Attachment } from "@/lib/db/attachments";
 
 export const runtime = "nodejs";
@@ -81,4 +84,47 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       "Cache-Control": "private, no-store",
     },
   });
+}
+
+// Corrige la categoría (document_type) o la fecha de caducidad (valid_until)
+// de un adjunto ya subido. El archivo en sí es inmutable: para reemplazar el
+// contenido el usuario borra y vuelve a subir (mismo patrón que gastos/mantenimiento).
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id: rawId } = await params;
+  const id = parseInt(rawId);
+  if (!Number.isFinite(id)) {
+    return NextResponse.json({ error: "id inválido" }, { status: 400 });
+  }
+
+  let body: any;
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ error: "Cuerpo JSON inválido" }, { status: 400 });
+  }
+
+  const row = getDb().prepare("SELECT * FROM attachments WHERE id = ?").get(id) as Attachment | undefined;
+  if (!row) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+
+  const fields: { document_type?: string | null; valid_until?: string | null } = {};
+
+  if ("document_type" in body) {
+    const dt = body.document_type;
+    if (dt !== null && dt !== "otros" && !isValidDocumentType(dt)) {
+      return NextResponse.json({ error: "document_type inválido" }, { status: 400 });
+    }
+    fields.document_type = dt ?? null;
+  }
+
+  if ("valid_until" in body) {
+    const vu = body.valid_until;
+    if (vu !== null && vu !== "") {
+      const parsed = parseDate(vu);
+      if (!parsed) return NextResponse.json({ error: "valid_until inválido" }, { status: 400 });
+      fields.valid_until = parsed;
+    } else {
+      fields.valid_until = null;
+    }
+  }
+
+  const updated = updateAttachmentMeta(id, fields);
+  return NextResponse.json(updated);
 }

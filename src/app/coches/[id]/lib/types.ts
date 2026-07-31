@@ -74,17 +74,10 @@ export interface CarEditFormState {
   fecha_vencimiento_seguro: string;
 }
 
-export interface Note {
-  id: number;
-  content: string;
-}
-
-export interface Attachment {
-  id: number;
-  original_name: string;
-  file_size: number;
-  mime_type: string;
-}
+// Re-exportamos CarNote/Attachment desde su definición de BD (mismo motivo
+// que Car/MaintenanceTask arriba: una sola fuente de verdad).
+export type { CarNote as Note } from "@/lib/db/notes";
+export type { Attachment } from "@/lib/db/attachments";
 
 export interface CarMetrics {
   monthly: { current: number; previous: number };

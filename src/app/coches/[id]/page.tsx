@@ -17,6 +17,8 @@ import { cookies } from "next/headers";
 import { getCar, getCarMetrics, getTimeline } from "@/lib/db";
 import { getMaintenanceTasks } from "@/lib/db/maintenance";
 import { getKmStats } from "@/lib/db/cars";
+import { getCarNotes } from "@/lib/db/notes";
+import { getCarDocuments } from "@/lib/db/attachments";
 import { readSessionFromValue } from "@/lib/auth";
 
 import CarDetailClient from "./components/CarDetailClient";
@@ -51,11 +53,13 @@ export default async function CarDetailPage({ params }: PageProps) {
 
   // Reutilizamos EXACTAMENTE las mismas funciones que la ruta /api/.../page-data
   // (no duplicamos queries ni lógica de cálculo de métricas).
-  const [metrics, timeline, maintenanceTasks, kmStats] = await Promise.all([
+  const [metrics, timeline, maintenanceTasks, kmStats, notes, documents] = await Promise.all([
     Promise.resolve(getCarMetrics(carId)),
     Promise.resolve(getTimeline(carId, 100)),
     Promise.resolve(getMaintenanceTasks(carId)),
     Promise.resolve(getKmStats(carId)),
+    Promise.resolve(getCarNotes(carId)),
+    Promise.resolve(getCarDocuments(carId)),
   ]);
 
   return (
@@ -67,6 +71,8 @@ export default async function CarDetailPage({ params }: PageProps) {
         initialTimeline={timeline}
         initialMaintenanceTasks={maintenanceTasks}
         initialKmStats={kmStats}
+        initialNotes={notes}
+        initialDocuments={documents}
         matricula={car.matricula || ""}
       />
     </div>

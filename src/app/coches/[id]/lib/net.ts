@@ -17,7 +17,7 @@ export interface ToastFn {
 }
 
 export interface FetchJsonOptions {
-  method?: "GET" | "POST" | "PUT" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   headers?: Record<string, string>;
   body?: BodyInit | null;
   // Mensaje genérico cuando el servidor no devuelve `{ error }` legible.

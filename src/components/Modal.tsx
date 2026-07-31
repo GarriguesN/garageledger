@@ -24,6 +24,11 @@ interface ModalProps {
   /** id del contenedor principal de la página. Cuando el modal está
    *  abierto se le aplica aria-hidden="true" + role="presentation". */
   mainId?: string;
+  /** "fullscreen" ocupa todo el viewport (móvil y escritorio), sin
+   *  bottom-sheet ni ancho máximo — usado por el visor de documentos.
+   *  El resto de comportamiento (focus trap, Escape, backdrop, scroll
+   *  lock, aria-hidden) es idéntico al modal por defecto. */
+  variant?: "default" | "fullscreen";
 }
 
 // Selectores estándar de elementos focuseables para el focus trap.
@@ -45,6 +50,7 @@ export default function Modal({
   children,
   className = "",
   mainId,
+  variant = "default",
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const prevFocusRef = useRef<HTMLElement | null>(null);
@@ -150,7 +156,11 @@ export default function Modal({
         aria-modal="true"
         aria-label={title}
         tabIndex={-1}
-        className={`bg-[var(--bg-primary)] w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col max-h-[90vh] shadow-xl outline-none ${className}`}
+        className={
+          variant === "fullscreen"
+            ? `bg-[var(--bg-primary)] fixed inset-0 flex flex-col shadow-xl outline-none ${className}`
+            : `bg-[var(--bg-primary)] w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col max-h-[90vh] shadow-xl outline-none ${className}`
+        }
       >
         {/* Cabecera */}
         {(title || totalCount !== undefined) && (

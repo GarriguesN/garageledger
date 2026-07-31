@@ -241,6 +241,13 @@ function migrateSchema(db: Database.Database) {
       "UPDATE maintenance_tasks SET preset_key=? WHERE part_name=? AND (preset_key IS NULL OR preset_key='')",
     ).run(presetKey, partName);
   }
+
+  // Documentos del vehículo: document_type (catálogo de src/lib/documents/catalog.ts,
+  // NULL = "otros") + valid_until (fecha de caducidad opcional, entrada manual).
+  const attCols = db.prepare("PRAGMA table_info(attachments)").all() as { name: string }[];
+  const attNames = attCols.map(c => c.name);
+  if (!attNames.includes("document_type")) db.exec("ALTER TABLE attachments ADD COLUMN document_type TEXT");
+  if (!attNames.includes("valid_until")) db.exec("ALTER TABLE attachments ADD COLUMN valid_until TEXT");
 }
 
 function seedIfEmpty(db: Database.Database) {

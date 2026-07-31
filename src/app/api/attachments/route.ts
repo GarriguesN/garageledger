@@ -3,6 +3,8 @@ import path from "path";
 import fs from "fs";
 import { getAttachments, createAttachment, deleteAttachment } from "@/lib/db";
 import { validateUpload } from "@/lib/attachments";
+import { isValidDocumentType } from "@/lib/documents/catalog";
+import { parseDate } from "@/lib/validate";
 
 export const runtime = "nodejs";
 
@@ -28,10 +30,25 @@ export async function POST(req: NextRequest) {
     const carIdRaw = formData.get("car_id") as string | null;
     const expenseIdRaw = formData.get("expense_id") as string | null;
     const file = formData.get("file") as File | null;
+    const documentTypeRaw = formData.get("document_type") as string | null;
+    const validUntilRaw = formData.get("valid_until") as string | null;
     if (!file || !carIdRaw) return NextResponse.json({ error: "Missing file or car_id" }, { status: 400 });
     const carId = parseInt(carIdRaw);
     const expenseId = expenseIdRaw ? parseInt(expenseIdRaw) : undefined;
     if (!Number.isFinite(carId)) return NextResponse.json({ error: "car_id inválido" }, { status: 400 });
+
+    let documentType: string | null = null;
+    if (documentTypeRaw) {
+      if (documentTypeRaw !== "otros" && !isValidDocumentType(documentTypeRaw)) {
+        return NextResponse.json({ error: "document_type inválido" }, { status: 400 });
+      }
+      documentType = documentTypeRaw;
+    }
+    let validUntil: string | null = null;
+    if (validUntilRaw) {
+      validUntil = parseDate(validUntilRaw);
+      if (!validUntil) return NextResponse.json({ error: "valid_until inválido" }, { status: 400 });
+    }
 
     // Validate BEFORE writing to disk (max-input trust: attacker could stream GB).
     const check = validateUpload({
@@ -50,7 +67,7 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
     fs.writeFileSync(path.join(uploadDir(), uniqueName), buffer);
 
-    const att = createAttachment(carId, uniqueName, file.name, file.type, buffer.length, expenseId);
+    const att = createAttachment(carId, uniqueName, file.name, file.type, buffer.length, expenseId, documentType, validUntil);
     return NextResponse.json(att, { status: 201 });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });

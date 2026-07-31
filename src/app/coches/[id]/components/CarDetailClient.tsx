@@ -16,13 +16,16 @@ import MaintenanceSchedule, { sortMaintenanceTasks } from "./MaintenanceSchedule
 import FullListModal      from "./FullListModal";
 import Modal              from "@/components/Modal";
 import CompleteMaintenanceModal from "./CompleteMaintenanceModal";
+import DocumentsSection    from "./DocumentsSection";
 
 // Ticket 1.4: helper de red — fetch con parseo + toast de error unificado.
 import { fetchJsonWithToast } from "../lib/net";
 import { publishMatricula } from "@/components/TopBarContext";
+import { publishCarView, useCarViewRequests, type CarView } from "@/components/CarViewContext";
 import type { KmStats } from "@/lib/db/cars";
+import type { CarDocuments } from "@/lib/db/attachments";
 import type {
-  Car, CarMetrics, TimelineEntry, MaintenanceTask,
+  Car, CarMetrics, TimelineEntry, MaintenanceTask, Note,
 } from "../lib/types";
 
 import { useToast } from "../hooks/useToast";
@@ -30,6 +33,7 @@ import { useExpenseForm } from "../hooks/useExpenseForm";
 import { useMaintenanceForm } from "../hooks/useMaintenanceForm";
 import { useCompleteTask } from "../hooks/useCompleteTask";
 import { useAlertScroll } from "../hooks/useAlertScroll";
+import { useDocuments } from "../hooks/useDocuments";
 
 interface CarDetailClientProps {
   carId: number;
@@ -38,6 +42,8 @@ interface CarDetailClientProps {
   initialTimeline: TimelineEntry[];
   initialMaintenanceTasks: MaintenanceTask[];
   initialKmStats: KmStats;
+  initialNotes: Note[];
+  initialDocuments: CarDocuments;
   matricula: string;
 }
 
@@ -48,6 +54,8 @@ export default function CarDetailClient({
   initialTimeline,
   initialMaintenanceTasks,
   initialKmStats,
+  initialNotes,
+  initialDocuments,
   matricula,
 }: CarDetailClientProps) {
   // ── Estado central ──
@@ -79,16 +87,24 @@ export default function CarDetailClient({
         const d = r.data as {
           car: Car; metrics: CarMetrics; timeline?: TimelineEntry[];
           maintenanceTasks?: MaintenanceTask[]; kmStats?: KmStats;
+          notes?: Note[]; documents?: CarDocuments;
         };
         setCar(d.car);
         setMetrics(d.metrics);
         setTimeline(d.timeline || []);
         setMaintenanceTasks(d.maintenanceTasks || []);
         if (d.kmStats) setKmStats(d.kmStats);
+        if (d.notes) setNotes(d.notes);
+        if (d.documents) setDocuments(d.documents);
       });
   };
 
   const { toast, setToast, showToast, showUndoToast, undoTimer } = useToast();
+
+  const {
+    notes, setNotes, documents, setDocuments, uploading,
+    addNote, deleteNote, uploadDocument, updateDocumentMeta, deleteDocument,
+  } = useDocuments({ carId, initialNotes, initialDocuments, load, setToast, showToast, showUndoToast });
 
   const {
     showForm, setShowForm, form, setForm, saving,
@@ -116,6 +132,18 @@ export default function CarDetailClient({
     publishMatricula(matricula || null);
     return () => publishMatricula(null);
   }, [matricula]);
+
+  // Pestaña activa (Resumen / Documentos). El navbar contextual pinta su
+  // botón activo en rojo a partir de lo que publicamos aquí, y nos manda
+  // comandos de cambio de pestaña cuando el usuario pulsa el otro botón —
+  // ver CarViewContext.tsx. "resumen" es el estado inicial al entrar al
+  // detalle del coche.
+  const [activeView, setActiveView] = useState<CarView>("resumen");
+  useCarViewRequests(setActiveView);
+  useEffect(() => {
+    publishCarView(activeView);
+  }, [activeView]);
+  useEffect(() => () => publishCarView(null), []);
 
   // PUNTO 7: el navbar contextual del coche ([+] rojo) envía este evento
   // para abrir el formulario de añadir gasto desde el navbar inferior.
@@ -159,23 +187,66 @@ export default function CarDetailClient({
         </div>
       )}
 
-      {/* Header — solo lectura. Editar vive en /coches/[id]/editar. */}
+      {/* Header — solo lectura. Editar vive en /coches/[id]/editar. Siempre
+          visible: es común a ambas pestañas (Resumen y Documentos). */}
       <CarHeader car={car} />
 
-      {/* Metrics */}
-      <CarStatsGrid carId={carId} metrics={metrics} kmStats={kmStats} />
+      {/* Pestaña Resumen — métricas, alertas, historial y mantenimiento. */}
+      {activeView === "resumen" && (
+        <>
+          <CarStatsGrid carId={carId} metrics={metrics} kmStats={kmStats} />
 
-      {/* Alerts (informativas: no son botones, no llevan a ningún sitio) */}
-      <AlertBanner metrics={metrics} />
+          <AlertBanner metrics={metrics} />
 
-      {/* Add expense */}
-      <ActionButtons
-        onAddExpense={() => {
-          if (showForm) setShowForm(false);
-          else openExpenseForm();
-        }}
-        onProgramMaintenance={openProgramMaintenance}
-      />
+          <ActionButtons
+            onAddExpense={() => {
+              if (showForm) setShowForm(false);
+              else openExpenseForm();
+            }}
+            onProgramMaintenance={openProgramMaintenance}
+          />
+
+          <ExpenseHistory
+            timeline={timeline}
+            onStartEdit={startEdit}
+            onDelete={deleteExpWithUndo}
+            onOpenAll={() => setShowAllExpenses(true)}
+          />
+
+          <MaintenanceSchedule
+            tasks={maintenanceTasks}
+            car={car}
+            onCompleteTask={openCompleteTask}
+            registerTaskRef={registerTaskRef}
+            flashTaskId={flashTaskId}
+            onOpenAll={() => setShowAllMaintenance(true)}
+            onEdit={editMaintenanceTask}
+            onDelete={(taskId) => {
+              const t = maintenanceTasks.find(x => x.id === taskId);
+              if (t) deleteMaintenanceTaskWithUndo(t);
+            }}
+          />
+        </>
+      )}
+
+      {/* Pestaña Documentos — reemplaza el Resumen entero, no hace scroll
+          dentro de la misma pestaña (ver CarViewContext.tsx). */}
+      {activeView === "documentos" && (
+        <DocumentsSection
+          documents={documents}
+          notes={notes}
+          uploading={uploading}
+          uploadDocument={uploadDocument}
+          updateDocumentMeta={updateDocumentMeta}
+          deleteDocument={deleteDocument}
+          addNote={addNote}
+          deleteNote={deleteNote}
+        />
+      )}
+
+      {/* Modales: independientes de la pestaña activa — el botón [+] del
+          navbar contextual debe poder abrir "Añadir gasto" sin importar si
+          se está viendo Resumen o Documentos. */}
       {/* PUNTO 5 / Ticket 1.13: Añadir gasto y Programar mantenimiento
           son modales reales (position: fixed). El botón inline y el [+] del
           navbar contextual del coche abren el mismo modal, así el modal
@@ -213,29 +284,6 @@ export default function CarDetailClient({
           onCancel={closeProgramMaintenance}
         />
       </Modal>
-
-      {/* Historial */}
-      <ExpenseHistory
-        timeline={timeline}
-        onStartEdit={startEdit}
-        onDelete={deleteExpWithUndo}
-        onOpenAll={() => setShowAllExpenses(true)}
-      />
-
-      {/* Mantenimiento */}
-      <MaintenanceSchedule
-        tasks={maintenanceTasks}
-        car={car}
-        onCompleteTask={openCompleteTask}
-        registerTaskRef={registerTaskRef}
-        flashTaskId={flashTaskId}
-        onOpenAll={() => setShowAllMaintenance(true)}
-        onEdit={editMaintenanceTask}
-        onDelete={(taskId) => {
-          const t = maintenanceTasks.find(x => x.id === taskId);
-          if (t) deleteMaintenanceTaskWithUndo(t);
-        }}
-      />
 
       {/* Modal "Ver todos" — gastos */}
       <FullListModal
