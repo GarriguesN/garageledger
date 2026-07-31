@@ -1,5 +1,21 @@
 # GarageLedger — Premium UI Rebuild Plan
 
+> **Estado: ejecutado.** Las 13 pantallas están construidas y verificadas.
+> Lo que cambió respecto a este plan durante la ejecución:
+>
+> - **Iconos por nombre, no por componente.** React no serializa funciones de
+>   Server a Client Component, así que los iconos viajan como `IconName` y se
+>   resuelven en `<AppIcon>`. El registro cierra además la familia de iconos.
+> - **`cars.foto_attachment_id` ya existía**: la migración §1.1 no hizo falta.
+> - **Sin `/dev/ui`**: la verificación se hizo midiendo geometría y estilos
+>   computados en iframes a cada breakpoint, que es más preciso que comparar
+>   capturas a ojo (y las capturas no funcionaban en este entorno).
+> - **Contraste**: el gate destapó que el gris atenuado no llegaba a AA; se
+>   corrigió el token.
+> - **Pendiente**: `/coches/[id]/insights` no está enlazada desde la barra
+>   inferior (se llega desde la tarjeta de consumo del resumen), y las notas
+>   del vehículo (`/api/notes`) se quedaron sin pantalla en la nueva UI.
+
 Source of truth: the two mockup boards (12 screens, dark automotive theme). No
 interpretation — every spacing, hierarchy, component and interaction is
 replicated unless technically impossible. Deviations must be logged in
