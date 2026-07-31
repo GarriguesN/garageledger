@@ -90,7 +90,7 @@ export interface WizardProps<V> {
   className?: string;
 }
 
-export default function Wizard<V extends Record<string, unknown>>({
+export default function Wizard<V extends object>({
   steps,
   values,
   onChange,

@@ -14,10 +14,13 @@ export interface AppTypeTileProps {
   label: string;
   accent?: AccentToken;
   onClick: () => void;
+  /** Marca el tile como activo (anillo primario). */
+  active?: boolean;
   className?: string;
 }
 
 export default function AppTypeTile({
+  active,
   icon,
   label,
   accent = "primary",
@@ -30,10 +33,12 @@ export default function AppTypeTile({
       onClick={onClick}
       whileTap={{ scale: 0.97 }}
       transition={{ duration: duration.press, ease: easing.out }}
+      aria-pressed={active}
       className={cn(
         "flex min-h-24 flex-col items-start justify-between gap-3 rounded-card",
         "border border-border bg-surface-elevated p-4 text-left transition-colors",
         "hover:border-text-muted",
+        active && "border-primary",
         className,
       )}
     >
