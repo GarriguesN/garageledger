@@ -23,18 +23,43 @@ export default function AppLayout({
   className,
 }: AppLayoutProps) {
   return (
-    <div className="safe-x flex min-h-dvh flex-col bg-background">
+    <AppScreenFrame>
       {header}
-      <main
-        className={cn(
-          "mx-auto w-full max-w-2xl flex-1 px-4",
-          hasBottomNav ? "pb-nav" : "safe-bottom pb-6",
-          className,
-        )}
-      >
+      <AppScreenMain hasBottomNav={hasBottomNav} className={className}>
         {children}
-      </main>
+      </AppScreenMain>
       {bottomNav}
-    </div>
+    </AppScreenFrame>
+  );
+}
+
+/** Marco exterior de una pantalla. Se expone suelto para las rutas del
+ *  vehículo, donde el marco lo pone el layout compartido (que además monta la
+ *  barra inferior) y la cabecera la pone cada pantalla: así la cabecera
+ *  pegajosa ocupa todo el ancho en vez de quedar dentro del padding del main. */
+export function AppScreenFrame({ children }: { children: React.ReactNode }) {
+  return <div className="safe-x flex min-h-dvh flex-col bg-background">{children}</div>;
+}
+
+/** Columna de contenido: 16px de padding lateral y tope de 672px. */
+export function AppScreenMain({
+  children,
+  hasBottomNav = false,
+  className,
+}: {
+  children: React.ReactNode;
+  hasBottomNav?: boolean;
+  className?: string;
+}) {
+  return (
+    <main
+      className={cn(
+        "mx-auto w-full max-w-2xl flex-1 px-4",
+        hasBottomNav ? "pb-nav" : "safe-bottom pb-6",
+        className,
+      )}
+    >
+      {children}
+    </main>
   );
 }
