@@ -189,6 +189,29 @@ body {
 	}
 }
 
+/* ── Confetti del SuccessScreen ────────────────────────────────────── */
+/* 16 partículas pequeñas que caen desde la parte superior. Sin librerías:
+   el JS solo decide dónde y de qué color van; la caída es CSS. */
+.confetti-piece {
+	animation: confetti-fall 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes confetti-fall {
+	0% {
+		opacity: 0;
+		transform: translateY(0) rotate(0deg);
+	}
+
+	10% {
+		opacity: 1;
+	}
+
+	100% {
+		opacity: 0;
+		transform: translateY(360px) rotate(540deg);
+	}
+}
+
 /* ── Accesibilidad: respetar "reducir movimiento" ──────────────────── */
 @media (prefers-reduced-motion: reduce) {
 
@@ -198,6 +221,12 @@ body {
 		animation-duration: 0.01ms !important;
 		animation-iteration-count: 1 !important;
 		transition-duration: 0.01ms !important;
+	}
+
+	.confetti-piece {
+		/* Deja las partículas en su lugar sin animar. */
+		animation: none;
+		opacity: 0;
 	}
 }
 

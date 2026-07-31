@@ -46,4 +46,13 @@ export {
 } from "./AppSkeleton";
 export { default as AppToast, useToast } from "./AppToast";
 export type { ToastState } from "./AppToast";
+// Sistema de wizards (mockup unificado).
+export { default as AppProgressDots } from "./AppProgressDots";
+export { default as WizardLayout } from "./WizardLayout";
+export { default as WizardSection } from "./WizardSection";
+export { default as WizardSummaryCard } from "./WizardSummaryCard";
+export type { WizardSummaryItem } from "./WizardSummaryCard";
+export { default as SuccessScreen } from "./SuccessScreen";
+export { default as Wizard } from "./Wizard";
+export type { WizardStep, WizardErrors, WizardSuccess, WizardProps } from "./Wizard";
 export { cn } from "./cn";
