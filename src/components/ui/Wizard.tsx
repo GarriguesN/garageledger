@@ -48,7 +48,7 @@ export interface WizardErrors {
   [field: string]: string;
 }
 
-export interface WizardSuccess<V> {
+export interface WizardSuccess {
   /** Título del SuccessScreen (default "¡Perfecto!"). */
   title?: string;
   /** Subtítulo (ej. "Gasto guardado correctamente"). */
@@ -85,7 +85,7 @@ export interface WizardProps<V> {
   onClose: () => void;
   /** Confirmación al cerrar si hay cambios. Default: true. */
   /** Estado y contenido del SuccessScreen; se proyecta al terminar. */
-  success?: WizardSuccess<V>;
+  success?: WizardSuccess;
   /** Wrapper opcional para el contenedor. */
   className?: string;
 }
@@ -106,7 +106,6 @@ export default function Wizard<V extends object>({
 }: WizardProps<V>) {
   const [stepIndex, setStepIndex] = useState(0);
   const [errors, setErrors] = useState<WizardErrors>({});
-  const [touched, setTouched] = useState<Set<string>>(new Set());
 
   const step = steps[stepIndex];
   const isFirst = stepIndex === 0;
@@ -122,7 +121,6 @@ export default function Wizard<V extends object>({
       delete next[key as string];
       return next;
     });
-    setTouched((prev) => new Set(prev).add(key as string));
   }, [values, onChange]);
 
   function validateCurrent(): ValidationResult | null {
@@ -151,12 +149,6 @@ export default function Wizard<V extends object>({
     const err = validateCurrent();
     if (err) {
       setErrors((prev) => ({ ...prev, [err.field]: err.message }));
-      // Marcar todos los fields del step como tocados para que se vean.
-      setTouched((prev) => {
-        const next = new Set(prev);
-        (step.fields ?? []).forEach((f) => next.add(f as string));
-        return next;
-      });
       // Pequeño delay para que React pinte el aria-invalid antes de focus.
       setTimeout(focusFirstError, 0);
       return;
@@ -177,11 +169,6 @@ export default function Wizard<V extends object>({
       const v = s.validate(values);
       if (Object.keys(v).length > 0) {
         setErrors(v as WizardErrors);
-        setTouched((prev) => {
-          const next = new Set(prev);
-          (s.fields ?? []).forEach((f) => next.add(f as string));
-          return next;
-        });
         const idx = steps.findIndex((x) => x.id === s.id);
         if (idx >= 0) setStepIndex(idx);
         setTimeout(focusFirstError, 0);

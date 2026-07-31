@@ -17,6 +17,7 @@
 
 import Database from "better-sqlite3";
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { spawnSync } from "child_process";
 
@@ -58,7 +59,7 @@ async function runBackup(): Promise<{ tarball: string; dbSize: number; uploadCou
   ensureDir(uploadDir); // tolerate missing upload dir — tar will be empty for it
 
   const stamp = ts();
-  const stagingDir = fs.mkdtempSync(path.join(require("os").tmpdir(), "garage-backup-"));
+  const stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), "garage-backup-"));
   const dbOut = path.join(stagingDir, "db.sqlite");
   const uploadsOut = path.join(stagingDir, "uploads");
 

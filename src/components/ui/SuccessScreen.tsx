@@ -21,7 +21,7 @@
 // ninguna librería y respeta `prefers-reduced-motion` (las partículas
 // dejan de animarse y aparecen solo en su posición final).
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Check } from "@/design/tokens/icons";
 import { colors, duration, easing } from "@/design/tokens";
@@ -81,13 +81,7 @@ export default function SuccessScreen({
   className,
 }: SuccessScreenProps) {
   const reduce = useReducedMotion();
-  const [pieces, setPieces] = useState<ConfettiPiece[]>(() => buildConfetti(16));
-
-  // Re-roll al montar para que la primera apertura no muestre siempre
-  // la misma distribución. Cliente-only.
-  useEffect(() => {
-    setPieces(buildConfetti(16));
-  }, []);
+  const [pieces] = useState<ConfettiPiece[]>(() => buildConfetti(16));
 
   return (
     <div
