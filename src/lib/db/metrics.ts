@@ -173,3 +173,50 @@ export function computeCarEstado(car: any, tasks?: any[]): string {
 
   return "Al dia";
 }
+
+/** Kilómetros recorridos por mes, deducidos de las lecturas de cuentakilómetros
+ *  que el usuario apunta al registrar gastos.
+ *
+ *  No hay una tabla de odómetro: lo que hay son lecturas sueltas. Los km de un
+ *  mes se calculan como la diferencia entre su última lectura y la última
+ *  lectura anterior al mes. Un mes sin ninguna lectura sale a 0 —que es
+ *  honesto: no sabemos cuánto se condujo, no que no se condujera— y por eso
+ *  Insights lo pinta apagado en vez de como un valle real.
+ */
+export function getMonthlyKm(carId: number, months = 6): { month: string; km: number }[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT strftime('%Y-%m', date) as month, MAX(km) as km
+       FROM expenses
+       WHERE car_id=? AND km IS NOT NULL AND km > 0
+       GROUP BY month ORDER BY month ASC`,
+    )
+    .all(carId) as { month: string; km: number }[];
+
+  if (rows.length === 0) return [];
+
+  // Serie continua de los últimos `months` meses, incluidos los vacíos.
+  const out: { month: string; km: number }[] = [];
+  const now = new Date();
+  let previousReading: number | null = null;
+
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+
+    // Última lectura hasta el final de este mes.
+    const upTo = rows.filter((r) => r.month <= ym);
+    const reading = upTo.length ? upTo[upTo.length - 1].km : null;
+    const hasOwnReading = rows.some((r) => r.month === ym);
+
+    const km =
+      hasOwnReading && previousReading != null && reading != null && reading > previousReading
+        ? reading - previousReading
+        : 0;
+
+    out.push({ month: ym, km });
+    if (reading != null) previousReading = reading;
+  }
+
+  return out;
+}

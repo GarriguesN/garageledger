@@ -1,26 +1,19 @@
 "use client";
 
-import { AlertTriangle, RefreshCw } from "lucide-react";
+// Captura errores del segmento /coches/[id], que cubren dos escenarios:
+//
+//   1. La carga inicial del Server Component (SQLite bloqueada, permisos de
+//      `data/`, una query que lanza). Estos errores traen `digest`, una clave
+//      opaca que permite correlacionarlos con los registros del servidor.
+//   2. Errores lanzados desde el cliente al renderizar o al mutar.
+//
+// En ninguno de los dos se enseña `error.message` en crudo: puede contener
+// rutas internas o fragmentos de la consulta. Se muestra un texto estable y,
+// si existe, el digest para poder buscar el detalle en los registros.
 
-// Captura errores del segmento /coches/[id].
-//
-// Desde TICKET 1.3 la pantalla se carga en un Server Component que ejecuta
-// las queries iniciales a `getCarMetrics`, `getTimeline`, `getCarNotes`,
-// `getAttachments` y `getMaintenanceTasks`. Por tanto este error.tsx cubre
-// ahora **dos** escenarios:
-//
-//   1. Errores de la carga inicial del SC (p.ej. SQLite bloqueada, falta de
-//      permisos en `data/`, query que lanza). El SC lanza, Next renderiza
-//      este error y el usuario puede reintentar. Estos errores llevan `digest`
-//      (clave opaca para correlación de logs server-side).
-//   2. Errores lanzados desde el cliente (mutaciones que propagan, render
-//      del `CarDetailClient`). Ya estaba cubierto desde antes de 1.3.
-//
-// En ambos casos mostramos el `digest` si está (clave opaca para correlación
-// de logs server-side) y un mensaje corto, nunca la pila ni datos sensibles.
-// El mensaje genérico del caso 2 no revela el `error.message` crudo porque
-// puede contener detalles de queries o paths internos — preferimos un texto
-// estable y soporte humano vía los logs.
+import { AppButton, AppEmptyState, AppHeader } from "@/components/ui";
+import { AppScreenFrame, AppScreenMain } from "@/components/ui/AppLayout";
+
 export default function Error({
   error,
   reset,
@@ -29,23 +22,30 @@ export default function Error({
   reset: () => void;
 }) {
   const isServerLoad = error.digest !== undefined;
+
   return (
-    <div className="flex flex-col items-center justify-center py-20 gap-4">
-      <AlertTriangle size={48} className="text-red-500" />
-      <h2 className="text-lg font-bold">Algo salió mal</h2>
-      <p className="text-sm text-[var(--text-secondary)] text-center max-w-md">
-        {isServerLoad
-          ? "No se pudo cargar este vehículo. Comprueba que la base de datos esté accesible y vuelve a intentarlo."
-          : "Ha ocurrido un error inesperado al mostrar este vehículo. Puedes reintentar; si persiste, revisa los logs del servidor."}
-      </p>
-      {error.digest && (
-        <p className="text-xs text-[var(--text-muted)] font-mono">
-          ref: {error.digest}
-        </p>
-      )}
-      <button className="btn btn-primary" onClick={() => reset()}>
-        <RefreshCw size={16} /> Intentar de nuevo
-      </button>
-    </div>
+    <AppScreenFrame>
+      <AppHeader title="Vehículo" align="center" back="/" />
+      <AppScreenMain>
+        <AppEmptyState
+          icon="warning"
+          accent="danger"
+          title="Algo ha salido mal"
+          description={
+            isServerLoad
+              ? "No se ha podido cargar este vehículo. Comprueba que la base de datos esté accesible y vuelve a intentarlo."
+              : "Ha ocurrido un error inesperado al mostrar este vehículo. Puedes reintentarlo; si sigue pasando, revisa los registros del servidor."
+          }
+        />
+        {error.digest && (
+          <p className="text-center text-caption text-text-muted">ref: {error.digest}</p>
+        )}
+        <div className="mt-6 flex justify-center">
+          <AppButton icon="rotate" onClick={() => reset()}>
+            Intentar de nuevo
+          </AppButton>
+        </div>
+      </AppScreenMain>
+    </AppScreenFrame>
   );
 }

@@ -104,37 +104,8 @@ check("6 radios", Object.keys(radius).length === 6);
 // migrar una pantalla se borra su línea. Cuando quede vacía, la migración
 // está terminada y el gate cubre todo src/.
 const LEGACY = new Set<string>([
-  "src/app/layout.tsx",
-  "src/app/page.tsx",
-  "src/app/settings/page.tsx",
-  "src/lib/constants.ts",
-  "src/components/PinGate.tsx",
-  "src/components/TopBar.tsx",
-  "src/components/VehicleCard.tsx",
-  "src/components/Modal.tsx",
-  "src/components/NavBar.tsx",
   "src/app/coches/nuevo/page.tsx",
   "src/app/coches/[id]/editar/page.tsx",
-  "src/app/coches/[id]/error.tsx",
-  "src/app/coches/[id]/loading.tsx",
-  "src/app/coches/[id]/components/ActionButtons.tsx",
-  "src/app/coches/[id]/components/AddExpenseFormFields.tsx",
-  "src/app/coches/[id]/components/AlertBanner.tsx",
-  "src/app/coches/[id]/components/CarDetailClient.tsx",
-  "src/app/coches/[id]/components/CarHeader.tsx",
-  "src/app/coches/[id]/components/CarStatsGrid.tsx",
-  "src/app/coches/[id]/components/CompleteMaintenanceModal.tsx",
-  "src/app/coches/[id]/components/ExpenseHistory.tsx",
-  "src/app/coches/[id]/components/ExpenseHistoryRow.tsx",
-  "src/app/coches/[id]/components/FullListModal.tsx",
-  "src/app/coches/[id]/components/MaintenanceRowWithState.tsx",
-  "src/app/coches/[id]/components/MaintenanceSchedule.tsx",
-  "src/app/coches/[id]/components/NotesTab.tsx",
-  "src/app/coches/[id]/components/ProgramMaintenanceFormBody.tsx",
-  "src/app/coches/[id]/components/SwipeableRow.tsx",
-  "src/app/coches/[id]/components/UploadDocumentModal.tsx",
-  "src/app/coches/[id]/lib/format.tsx",
-  "src/lib/documents/catalog.ts",
 ]);
 
 function walk(dir: string, out: string[] = []): string[] {

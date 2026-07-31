@@ -37,9 +37,10 @@ expect("matcher contiene /api/((?!pin|session).*)",
 console.log("\n=== 2) El matcher cubre /coches/** ===");
 expect("matcher contiene /coches/:path*", mw.includes("/coches/:path*"));
 
-console.log("\n=== 3) El matcher cubre los ajustes ===");
-expect("matcher contiene /settings o /perfil",
-  mw.includes("/settings") || mw.includes("/perfil"));
+console.log("\n=== 3) El matcher cubre las pantallas nuevas con datos del usuario ===");
+for (const route of ["/perfil", "/vehiculos", "/notificaciones", "/settings"]) {
+  expect(`matcher contiene ${route}`, mw.includes(`"${route}"`));
+}
 
 console.log('\n=== 4) "/" NO está en el matcher (se delega al Server Component) ===');
 // La home debe poder renderizarse sin sesión para el caso "primer uso, aún no
