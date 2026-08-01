@@ -129,6 +129,13 @@ body {
 	padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 24px);
 }
 
+/* Pie pegajoso de un asistente que convive con la barra inferior: se apoya
+   justo encima de ella en vez de quedar debajo. Va aquí, y no como valor
+   arbitrario de Tailwind, porque depende de la altura de la barra. */
+.bottom-nav-offset {
+	bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
+}
+
 /* ── Foco visible ──────────────────────────────────────────────────── */
 :focus-visible {
 	outline: 2px solid var(--color-primary);
@@ -202,13 +209,20 @@ body {
 }
 
 /* ── Normalización de controles nativos en tema oscuro ─────────────── */
-input,
-select,
-textarea,
-button {
-	font-family: inherit;
-	font-size: inherit;
-	color: inherit;
+/* Va en @layer base a propósito: el CSS sin capa gana a TODAS las capas,
+   incluida la de utilidades de Tailwind, así que sin este envoltorio el
+   `color: inherit` de aquí pisaba cualquier `text-primary` puesto en un
+   <button> y los botones de texto salían blancos. */
+@layer base {
+
+	input,
+	select,
+	textarea,
+	button {
+		font-family: inherit;
+		font-size: inherit;
+		color: inherit;
+	}
 }
 
 /* El date picker nativo de WebKit trae un icono negro invisible sobre

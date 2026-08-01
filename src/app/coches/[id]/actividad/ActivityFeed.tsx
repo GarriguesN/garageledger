@@ -99,6 +99,7 @@ export default function ActivityFeed({ carId, initialRows, initialHasMore }: Act
         <AppTimeline
           groups={groups.map((g) => ({
             label: g.label,
+            id: g.date,
             entries: g.entries.map((e) => ({
               id: e.id,
               accent: e.accent,

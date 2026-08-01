@@ -19,7 +19,7 @@ import { useToast } from "@/components/ui/AppToast";
 import { DOCUMENT_TYPES, type DocumentTypeId } from "@/lib/documents/catalog";
 import { documentStatus } from "@/lib/ui/documents";
 import type { CarDocuments, Attachment } from "@/lib/db/attachments";
-import UploadDocumentModal from "../components/UploadDocumentModal";
+import DocumentWizard, { type DocumentUpload } from "@/components/wizards/DocumentWizard";
 
 export interface DocumentsClientProps {
   carId: number;
@@ -33,40 +33,31 @@ export default function DocumentsClient({ carId, documents }: DocumentsClientPro
   const [uploadFor, setUploadFor] = useState<DocumentTypeId | "otros" | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadKey, setUploadKey] = useState(0);
-  const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<Attachment | null>(null);
 
   function openUpload(type: DocumentTypeId | "otros" | null) {
     setUploadFor(type);
-    // Remonta el modal para que vuelva al primer paso con la categoría nueva.
+    // Remonta el asistente para que vuelva al primer paso con la categoría
+    // nueva.
     setUploadKey((k) => k + 1);
     setUploadOpen(true);
   }
 
-  async function handleUpload(opts: {
-    file: File | Blob;
-    filename?: string;
-    documentType?: string | null;
-    validUntil?: string | null;
-  }) {
-    setUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append("car_id", String(carId));
-      fd.append("file", opts.file, opts.filename);
-      if (opts.documentType) fd.append("document_type", opts.documentType);
-      if (opts.validUntil) fd.append("valid_until", opts.validUntil);
+  // La subida la dispara el asistente; aquí se hace la petición y se
+  // refresca la lista, que la sirve el Server Component. Un fallo se lanza
+  // para que el asistente lo enseñe en su paso, sin cerrarse.
+  async function handleUpload(opts: DocumentUpload) {
+    const fd = new FormData();
+    fd.append("car_id", String(carId));
+    fd.append("file", opts.file, opts.filename);
+    if (opts.documentType) fd.append("document_type", opts.documentType);
+    if (opts.validUntil) fd.append("valid_until", opts.validUntil);
+    if (opts.reminderMonths != null) fd.append("reminder_months", String(opts.reminderMonths));
 
-      const res = await fetch("/api/attachments", { method: "POST", body: fd });
-      if (!res.ok) throw new Error();
-      setUploadOpen(false);
-      show("Documento subido");
-      router.refresh();
-    } catch {
-      show("No se pudo subir el documento", "error");
-    } finally {
-      setUploading(false);
-    }
+    const res = await fetch("/api/attachments", { method: "POST", body: fd });
+    if (!res.ok) throw new Error("No se pudo subir el documento");
+    show("Documento subido");
+    router.refresh();
   }
 
   async function handleDelete(id: number) {
@@ -128,11 +119,10 @@ export default function DocumentsClient({ carId, documents }: DocumentsClientPro
         Añadir documento
       </AppButton>
 
-      <UploadDocumentModal
+      <DocumentWizard
         key={uploadKey}
         open={uploadOpen}
         presetType={uploadFor}
-        uploading={uploading}
         onClose={() => setUploadOpen(false)}
         onUpload={handleUpload}
       />

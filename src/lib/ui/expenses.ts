@@ -27,6 +27,8 @@ export interface ExpenseView {
   title: string;
   description?: string;
   amount: string;
+  /** Importe sin formatear: lo necesitan los totales por mes. */
+  rawAmount: number;
   meta?: string;
   icon: IconName;
   accent: AccentToken;
@@ -49,28 +51,59 @@ export function toExpenseView(row: TimelineRow): ExpenseView {
     title: category.label,
     description: parts.join(" · ") || undefined,
     amount: formatCurrency(row.importe),
+    rawAmount: row.importe,
     meta: row.km != null ? formatKm(row.km) : undefined,
     icon: category.icon,
     accent: category.accent,
   };
 }
 
-/** Agrupa por día conservando el orden de entrada (ya viene descendente).
- *  Se usa un Map porque preserva el orden de inserción; un objeto no lo
- *  garantiza con claves que parecen números. */
+/** Agrupa por el encabezado del timeline, conservando el orden de entrada
+ *  (ya viene descendente). Se usa un Map porque preserva el orden de
+ *  inserción; un objeto no lo garantiza con claves que parecen números.
+ *
+ *  Se agrupa por ETIQUETA y no por fecha exacta a propósito: `relativeDayLabel`
+ *  mete varios días en el mismo cajón ("Hace 1 semana" cubre del 7 al 13, y
+ *  todo lo que no es pasado cae en "Hoy"). Agrupando por día salían dos
+ *  secciones seguidas con el mismo título —y con la misma key de React, que
+ *  es lo que avisaba la consola. */
 export function groupByDay(rows: ExpenseView[]): { label: string; date: string; entries: ExpenseView[] }[] {
-  const groups = new Map<string, ExpenseView[]>();
+  const groups = new Map<string, { date: string; entries: ExpenseView[] }>();
   for (const row of rows) {
     const day = row.date.slice(0, 10);
-    const list = groups.get(day);
-    if (list) list.push(row);
-    else groups.set(day, [row]);
+    const label = relativeDayLabel(day);
+    const hit = groups.get(label);
+    // `date` es la del primer gasto del grupo: al venir ordenado, es la más
+    // reciente de las que comparten encabezado.
+    if (hit) hit.entries.push(row);
+    else groups.set(label, { date: day, entries: [row] });
   }
-  return [...groups.entries()].map(([date, entries]) => ({
+  return [...groups.entries()].map(([label, { date, entries }]) => ({
     date,
-    label: relativeDayLabel(date),
+    label,
     entries,
   }));
+}
+
+/** Agrupa por mes natural para el historial de gastos, con el total de cada
+ *  mes. A diferencia del timeline de Actividad —que agrupa por día porque se
+ *  lee como un diario—, el historial se consulta para cuadrar cuentas, y ahí
+ *  la unidad es el mes. */
+export function groupByMonth(
+  rows: ExpenseView[],
+): { month: string; total: number; entries: ExpenseView[] }[] {
+  const groups = new Map<string, { total: number; entries: ExpenseView[] }>();
+  for (const row of rows) {
+    const month = row.date.slice(0, 7);
+    const hit = groups.get(month);
+    if (hit) {
+      hit.entries.push(row);
+      hit.total += row.rawAmount;
+    } else {
+      groups.set(month, { total: row.rawAmount, entries: [row] });
+    }
+  }
+  return [...groups.entries()].map(([month, { total, entries }]) => ({ month, total, entries }));
 }
 
 /** Reparto por categoría para el donut de la pantalla 5. Devuelve los

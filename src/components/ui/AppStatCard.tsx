@@ -6,13 +6,21 @@
 // quien conoce la métrica evita pintar de verde una mala noticia.
 
 import { ArrowDownRight, ArrowUpRight } from "@/design/tokens/icons";
-import { colors, iconSize, strokeWidth } from "@/design/tokens";
+import { colors, iconSize, strokeWidth, type AccentToken } from "@/design/tokens";
+import type { IconName } from "@/design/tokens/icons";
 import AppCard from "./AppCard";
+import AppIconChip from "./AppIconChip";
 import { cn } from "./cn";
 
 export interface AppStatCardProps {
   label: string;
   value: React.ReactNode;
+  /** Chip de icono sobre la etiqueta. Identifica la métrica de un vistazo
+   *  cuando hay varias tarjetas en rejilla. */
+  icon?: IconName;
+  accent?: AccentToken;
+  /** Convierte la tarjeta en enlace a la pantalla que desarrolla el dato. */
+  href?: string;
   /** Unidad pequeña bajo la cifra ("L/100km", "€"). */
   unit?: React.ReactNode;
   /** Texto de comparación ("0.7 vs media"). */
@@ -28,6 +36,9 @@ export interface AppStatCardProps {
 export default function AppStatCard({
   label,
   value,
+  icon,
+  accent = "primary",
+  href,
   unit,
   delta,
   deltaDirection = "down",
@@ -40,7 +51,8 @@ export default function AppStatCard({
     deltaGood === undefined ? colors.textSecondary : deltaGood ? colors.green : colors.danger;
 
   return (
-    <AppCard className={cn("flex flex-col", className)}>
+    <AppCard href={href} className={cn("flex flex-col", className)}>
+      {icon && <AppIconChip icon={icon} accent={accent} size="sm" className="mb-3" />}
       <span className="text-caption font-medium text-text-secondary">{label}</span>
       <span className="tabular mt-1 text-display font-bold leading-none text-text">{value}</span>
       {unit && <span className="mt-1 text-caption text-text-secondary">{unit}</span>}

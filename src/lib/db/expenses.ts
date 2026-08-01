@@ -14,6 +14,9 @@ export interface Expense {
    *  Es la fuente de verdad para checks lógicos; el campo `tipo` es sólo
    *  un label legible para la UI. */
   tipo_id: string | null;
+  /** Cómo se pagó ("Tarjeta", "Efectivo"…). Lo pide el paso "Detalles del
+   *  gasto" del asistente; null en gastos anteriores al asistente. */
+  metodo_pago: string | null;
   created_at: string;
 }
 
@@ -54,9 +57,12 @@ export function createExpense(
   carId: number, tipo: string, importe: number, date: string,
   descripcion = "", referencia = "",
   litros: number | null = null, km: number | null = null, costeTaller: number | null = null,
-  opts: { impuestoCirculacion?: boolean; maintenanceTaskId?: number; scheduleNext?: boolean; presetKey?: string; tipoId?: string } = {},
+  opts: {
+    impuestoCirculacion?: boolean; maintenanceTaskId?: number; scheduleNext?: boolean;
+    presetKey?: string; tipoId?: string; metodoPago?: string | null;
+  } = {},
 ): Expense {
-  const r = getDb().prepare("INSERT INTO expenses (car_id, date, tipo, importe, descripcion, referencia, litros, km, coste_estimado_taller, maintenance_task_id, preset_key, tipo_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)").run(carId, date, tipo, importe, descripcion, referencia, litros, km, costeTaller, opts.maintenanceTaskId ?? null, opts.presetKey ?? null, opts.tipoId ?? null);
+  const r = getDb().prepare("INSERT INTO expenses (car_id, date, tipo, importe, descripcion, referencia, litros, km, coste_estimado_taller, maintenance_task_id, preset_key, tipo_id, metodo_pago) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)").run(carId, date, tipo, importe, descripcion, referencia, litros, km, costeTaller, opts.maintenanceTaskId ?? null, opts.presetKey ?? null, opts.tipoId ?? null, opts.metodoPago ?? null);
   // Ticket 1.14: bump car km if this expense has odometer data.
   if (km !== null && km > 0) bumpKmIfHigher(carId, km);
   // Ticket 1.20: ITV/Seguro/Impuestos actualizan la fecha del coche.
@@ -80,7 +86,7 @@ export function createExpense(
 }
 
 export function updateExpense(id: number, fields: Record<string, any>): Expense | undefined {
-  const allowed = ["car_id","date","tipo","importe","descripcion","referencia","litros","km","coste_estimado_taller"];
+  const allowed = ["car_id","date","tipo","tipo_id","importe","descripcion","referencia","litros","km","coste_estimado_taller","metodo_pago"];
   const sets: string[] = []; const vals: any[] = [];
   for (const k of allowed) { if (k in fields) { sets.push(`${k}=?`); vals.push(fields[k]); } }
   if (!sets.length) return getExpense(id);

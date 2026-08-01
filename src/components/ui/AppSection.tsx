@@ -3,6 +3,7 @@
 // lector de pantalla pueda saltar entre secciones.
 
 import Link from "next/link";
+import AppIcon from "./AppIcon";
 import { cn } from "./cn";
 
 export interface AppSectionProps {
@@ -36,9 +37,12 @@ export default function AppSection({
         <button
           type="button"
           onClick={onAction}
-          className="min-h-11 text-caption font-semibold text-primary"
+          className="inline-flex min-h-11 items-center gap-0.5 text-caption font-semibold text-primary"
         >
           {actionLabel}
+          {/* La acción que abre algo aquí mismo lleva chevron; la que navega
+              no lo necesita, ya se sabe que cambia de pantalla. */}
+          <AppIcon name="chevronRight" size="sm" />
         </button>
       )
     ) : null);

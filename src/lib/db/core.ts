@@ -248,6 +248,26 @@ function migrateSchema(db: Database.Database) {
   const attNames = attCols.map(c => c.name);
   if (!attNames.includes("document_type")) db.exec("ALTER TABLE attachments ADD COLUMN document_type TEXT");
   if (!attNames.includes("valid_until")) db.exec("ALTER TABLE attachments ADD COLUMN valid_until TEXT");
+
+  // ── Asistentes por pasos ────────────────────────────────────────────
+  // Campos que el asistente pide en pantalla y que antes no tenían dónde
+  // guardarse. Todos opcionales: una fila antigua sin ellos sigue siendo
+  // válida y la UI enseña "—".
+  //
+  // transmision / traccion  paso "Especificaciones" del vehículo.
+  // metodo_pago             paso "Detalles del gasto".
+  // reminder_months         cuánto antes avisar de un documento que caduca.
+  // reminder_days           cuánto antes avisar de un mantenimiento con fecha.
+  //
+  // Hubo también un `expenses.deposito` (lleno/parcial del repostaje) que se
+  // retiró: no lo consultaba nada. En las BD donde llegó a crearse, la
+  // columna se queda ahí sin usar —borrarla obliga a reescribir la tabla y no
+  // compensa por una columna vacía.
+  if (!colNames.includes("transmision")) db.exec("ALTER TABLE cars ADD COLUMN transmision TEXT");
+  if (!colNames.includes("traccion")) db.exec("ALTER TABLE cars ADD COLUMN traccion TEXT");
+  if (!expNames.includes("metodo_pago")) db.exec("ALTER TABLE expenses ADD COLUMN metodo_pago TEXT");
+  if (!attNames.includes("reminder_months")) db.exec("ALTER TABLE attachments ADD COLUMN reminder_months INTEGER");
+  if (!mtNames.includes("reminder_days")) db.exec("ALTER TABLE maintenance_tasks ADD COLUMN reminder_days INTEGER");
 }
 
 function seedIfEmpty(db: Database.Database) {

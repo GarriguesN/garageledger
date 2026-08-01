@@ -35,6 +35,8 @@ export async function POST(req: NextRequest) {
       // Ticket 1.17: clave del preset elegido en el form de gasto.
       presetKey: body.presetKey || undefined,
       tipoId: body.tipoId || undefined,
+      // Asistente por pasos: forma de pago.
+      metodoPago: body.metodoPago || null,
     }
   );
   return NextResponse.json(exp, { status: 201 });

@@ -9,7 +9,7 @@
 // respetan `prefers-reduced-motion` a través del CSS global.
 
 import { motion, useReducedMotion } from "framer-motion";
-import { accents, colors, duration, easing, type AccentToken } from "@/design/tokens";
+import { accents, colors, duration, easing, hexToRgba, type AccentToken } from "@/design/tokens";
 import { cn } from "./cn";
 
 export interface AppProgressProps {
@@ -61,6 +61,11 @@ export interface AppProgressRingProps {
   sublabel?: React.ReactNode;
   accent?: AccentToken;
   size?: number;
+  /** Grosor del aro. El anillo del resumen es más gordo que el del resto. */
+  stroke?: number;
+  /** Halo de color alrededor. Solo lo lleva el anillo protagonista del
+   *  resumen, donde flota sobre la foto y necesita despegarse de ella. */
+  glow?: boolean;
   className?: string;
 }
 
@@ -70,18 +75,31 @@ export function AppProgressRing({
   sublabel = "/100",
   accent = "green",
   size = 112,
+  stroke = 6,
+  glow = false,
   className,
 }: AppProgressRingProps) {
   const reduce = useReducedMotion();
   const pct = clamp01(score / 100);
-  const stroke = 6;
   const r = (size - stroke) / 2;
   const circumference = 2 * Math.PI * r;
 
   return (
     <div
       className={cn("relative inline-flex items-center justify-center", className)}
-      style={{ width: size, height: size }}
+      style={{
+        width: size,
+        height: size,
+        // El halo se pinta con el color del propio acento, muy diluido: es
+        // separación de la foto que hay detrás, no un efecto.
+        ...(glow
+          ? {
+              borderRadius: "50%",
+              backgroundColor: colors.background,
+              boxShadow: `0 0 24px 6px ${hexToRgba(accents[accent], 0.22)}`,
+            }
+          : null),
+      }}
       role="img"
       aria-label={`Puntuación ${Math.round(score)} sobre 100`}
     >

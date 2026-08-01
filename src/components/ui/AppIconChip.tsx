@@ -19,6 +19,9 @@ export interface AppIconChipProps {
   size?: keyof typeof SIZES;
   /** Rellena el chip con el acento sólido en vez del 12%. */
   solid?: boolean;
+  /** Redondo en vez de cuadrado redondeado. El mockup lo usa donde el icono
+   *  es un estado y no una categoría: avisos y estadísticas del resumen. */
+  shape?: "square" | "circle";
   className?: string;
 }
 
@@ -27,6 +30,7 @@ export default function AppIconChip({
   accent = "primary",
   size = "md",
   solid = false,
+  shape = "square",
   className,
 }: AppIconChipProps) {
   const { box, icon: iconPx } = SIZES[size];
@@ -39,7 +43,7 @@ export default function AppIconChip({
       style={{
         width: box,
         height: box,
-        borderRadius: radius.chip,
+        borderRadius: shape === "circle" ? radius.pill : radius.chip,
         backgroundColor: solid ? color : accentDim(accent),
       }}
     >

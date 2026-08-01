@@ -13,6 +13,10 @@ export interface AppBadgeProps {
   dot?: boolean;
   /** Fondo sólido en vez del acento tenue. */
   solid?: boolean;
+  /** Píldora neutra: fondo translúcido oscuro y texto claro. Es la del
+   *  distintivo de versión bajo el nombre del coche, donde el color no
+   *  significa nada y competiría con el estado. */
+  tone?: "accent" | "neutral";
   className?: string;
 }
 
@@ -21,20 +25,24 @@ export default function AppBadge({
   accent = "green",
   dot = false,
   solid = false,
+  tone = "accent",
   className,
 }: AppBadgeProps) {
   const color = accents[accent];
+  const neutral = tone === "neutral";
 
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 px-2 py-1 text-caption font-semibold whitespace-nowrap",
+        "inline-flex items-center gap-1.5 px-3 py-1 text-caption font-semibold whitespace-nowrap",
         className,
       )}
       style={{
         borderRadius: radius.pill,
-        backgroundColor: solid ? color : accentDim(accent, 0.16),
-        color: solid ? colors.textOnColor : color,
+        backgroundColor: neutral
+          ? colors.surfaceElevated
+          : solid ? color : accentDim(accent, 0.16),
+        color: neutral ? colors.text : solid ? colors.textOnColor : color,
       }}
     >
       {dot && (

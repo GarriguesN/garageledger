@@ -2,28 +2,39 @@
 
 // Pantalla 5: Gastos, con dos pestañas.
 //
-//   Resumen    lo gastado este mes, el reparto por categoría (donut) y la
+//   Resumen    lo gastado este mes, el reparto por categoría (donut), las
+//              cifras de contexto (mes pasado, media, proyección) y la
 //              evolución de los últimos meses.
-//   Historial  la lista completa, de lo más reciente a lo más antiguo.
+//   Historial  la lista completa agrupada por mes, con buscador y chips de
+//              categoría.
 //
 // Los gráficos se cargan de forma diferida (AppChart) para que chart.js no
 // entre en el bundle de las pantallas que no lo necesitan.
+//
+// Buscador y filtros viven en la pestaña de Historial y no en la cabecera:
+// son controles de la lista, y arriba estarían encendidos sobre una pantalla
+// (Resumen) donde no hacen nada.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   AppTabs, AppCard, AppSection, AppChart, DonutChart, LineChart,
-  AppExpenseCard, AppEmptyState, AppSelect,
+  AppExpenseCard, AppEmptyState, AppSelect, AppInput, AppChipFilter, AppStatCard,
 } from "@/components/ui";
 import { colors, accents } from "@/design/tokens";
-import { formatCurrency, formatMonthLabel, formatDate } from "@/lib/format";
-import { toExpenseView, type TimelineRow } from "@/lib/ui/expenses";
+import { SELECTABLE_CATEGORIES } from "@/lib/expenses/categories";
+import { formatCurrency, formatMonthLabel, formatDate, formatMonthYear } from "@/lib/format";
+import { toExpenseView, groupByMonth, type TimelineRow } from "@/lib/ui/expenses";
 
 export interface ExpensesClientProps {
+  carId: number;
   monthly: { current: number; previous: number };
   delta: number | null;
+  averageMonthly: number | null;
   byCategory: { id: string; label: string; value: number; accent: string; share: number }[];
   history: { month: string; total: number }[];
   rows: TimelineRow[];
+  /** id de gasto → id del adjunto con el ticket. */
+  thumbnails: Record<number, number>;
 }
 
 const TABS = [
@@ -31,13 +42,38 @@ const TABS = [
   { id: "history", label: "Historial" },
 ];
 
+const CHIPS = SELECTABLE_CATEGORIES.map((c) => ({
+  id: c.id,
+  label: c.shortLabel,
+  icon: c.icon,
+}));
+
 export default function ExpensesClient({
-  monthly, delta, byCategory, history, rows,
+  carId, monthly, delta, averageMonthly, byCategory, history, rows, thumbnails,
 }: ExpensesClientProps) {
   const [active, setActive] = useState("summary");
   const [months, setMonths] = useState("6");
+  const [categories, setCategories] = useState<string[]>([]);
+  const [query, setQuery] = useState("");
 
   const visibleHistory = history.slice(-Number(months));
+
+  // Proyección anual: lo que costaría el año al ritmo del mes en curso. Es
+  // una estimación declarada como tal, no una previsión con modelo.
+  const projection = monthly.current * 12;
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return rows.filter((row) => {
+      if (categories.length > 0 && !categories.includes(row.tipo_id ?? "")) return false;
+      if (!q) return true;
+      return [row.tipo, row.descripcion, row.referencia]
+        .filter(Boolean)
+        .some((field) => field.toLowerCase().includes(q));
+    });
+  }, [rows, categories, query]);
+
+  const months_ = useMemo(() => groupByMonth(filtered.map(toExpenseView)), [filtered]);
 
   return (
     <>
@@ -103,6 +139,31 @@ export default function ExpensesClient({
             )}
           </AppCard>
 
+          <div className="grid grid-cols-2 gap-3">
+            <AppStatCard
+              icon="calendar"
+              accent="blue"
+              label="Mes pasado"
+              value={formatCurrency(monthly.previous)}
+              unit="total del mes anterior"
+            />
+            <AppStatCard
+              icon="trendUp"
+              accent="orange"
+              label="Proyección anual"
+              value={formatCurrency(projection)}
+              unit="al ritmo de este mes"
+            />
+            <AppStatCard
+              icon="euro"
+              accent="primary"
+              label="Media mensual"
+              value={averageMonthly != null ? formatCurrency(averageMonthly) : "—"}
+              unit="por mes con gastos"
+              className="col-span-2"
+            />
+          </div>
+
           <AppSection
             title="Evolución de gastos"
             action={
@@ -138,28 +199,68 @@ export default function ExpensesClient({
           </AppSection>
         </div>
       ) : (
-        <div className="mt-4 space-y-3">
+        <div className="mt-4 space-y-4">
+          <AppInput
+            type="search"
+            placeholder="Buscar por concepto, taller o gasolinera"
+            aria-label="Buscar gastos"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+
+          <AppChipFilter
+            chips={CHIPS}
+            selected={categories}
+            onChange={setCategories}
+            allLabel="Todos"
+          />
+
           {rows.length === 0 ? (
             <AppEmptyState
               icon="euro"
               title="Sin gastos registrados"
               description="Usa el botón [+] para añadir el primero."
             />
+          ) : months_.length === 0 ? (
+            <AppEmptyState
+              icon="filter"
+              title="Nada con estos filtros"
+              description="Prueba con otra categoría o borra la búsqueda."
+            />
           ) : (
-            rows.map((row) => {
-              const view = toExpenseView(row);
-              return (
-                <AppExpenseCard
-                  key={view.id}
-                  icon={view.icon}
-                  accent={view.accent}
-                  title={view.title}
-                  description={view.description}
-                  amount={view.amount}
-                  meta={formatDate(view.date)}
-                />
-              );
-            })
+            <div className="space-y-6">
+              {months_.map((group) => (
+                <section key={group.month}>
+                  <div className="mb-3 flex items-baseline justify-between gap-3">
+                    <h3 className="text-caption font-semibold uppercase tracking-wide text-text-secondary">
+                      {formatMonthYear(`${group.month}-01`)}
+                    </h3>
+                    <span className="tabular text-caption font-semibold text-text">
+                      {formatCurrency(group.total)}
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {group.entries.map((view) => (
+                      <AppExpenseCard
+                        key={view.id}
+                        icon={view.icon}
+                        accent={view.accent}
+                        title={view.title}
+                        description={view.description}
+                        amount={view.amount}
+                        meta={formatDate(view.date)}
+                        thumbnailUrl={
+                          thumbnails[view.id] ? `/api/attachments/${thumbnails[view.id]}` : null
+                        }
+                        href={`/coches/${carId}/gastos/${view.id}`}
+                        chevron
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
           )}
         </div>
       )}

@@ -142,6 +142,7 @@ export default async function MaintenanceDetailPage({
         <CompleteTaskButton
           taskId={task.id}
           carId={car.id}
+          partName={task.part_name}
           currentKm={car.km_actuales}
           recurring={recurring}
         />

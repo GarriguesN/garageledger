@@ -11,6 +11,9 @@ export interface Attachment {
   file_size: number;
   document_type: string | null;
   valid_until: string | null;
+  /** Cuántos meses antes de `valid_until` hay que avisar. null = sin
+   *  recordatorio (el paso 3 del asistente de documentos lo decide). */
+  reminder_months: number | null;
   created_at: string;
 }
 
@@ -28,11 +31,28 @@ export function createAttachment(
   expenseId?: number,
   documentType?: string | null,
   validUntil?: string | null,
+  reminderMonths?: number | null,
 ): Attachment {
   const r = getDb()
-    .prepare("INSERT INTO attachments (car_id, expense_id, filename, original_name, mime_type, file_size, document_type, valid_until) VALUES (?,?,?,?,?,?,?,?)")
-    .run(carId, expenseId || null, filename, originalName, mimeType, fileSize, documentType || null, validUntil || null);
+    .prepare("INSERT INTO attachments (car_id, expense_id, filename, original_name, mime_type, file_size, document_type, valid_until, reminder_months) VALUES (?,?,?,?,?,?,?,?,?)")
+    .run(carId, expenseId || null, filename, originalName, mimeType, fileSize, documentType || null, validUntil || null, reminderMonths ?? null);
   return getDb().prepare("SELECT * FROM attachments WHERE id=?").get(r.lastInsertRowid) as Attachment;
+}
+
+/** Miniatura de cada gasto que tenga ticket: id del gasto → id del adjunto.
+ *
+ *  Se resuelve de una sola consulta para toda la lista en vez de una por
+ *  fila; el historial de gastos pinta cientos de filas y una consulta por
+ *  cada una se nota. Solo cuentan las imágenes: de un PDF no hay miniatura
+ *  que enseñar sin renderizarlo. */
+export function getExpenseThumbnails(carId: number): Record<number, number> {
+  const rows = getDb().prepare(
+    "SELECT expense_id, MIN(id) as attachment_id FROM attachments " +
+    "WHERE car_id=? AND expense_id IS NOT NULL AND mime_type LIKE 'image/%' " +
+    "GROUP BY expense_id",
+  ).all(carId) as { expense_id: number; attachment_id: number }[];
+
+  return Object.fromEntries(rows.map((r) => [r.expense_id, r.attachment_id]));
 }
 
 export function deleteAttachment(id: number): void {
@@ -43,12 +63,13 @@ export function deleteAttachment(id: number): void {
  *  re-subir el archivo (el archivo en sí es inmutable — ver PATCH route). */
 export function updateAttachmentMeta(
   id: number,
-  fields: { document_type?: string | null; valid_until?: string | null },
+  fields: { document_type?: string | null; valid_until?: string | null; reminder_months?: number | null },
 ): Attachment | null {
   const sets: string[] = [];
   const values: unknown[] = [];
   if ("document_type" in fields) { sets.push("document_type=?"); values.push(fields.document_type ?? null); }
   if ("valid_until" in fields) { sets.push("valid_until=?"); values.push(fields.valid_until ?? null); }
+  if ("reminder_months" in fields) { sets.push("reminder_months=?"); values.push(fields.reminder_months ?? null); }
   if (sets.length === 0) return getDb().prepare("SELECT * FROM attachments WHERE id=?").get(id) as Attachment | null;
   values.push(id);
   getDb().prepare(`UPDATE attachments SET ${sets.join(", ")} WHERE id=?`).run(...values);

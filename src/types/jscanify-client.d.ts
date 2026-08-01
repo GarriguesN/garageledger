@@ -1,5 +1,5 @@
 // jscanify no publica tipos para su build de navegador (subpath "jscanify/client").
-// Se usa vía import() dinámico en UploadDocumentModal — ver ese archivo para la API real.
+// Se usa vía import() dinámico en DocumentWizard — ver ese archivo para la API real.
 declare module "jscanify/client" {
   export default class JScanify {
     constructor();

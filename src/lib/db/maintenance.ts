@@ -38,6 +38,9 @@ export interface MaintenanceTask {
   /** Ticket 1.17: clave estable del preset seleccionado. Permite comparar
    *  gasto↔tarea por id semántico en vez de por texto de part_name. */
   preset_key: string | null;
+  /** Cuántos días antes de `next_date` avisar. null = ventana por defecto
+   *  (la fija metrics.ts). Lo elige el paso "Próximo mantenimiento". */
+  reminder_days: number | null;
   completed: number; created_at: string;
 }
 
@@ -94,18 +97,19 @@ export function createMaintenanceTask(carId: number, part_name: string, opts: {
   /** Ticket 1.17: clave del preset elegido. Si viene, el caller espera
    *  que `part_name` sea el `MaintenancePreset.part_name` del catálogo. */
   preset_key?: string;
+  reminder_days?: number | null;
 } = {}): MaintenanceTask {
   const r = getDb().prepare(`
-    INSERT INTO maintenance_tasks (car_id, part_name, part_brand, part_model, current_km, current_date, next_km, next_date, interval_km, interval_months, icon_key, notes, preset_key)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+    INSERT INTO maintenance_tasks (car_id, part_name, part_brand, part_model, current_km, current_date, next_km, next_date, interval_km, interval_months, icon_key, notes, preset_key, reminder_days)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(carId, part_name, opts.part_brand || "", opts.part_model || "", opts.current_km || null, opts.current_date || null,
     opts.next_km || null, opts.next_date || null, opts.interval_km || null, opts.interval_months || null,
-    opts.icon_key || null, opts.notes || "", opts.preset_key || null);
+    opts.icon_key || null, opts.notes || "", opts.preset_key || null, opts.reminder_days ?? null);
   return getDb().prepare("SELECT * FROM maintenance_tasks WHERE id=?").get(r.lastInsertRowid) as MaintenanceTask;
 }
 
 export function updateMaintenanceTask(id: number, fields: Record<string, any>): MaintenanceTask | undefined {
-  const allowed = ["part_name","part_brand","part_model","current_km","current_date","next_km","next_date","interval_km","interval_months","notes","completed","preset_key","icon_key"];
+  const allowed = ["part_name","part_brand","part_model","current_km","current_date","next_km","next_date","interval_km","interval_months","notes","completed","preset_key","icon_key","reminder_days"];
   const sets: string[] = []; const vals: any[] = [];
   for (const k of allowed) {
     if (k in fields && fields[k] !== null && fields[k] !== undefined) {
@@ -144,9 +148,9 @@ export function completeMaintenanceTask(
     db.prepare("UPDATE maintenance_tasks SET completed=1, current_km=?, current_date=? WHERE id=?").run(currentKm, currentDate, id);
     if (!scheduleNext) return null;
     const r = db.prepare(`
-      INSERT INTO maintenance_tasks (car_id, part_name, part_brand, part_model, current_km, current_date, next_km, next_date, interval_km, interval_months, notes, preset_key, icon_key)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
-    `).run(task.car_id, task.part_name, task.part_brand, task.part_model, currentKm, currentDate, nextKm, nextDate, task.interval_km, task.interval_months, task.notes, task.preset_key, task.icon_key);
+      INSERT INTO maintenance_tasks (car_id, part_name, part_brand, part_model, current_km, current_date, next_km, next_date, interval_km, interval_months, notes, preset_key, icon_key, reminder_days)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `).run(task.car_id, task.part_name, task.part_brand, task.part_model, currentKm, currentDate, nextKm, nextDate, task.interval_km, task.interval_months, task.notes, task.preset_key, task.icon_key, task.reminder_days);
     return r.lastInsertRowid as number;
   });
   const newId = tx();

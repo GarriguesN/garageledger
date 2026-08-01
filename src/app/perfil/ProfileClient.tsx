@@ -10,9 +10,10 @@
 
 import { useEffect, useState } from "react";
 import {
-  AppCard, AppSection, AppListTile, AppDivider, AppModal, AppInput, AppButton, AppToast,
+  AppCard, AppSection, AppListTile, AppDivider, AppButton, AppToast,
 } from "@/components/ui";
 import { useToast } from "@/components/ui/AppToast";
+import { NameWizard, PinWizard } from "@/components/wizards/ProfileWizards";
 import { colors, hexToRgba } from "@/design/tokens";
 
 export interface ProfileClientProps {
@@ -34,13 +35,11 @@ export default function ProfileClient({
 
   const [name, setName] = useState(initialName);
   const [nameOpen, setNameOpen] = useState(false);
-  const [draftName, setDraftName] = useState(initialName);
+  const [nameKey, setNameKey] = useState(0);
 
   const [pinConfigured, setPinConfigured] = useState<boolean | null>(null);
   const [pinOpen, setPinOpen] = useState(false);
-  const [newPin, setNewPin] = useState("");
-  const [confirmPin, setConfirmPin] = useState("");
-  const [pinError, setPinError] = useState("");
+  const [pinKey, setPinKey] = useState(0);
 
   useEffect(() => {
     fetch("/api/pin")
@@ -48,53 +47,6 @@ export default function ProfileClient({
       .then((d) => setPinConfigured(!!d.configured))
       .catch(() => setPinConfigured(null));
   }, []);
-
-  async function saveName() {
-    const value = draftName.trim();
-    try {
-      const res = await fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: "display_name", value }),
-      });
-      if (!res.ok) throw new Error();
-      setName(value);
-      setNameOpen(false);
-      show("Nombre actualizado");
-    } catch {
-      show("No se pudo guardar el nombre", "error");
-    }
-  }
-
-  async function savePin() {
-    setPinError("");
-    if (newPin.length < 4 || newPin.length > 10) {
-      setPinError("El PIN debe tener entre 4 y 10 dígitos");
-      return;
-    }
-    if (newPin !== confirmPin) {
-      setPinError("Los PIN no coinciden");
-      return;
-    }
-    try {
-      const res = await fetch("/api/pin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "set", pin: newPin }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error);
-      }
-      setPinConfigured(true);
-      setPinOpen(false);
-      setNewPin("");
-      setConfirmPin("");
-      show("PIN actualizado");
-    } catch (e) {
-      setPinError(e instanceof Error && e.message ? e.message : "No se pudo guardar el PIN");
-    }
-  }
 
   return (
     <div className="space-y-6 pt-2">
@@ -121,7 +73,7 @@ export default function ProfileClient({
             icon="edit"
             ariaLabel="Editar nombre"
             onClick={() => {
-              setDraftName(name);
+              setNameKey((k) => k + 1);
               setNameOpen(true);
             }}
           />
@@ -136,7 +88,10 @@ export default function ProfileClient({
             icon="lock"
             label="PIN de acceso"
             value={pinConfigured === null ? "…" : pinConfigured ? "Activado" : "Sin configurar"}
-            onClick={() => setPinOpen(true)}
+            onClick={() => {
+              setPinKey((k) => k + 1);
+              setPinOpen(true);
+            }}
           />
           <AppDivider />
           <AppListTile icon="bell" label="Notificaciones" href="/notificaciones" />
@@ -162,56 +117,27 @@ export default function ProfileClient({
         </AppCard>
       </AppSection>
 
-      <AppModal
+      <NameWizard
+        key={`name-${nameKey}`}
         open={nameOpen}
         onClose={() => setNameOpen(false)}
-        title="Tu nombre"
-        footer={
-          <AppButton size="lg" onClick={saveName}>
-            Guardar
-          </AppButton>
-        }
-      >
-        <AppInput
-          label="Nombre"
-          value={draftName}
-          onChange={(e) => setDraftName(e.target.value)}
-          placeholder="Cómo quieres que te llamemos"
-          maxLength={40}
-        />
-      </AppModal>
+        initialName={name}
+        onSaved={(value) => {
+          setName(value);
+          show("Nombre actualizado");
+        }}
+      />
 
-      <AppModal
+      <PinWizard
+        key={`pin-${pinKey}`}
         open={pinOpen}
         onClose={() => setPinOpen(false)}
-        title={pinConfigured ? "Cambiar PIN" : "Establecer PIN"}
-        footer={
-          <AppButton size="lg" onClick={savePin}>
-            Guardar PIN
-          </AppButton>
-        }
-      >
-        <div className="space-y-4">
-          <AppInput
-            label="Nuevo PIN"
-            type="password"
-            inputMode="numeric"
-            autoComplete="new-password"
-            value={newPin}
-            onChange={(e) => setNewPin(e.target.value)}
-            hint="Entre 4 y 10 dígitos"
-          />
-          <AppInput
-            label="Repite el PIN"
-            type="password"
-            inputMode="numeric"
-            autoComplete="new-password"
-            value={confirmPin}
-            onChange={(e) => setConfirmPin(e.target.value)}
-            error={pinError || undefined}
-          />
-        </div>
-      </AppModal>
+        configured={!!pinConfigured}
+        onSaved={() => {
+          setPinConfigured(true);
+          show("PIN actualizado");
+        }}
+      />
 
       <AppToast toast={toast} onDismiss={dismiss} />
     </div>

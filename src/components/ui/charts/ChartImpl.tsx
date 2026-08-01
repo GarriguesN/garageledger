@@ -104,51 +104,69 @@ export function LineChart({
   values,
   accent = "primary",
   formatValue,
-  /** Oculta puntos y ejes: la miniatura de tendencia del mockup 12. */
-  sparkline = false,
+  /** `hero`: la gráfica ES el fondo de la tarjeta (mockup 12). Trazo fino,
+   *  puntos redondos, rejilla muy tenue y nada de ejes, relleno ni tooltip:
+   *  ahí la línea acompaña a la cifra, no se consulta. */
+  variant = "default",
 }: {
   labels: string[];
   values: number[];
   accent?: AccentToken;
   formatValue?: (v: number) => string;
-  sparkline?: boolean;
+  variant?: "default" | "hero";
 }) {
   const color = accents[accent];
+  const hero = variant === "hero";
 
   const options: ChartOptions<"line"> = {
     responsive: true,
     maintainAspectRatio: false,
     animation,
+    // En modo decorativo no hay interacción: ni tooltip, ni hover, ni cursor.
+    events: hero ? [] : undefined,
     interaction: { intersect: false, mode: "index" },
+    // Deja aire para que los puntos de los extremos no se recorten contra el
+    // borde del lienzo.
+    layout: hero ? { padding: { top: 6, bottom: 2, left: 4, right: 4 } } : undefined,
     plugins: {
       legend: { display: false },
-      tooltip: {
-        ...tooltipStyle,
-        callbacks: {
-          label: (ctx) => {
-            const y = ctx.parsed.y ?? 0;
-            return formatValue ? formatValue(y) : String(y);
+      tooltip: hero
+        ? { enabled: false }
+        : {
+            ...tooltipStyle,
+            callbacks: {
+              label: (ctx) => {
+                const y = ctx.parsed.y ?? 0;
+                return formatValue ? formatValue(y) : String(y);
+              },
+            },
           },
-        },
-      },
     },
     scales: {
       x: {
-        display: !sparkline,
-        grid: { display: false },
+        // En `hero` el eje se dibuja solo por su rejilla: sin etiquetas ni
+        // línea de base.
+        display: true,
+        grid: hero
+          ? { color: hexToRgba(colors.border, 0.55), drawTicks: false }
+          : { display: false },
         border: { display: false },
-        ticks: { color: colors.textMuted },
+        ticks: hero ? { display: false } : { color: colors.textMuted },
       },
       y: {
-        display: !sparkline,
-        beginAtZero: true,
-        grid: { color: colors.border },
+        display: true,
+        beginAtZero: !hero,
+        grid: hero
+          ? { color: hexToRgba(colors.border, 0.55), drawTicks: false }
+          : { color: colors.border },
         border: { display: false },
-        ticks: {
-          color: colors.textMuted,
-          maxTicksLimit: 4,
-          callback: (v) => (formatValue ? formatValue(Number(v)) : String(v)),
-        },
+        ticks: hero
+          ? { display: false }
+          : {
+              color: colors.textMuted,
+              maxTicksLimit: 4,
+              callback: (v) => (formatValue ? formatValue(Number(v)) : String(v)),
+            },
       },
     },
   };
@@ -162,15 +180,15 @@ export function LineChart({
           {
             data: values,
             borderColor: color,
-            backgroundColor: hexToRgba(color, 0.12),
+            backgroundColor: hero ? color : hexToRgba(color, 0.12),
             borderWidth: 2,
-            fill: true,
+            fill: !hero,
             tension: 0.35,
-            pointRadius: sparkline ? 0 : 3,
+            pointRadius: 3,
             pointBackgroundColor: color,
-            pointBorderColor: colors.surface,
-            pointBorderWidth: 2,
-            pointHoverRadius: 5,
+            pointBorderColor: hero ? color : colors.surface,
+            pointBorderWidth: hero ? 0 : 2,
+            pointHoverRadius: hero ? 3 : 5,
           },
         ],
       }}
@@ -188,6 +206,9 @@ export function BarChart({
   mutedIndices = [],
   formatValue,
   showAxes = false,
+  /** Tope de grosor. Con pocas barras, chart.js las engorda hasta ocupar
+   *  todo el ancho disponible y la miniatura deja de parecer una miniatura. */
+  maxBarThickness,
 }: {
   labels: string[];
   values: number[];
@@ -195,6 +216,7 @@ export function BarChart({
   mutedIndices?: number[];
   formatValue?: (v: number) => string;
   showAxes?: boolean;
+  maxBarThickness?: number;
 }) {
   const color = accents[accent];
   const muted = new Set(mutedIndices);
@@ -239,6 +261,7 @@ export function BarChart({
             ),
             borderRadius: 4,
             borderSkipped: false,
+            maxBarThickness,
           },
         ],
       }}

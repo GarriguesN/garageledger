@@ -3,7 +3,10 @@
 import { AppHeader } from "@/components/ui";
 import { AppScreenMain } from "@/components/ui/AppLayout";
 import { requireCar } from "../lib/loadCar";
-import { getMonthlySpend, getMonthlyHistory, getTimeline } from "@/lib/db/metrics";
+import {
+  getMonthlySpend, getMonthlyHistory, getTimeline, getAverageMonthlySpend,
+} from "@/lib/db/metrics";
+import { getExpenseThumbnails } from "@/lib/db/attachments";
 import { spendByCategory, type TimelineRow } from "@/lib/ui/expenses";
 import { percentChange } from "@/lib/format";
 import ExpensesClient from "./ExpensesClient";
@@ -29,14 +32,23 @@ export default async function ExpensesPage({
 
   return (
     <>
-      <AppHeader title="Gastos" />
+      <AppHeader
+        title="Gastos"
+        actions={[
+          { icon: "trendUp", label: "Ver insights", href: `/coches/${car.id}/insights` },
+          { icon: "car", label: "Cambiar de vehículo", href: "/vehiculos" },
+        ]}
+      />
       <AppScreenMain hasBottomNav className="pt-2">
         <ExpensesClient
+          carId={car.id}
           monthly={monthly}
           delta={percentChange(monthly.current, monthly.previous)}
+          averageMonthly={getAverageMonthlySpend(car.id)}
           byCategory={spendByCategory(monthRows)}
           history={history}
           rows={rows}
+          thumbnails={getExpenseThumbnails(car.id)}
         />
       </AppScreenMain>
     </>

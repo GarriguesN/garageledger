@@ -30,7 +30,8 @@ interface NavItem {
 
 export interface AppBottomNavigationProps {
   carId: string | number;
-  /** Abre el asistente de añadir gasto. */
+  /** El [+] abre el asistente. Nada de menús intermedios: la primera
+   *  pantalla del propio asistente ya es la lista de qué añadir. */
   onAdd: () => void;
 }
 
@@ -85,7 +86,7 @@ export default function AppBottomNavigation({ carId, onAdd }: AppBottomNavigatio
           <motion.button
             type="button"
             onClick={onAdd}
-            aria-label="Añadir gasto"
+            aria-label="Añadir"
             whileTap={{ scale: 0.94 }}
             transition={{ duration: duration.press, ease: easing.out }}
             className="flex size-14 items-center justify-center rounded-pill text-white"

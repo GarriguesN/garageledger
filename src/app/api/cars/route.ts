@@ -40,6 +40,8 @@ export async function POST(req: NextRequest) {
     peso_kg: body.peso_kg ?? null,
     plazas: body.plazas ?? null,
     color: body.color ?? null,
+    transmision: body.transmision ?? null,
+    traccion: body.traccion ?? null,
   });
   return NextResponse.json(car, { status: 201 });
 }

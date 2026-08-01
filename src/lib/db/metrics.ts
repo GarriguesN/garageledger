@@ -1,6 +1,8 @@
 import { getDb } from "./core";
 import { getCar } from "./cars";
 import { getMantenimientoConfig } from "./maintenance";
+import { DOCUMENT_TYPE_MAP, type DocumentTypeId } from "@/lib/documents/catalog";
+import { formatDate as esDate, formatDeadline } from "@/lib/format";
 
 export function getMonthlySpend(carId: number): { current: number; previous: number } {
   const now = new Date();
@@ -50,6 +52,157 @@ export function getTotalCostPerKm(carId: number): number | null {
   return Math.round((row.total / car.km_actuales) * 10000) / 10000;
 }
 
+/** Consumo reciente frente al de siempre (mockup 12: "↓ 0.7 vs media").
+ *
+ *  "Reciente" son los últimos repostajes —por defecto cuatro—, calculados
+ *  igual que la media histórica: litros repostados entre los km recorridos
+ *  en ese tramo. Devuelve null cuando no hay repostajes suficientes; una
+ *  comparación con dos datos no es una tendencia, es ruido. */
+export function getRecentFuelConsumption(carId: number, refuels = 4): number | null {
+  const rows = getDb().prepare(
+    "SELECT litros, km FROM expenses " +
+    "WHERE car_id=? AND (tipo_id='carburante' OR (tipo_id IS NULL AND tipo='Carburante')) " +
+    "AND km IS NOT NULL AND litros IS NOT NULL ORDER BY date DESC, id DESC LIMIT ?",
+  ).all(carId, refuels) as { litros: number; km: number }[];
+  if (rows.length < 2) return null;
+
+  // Vienen de más reciente a más antiguo: el tramo va del último al primero.
+  const newest = rows[0];
+  const oldest = rows[rows.length - 1];
+  const diffKm = newest.km - oldest.km;
+  if (diffKm <= 0) return null;
+
+  // El repostaje más antiguo del tramo llenó el depósito ANTES de recorrerlo,
+  // así que sus litros no cuentan — igual que en la media histórica.
+  const litros = rows.slice(0, -1).reduce((sum, r) => sum + r.litros, 0);
+  if (litros <= 0) return null;
+  return Math.round((litros / diffKm) * 100 * 100) / 100;
+}
+
+/** Coste por km de los últimos meses, para comparar con el de toda la vida
+ *  del coche. Se mide sobre los km realmente recorridos en la ventana, no
+ *  sobre el cuentakilómetros total. */
+export function getRecentCostPerKm(carId: number, months = 3): number | null {
+  const since = new Date();
+  since.setMonth(since.getMonth() - months);
+  const from = since.toISOString().slice(0, 10);
+
+  const row = getDb().prepare(
+    "SELECT COALESCE(SUM(importe),0) as total, MIN(km) as minKm, MAX(km) as maxKm " +
+    "FROM expenses WHERE car_id=? AND date >= ?",
+  ).get(carId, from) as { total: number; minKm: number | null; maxKm: number | null };
+
+  if (!row || row.total <= 0 || row.minKm == null || row.maxKm == null) return null;
+  const km = row.maxKm - row.minKm;
+  if (km <= 0) return null;
+  return Math.round((row.total / km) * 10000) / 10000;
+}
+
+/** Consumo repostaje a repostaje, para la gráfica de evolución de Insights.
+ *
+ *  Cada punto es el consumo del tramo que cerró ese repostaje: los litros que
+ *  entraron entre los kilómetros recorridos desde el anterior. Los tramos sin
+ *  km o con el cuentakilómetros hacia atrás se descartan en vez de pintar un
+ *  pico imposible. */
+export function getFuelConsumptionHistory(
+  carId: number,
+  limit = 12,
+): { date: string; l100km: number }[] {
+  const refuels = getDb().prepare(
+    "SELECT date, litros, km FROM expenses " +
+    "WHERE car_id=? AND (tipo_id='carburante' OR (tipo_id IS NULL AND tipo='Carburante')) " +
+    "AND km IS NOT NULL AND litros IS NOT NULL AND litros > 0 ORDER BY date ASC, id ASC",
+  ).all(carId) as { date: string; litros: number; km: number }[];
+
+  const points: { date: string; l100km: number }[] = [];
+  for (let i = 1; i < refuels.length; i++) {
+    const km = refuels[i].km - refuels[i - 1].km;
+    if (km <= 0) continue;
+    points.push({
+      date: refuels[i].date,
+      l100km: Math.round((refuels[i].litros / km) * 100 * 100) / 100,
+    });
+  }
+  return points.slice(-limit);
+}
+
+/** Media de gasto mensual sobre los meses con actividad. Se ignoran los
+ *  meses en blanco: dividir entre meses en los que el coche ni se usó
+ *  rebajaría la media hasta volverla inútil. */
+export function getAverageMonthlySpend(carId: number): number | null {
+  const row = getDb().prepare(
+    "SELECT COALESCE(SUM(importe),0) as total, COUNT(DISTINCT strftime('%Y-%m', date)) as months " +
+    "FROM expenses WHERE car_id=?",
+  ).get(carId) as { total: number; months: number };
+  if (!row || row.months === 0 || row.total <= 0) return null;
+  return Math.round((row.total / row.months) * 100) / 100;
+}
+
+/** Gasto total del vehículo, para la tarjeta "Total gastado". */
+export function getTotalSpend(carId: number): number {
+  const row = getDb()
+    .prepare("SELECT COALESCE(SUM(importe),0) as total FROM expenses WHERE car_id=?")
+    .get(carId) as { total: number };
+  return row.total;
+}
+
+/** Gasto del año en curso — la cifra "Gasto total (este año)" del resumen.
+ *  El total de siempre no dice nada en un coche de quince años; el del año
+ *  sí es comparable con lo que uno tiene en la cabeza. */
+export function getYearSpend(carId: number): number {
+  const year = new Date().getFullYear();
+  const row = getDb().prepare(
+    "SELECT COALESCE(SUM(importe),0) as total FROM expenses WHERE car_id=? AND strftime('%Y', date)=?",
+  ).get(carId, String(year)) as { total: number };
+  return row.total;
+}
+
+/** Suma de los gastos de mantenimiento (taller y DIY). */
+export function getMaintenanceSpend(carId: number): number {
+  const row = getDb().prepare(
+    "SELECT COALESCE(SUM(importe),0) as total FROM expenses WHERE car_id=? AND (" +
+    "tipo_id IN ('mantenimiento','mantenimiento_diy') OR " +
+    "(tipo_id IS NULL AND tipo LIKE 'Mantenimiento%'))",
+  ).get(carId) as { total: number };
+  return row.total;
+}
+
+/** Cuándo toca la próxima ITV: dos años si el coche tiene menos de diez,
+ *  uno a partir de ahí. Se exporta porque la pantalla de resumen pinta esa
+ *  misma fecha en "Próximos eventos" y las dos deben decir lo mismo. */
+export function getItvDueDate(car: {
+  fecha_ultima_itv: string | null;
+  ano: number | null;
+}): Date | null {
+  if (!car.fecha_ultima_itv) return null;
+  const last = new Date(car.fecha_ultima_itv + "T12:00:00");
+  const interval = car.ano && car.ano > new Date().getFullYear() - 10 ? 24 : 12;
+  return new Date(last.getTime() + interval * 30 * 24 * 60 * 60 * 1000);
+}
+
+/** Cuándo vuelve a tocar el impuesto de circulación: un año después del
+ *  último pago. `fecha_ivtm` la rellena el usuario y
+ *  `fecha_impuesto_circulacion` la deduce el auto-update de gastos; manda la
+ *  más reciente de las dos. */
+export function getTaxDueDate(car: {
+  fecha_ivtm: string | null;
+  fecha_impuesto_circulacion: string | null;
+}): Date | null {
+  const paid = [car.fecha_ivtm, car.fecha_impuesto_circulacion]
+    .filter((d): d is string => !!d)
+    .sort()
+    .pop();
+  if (!paid) return null;
+  return new Date(new Date(paid + "T12:00:00").getTime() + 365 * 24 * 60 * 60 * 1000);
+}
+
+/** "en 15 días" / "hace 2 meses", para la segunda línea de un aviso. Se
+ *  apoya en formatDeadline para que el aviso y el evento del mismo trámite
+ *  no digan "hace 4 meses" y "hace 5 meses" por redondear distinto. */
+function formatRelativeDays(due: Date): string {
+  return formatDeadline(due.toISOString().slice(0, 10)) ?? "";
+}
+
 export function getCarMetrics(carId: number) {
   const monthly = getMonthlySpend(carId);
   const diy = getDiySavings(carId);
@@ -57,7 +210,22 @@ export function getCarMetrics(carId: number) {
   const totalCostPerKm = getTotalCostPerKm(carId);
   const projectedAnnual = monthly.current * 12;
   const car = getCar(carId);
-  const alerts: { type: 'critical' | 'warning' | 'info'; message: string; task_id?: number }[] = [];
+  // `topic` dice de qué va cada aviso, para que la pantalla sepa a dónde
+  // llevar al tocarlo (la tarea, las fechas del coche, los documentos) sin
+  // tener que adivinarlo leyendo el mensaje.
+  //
+  // `title` y `detail` son el mismo aviso partido en dos líneas, que es como
+  // lo pinta la tarjeta del resumen (título blanco + motivo en el color de la
+  // severidad). `message` se mantiene intacto porque el panel de
+  // notificaciones y /api/alerts lo consumen en una sola línea.
+  const alerts: {
+    type: 'critical' | 'warning' | 'info';
+    message: string;
+    title?: string;
+    detail?: string;
+    task_id?: number;
+    topic?: 'maintenance' | 'itv' | 'insurance' | 'tax' | 'document';
+  }[] = [];
   // audit:A-2 — No mutar la BD en un GET. El estado se computa en runtime.
   // Use refreshCarEstado(carId) after mutations to persist.
   const tasks = getDb().prepare("SELECT * FROM maintenance_tasks WHERE car_id=? AND completed=0").all(carId) as any[];
@@ -75,26 +243,103 @@ export function getCarMetrics(carId: number) {
         alerts.push({
           type: 'critical',
           message: `${t.part_name}: taller necesario (${t.next_km.toLocaleString("es-ES")} km)`,
+          title: t.part_name,
+          detail: `Taller necesario · ${t.next_km.toLocaleString("es-ES")} km`,
           task_id: t.id,
+          topic: 'maintenance',
         });
       } else if (t.next_km && (t.next_km - car.km_actuales) < (t.interval_km || 15000) * 0.15) {
         alerts.push({
           type: 'warning',
           message: `${t.part_name}: en ${(t.next_km - car.km_actuales).toLocaleString("es-ES")} km`,
+          title: t.part_name,
+          detail: `En ${(t.next_km - car.km_actuales).toLocaleString("es-ES")} km`,
           task_id: t.id,
+          topic: 'maintenance',
+        });
+      } else if (t.next_date && t.reminder_days) {
+        // Aviso por fecha: solo para tareas donde el usuario pidió
+        // explícitamente un recordatorio (paso "Próximo mantenimiento" del
+        // asistente). Sin `reminder_days` la tarea se sigue avisando por km
+        // como siempre, así que esto no cambia el comportamiento anterior.
+        const daysLeft = Math.ceil(
+          (new Date(t.next_date + "T12:00:00").getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+        );
+        if (daysLeft < 0) {
+          alerts.push({
+            type: 'critical',
+            message: `${t.part_name}: vencido (${t.next_date})`,
+            title: t.part_name,
+            detail: `Vencido el ${esDate(t.next_date)}`,
+            task_id: t.id,
+            topic: 'maintenance',
+          });
+        } else if (daysLeft <= t.reminder_days) {
+          alerts.push({
+            type: 'warning',
+            message: `${t.part_name}: en ${daysLeft} días`,
+            title: t.part_name,
+            detail: `En ${daysLeft} días`,
+            task_id: t.id,
+            topic: 'maintenance',
+          });
+        }
+      }
+    }
+
+    // Documentos con caducidad y recordatorio activo. El usuario marca el
+    // aviso al subirlos (paso 3 del asistente de documentos); sin ese aviso
+    // no se genera alerta, para no llenar el panel con cada PDF que se sube.
+    const docs = getDb().prepare(
+      "SELECT original_name, document_type, valid_until, reminder_months FROM attachments " +
+      "WHERE car_id=? AND valid_until IS NOT NULL AND reminder_months IS NOT NULL",
+    ).all(carId) as { original_name: string; document_type: string | null; valid_until: string; reminder_months: number }[];
+    for (const d of docs) {
+      const name = d.document_type
+        ? DOCUMENT_TYPE_MAP[d.document_type as DocumentTypeId]?.label ?? d.original_name
+        : d.original_name;
+      const daysLeft = Math.ceil(
+        (new Date(d.valid_until + "T12:00:00").getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+      );
+      if (daysLeft < 0) {
+        alerts.push({
+          type: 'critical',
+          message: `${name}: caducado (${d.valid_until})`,
+          title: name,
+          detail: `Caducado el ${esDate(d.valid_until)}`,
+          topic: 'document',
+        });
+      } else if (daysLeft <= d.reminder_months * 30) {
+        alerts.push({
+          type: 'warning',
+          message: `${name}: caduca en ${daysLeft} días (${d.valid_until})`,
+          title: name,
+          detail: `Caduca en ${daysLeft} días`,
+          topic: 'document',
         });
       }
     }
 
     // ITV alerts
-    if (car.fecha_ultima_itv) {
-      const lastItv = new Date(car.fecha_ultima_itv + "T12:00:00");
-      const interval = car.ano && car.ano > (new Date().getFullYear() - 10) ? 24 : 12;
-      const due = new Date(lastItv.getTime() + interval * 30 * 24 * 60 * 60 * 1000);
+    const itvDue = getItvDueDate(car);
+    if (car.fecha_ultima_itv && itvDue) {
+      const due = itvDue;
       if (due < new Date()) {
-        alerts.push({ type: 'critical', message: `ITV caducada (${car.fecha_ultima_itv})` });
+        alerts.push({
+          type: 'critical',
+          message: `ITV caducada (${car.fecha_ultima_itv})`,
+          title: `ITV caducada (${esDate(car.fecha_ultima_itv)})`,
+          detail: `Venció ${formatRelativeDays(due)}`,
+          topic: 'itv',
+        });
       } else if ((due.getTime() - Date.now()) < 30 * 24 * 60 * 60 * 1000) {
-        alerts.push({ type: 'warning', message: `ITV próxima: ${due.toLocaleDateString("es-ES")}` });
+        alerts.push({
+          type: 'warning',
+          message: `ITV próxima: ${due.toLocaleDateString("es-ES")}`,
+          title: `ITV (${esDate(due.toISOString().slice(0, 10))})`,
+          detail: `Vence ${formatRelativeDays(due)}`,
+          topic: 'itv',
+        });
       }
     }
 
@@ -102,9 +347,21 @@ export function getCarMetrics(carId: number) {
     if (car.fecha_vencimiento_seguro) {
       const daysLeft = Math.ceil((new Date(car.fecha_vencimiento_seguro + "T12:00:00").getTime() - Date.now()) / (1000 * 60 * 60 * 24));
       if (daysLeft < 0) {
-        alerts.push({ type: 'critical', message: `Seguro caducado (${car.fecha_vencimiento_seguro})` });
+        alerts.push({
+          type: 'critical',
+          message: `Seguro caducado (${car.fecha_vencimiento_seguro})`,
+          title: 'Seguro del vehículo',
+          detail: `Caducado el ${esDate(car.fecha_vencimiento_seguro)}`,
+          topic: 'insurance',
+        });
       } else if (daysLeft < 60) {
-        alerts.push({ type: 'warning', message: `Seguro vence en ${daysLeft} días (${car.fecha_vencimiento_seguro})` });
+        alerts.push({
+          type: 'warning',
+          message: `Seguro vence en ${daysLeft} días (${car.fecha_vencimiento_seguro})`,
+          title: 'Seguro del vehículo',
+          detail: `Vence en ${daysLeft} días`,
+          topic: 'insurance',
+        });
       }
     }
 
@@ -116,18 +373,42 @@ export function getCarMetrics(carId: number) {
       const lastTax = new Date(car.fecha_impuesto_circulacion + "T12:00:00");
       const dueTax = new Date(lastTax.getTime() + 365 * 24 * 60 * 60 * 1000);
       if (dueTax < new Date()) {
-        alerts.push({ type: 'critical', message: `Impuesto de circulación caducado (${car.fecha_impuesto_circulacion})` });
+        alerts.push({
+          type: 'critical',
+          message: `Impuesto de circulación caducado (${car.fecha_impuesto_circulacion})`,
+          title: 'Impuesto de circulación',
+          detail: `Venció ${formatRelativeDays(dueTax)}`,
+          topic: 'tax',
+        });
       } else if ((dueTax.getTime() - Date.now()) < 30 * 24 * 60 * 60 * 1000) {
-        alerts.push({ type: 'warning', message: `Impuesto de circulación próximo: ${dueTax.toLocaleDateString("es-ES")}` });
+        alerts.push({
+          type: 'warning',
+          message: `Impuesto de circulación próximo: ${dueTax.toLocaleDateString("es-ES")}`,
+          title: 'Impuesto de circulación',
+          detail: `Vence ${formatRelativeDays(dueTax)}`,
+          topic: 'tax',
+        });
       }
     }
     if (car.fecha_ivtm) {
       const lastIvtm = new Date(car.fecha_ivtm + "T12:00:00");
       const dueIvtm = new Date(lastIvtm.getTime() + 365 * 24 * 60 * 60 * 1000);
       if (dueIvtm < new Date()) {
-        alerts.push({ type: 'critical', message: `IVTM caducado (${car.fecha_ivtm})` });
+        alerts.push({
+          type: 'critical',
+          message: `IVTM caducado (${car.fecha_ivtm})`,
+          title: 'IVTM',
+          detail: `Venció ${formatRelativeDays(dueIvtm)}`,
+          topic: 'tax',
+        });
       } else if ((dueIvtm.getTime() - Date.now()) < 30 * 24 * 60 * 60 * 1000) {
-        alerts.push({ type: 'warning', message: `IVTM próximo: ${dueIvtm.toLocaleDateString("es-ES")}` });
+        alerts.push({
+          type: 'warning',
+          message: `IVTM próximo: ${dueIvtm.toLocaleDateString("es-ES")}`,
+          title: 'IVTM',
+          detail: `Vence ${formatRelativeDays(dueIvtm)}`,
+          topic: 'tax',
+        });
       }
     }
   }

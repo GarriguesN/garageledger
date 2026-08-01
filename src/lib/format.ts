@@ -22,10 +22,20 @@ export function formatCurrencyPrecise(
   decimals = 2,
 ): string {
   if (value == null || !Number.isFinite(value)) return "—";
-  return `${value.toLocaleString(LOCALE, {
+  return `${formatDecimal(value, decimals)} €`;
+}
+
+/** "0,19" — decimales fijos y sin unidad, para cuando la unidad se escribe
+ *  aparte ("0,19" + "€/km"). */
+export function formatDecimal(
+  value: number | null | undefined,
+  decimals = 2,
+): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return value.toLocaleString(LOCALE, {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
-  })} €`;
+  });
 }
 
 /** "132.870 km" */

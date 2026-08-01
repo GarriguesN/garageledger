@@ -35,6 +35,11 @@ export interface Car {
   plazas: number | null;
   /** Color del coche. */
   color: string | null;
+  /** Caja de cambios: "Manual", "Automático"… La pide el paso
+   *  "Especificaciones" del asistente de vehículo. */
+  transmision: string | null;
+  /** Tracción: "Delantera", "Trasera", "Total (4x4)". */
+  traccion: string | null;
 }
 
 export function getCars(includeArchived = false): Car[] {
@@ -67,12 +72,14 @@ export interface CreateCarInput {
   peso_kg?: number | null;
   plazas?: number | null;
   color?: string | null;
+  transmision?: string | null;
+  traccion?: string | null;
 }
 
 export function createCar(input: CreateCarInput): Car {
   const r = getDb().prepare(`INSERT INTO cars
-    (marca, modelo, generacion, motor, ano, puertas, km_actuales, matricula, bastidor, combustible, foto_attachment_id, fecha_matriculacion, km_origen, fecha_impuesto_circulacion, fecha_ivtm, potencia_cv, cilindrada_cc, peso_kg, plazas, color, notes)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+    (marca, modelo, generacion, motor, ano, puertas, km_actuales, matricula, bastidor, combustible, foto_attachment_id, fecha_matriculacion, km_origen, fecha_impuesto_circulacion, fecha_ivtm, potencia_cv, cilindrada_cc, peso_kg, plazas, color, transmision, traccion, notes)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
       input.marca,
       input.modelo,
       input.generacion || "",
@@ -93,6 +100,8 @@ export function createCar(input: CreateCarInput): Car {
       input.peso_kg ?? null,
       input.plazas ?? null,
       input.color ?? null,
+      input.transmision ?? null,
+      input.traccion ?? null,
       "",  // notes (lo escribe el usuario desde /api/notes; default vacío)
     );
   return getCar(r.lastInsertRowid as number)!;
@@ -107,6 +116,7 @@ export function updateCar(id: number, fields: Record<string, any>): Car | undefi
     "fecha_matriculacion","km_origen",
     "fecha_impuesto_circulacion","fecha_ivtm",
     "potencia_cv","cilindrada_cc","peso_kg","plazas","color",
+    "transmision","traccion",
   ];
   const sets: string[] = []; const vals: any[] = [];
   for (const k of allowed) { if (k in fields) { sets.push(`${k}=?`); vals.push(fields[k]); } }

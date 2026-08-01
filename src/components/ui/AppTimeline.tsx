@@ -23,6 +23,10 @@ export interface TimelineEntry {
 export interface TimelineGroup {
   /** "Hoy", "Ayer", "Hace 3 días", "12 marzo 2026". */
   label: string;
+  /** Identidad del grupo para React. Se pasa cuando el encabezado puede
+   *  repetirse —los rótulos relativos son texto, no identificadores— y se
+   *  cae al propio rótulo si no viene. */
+  id?: string;
   entries: TimelineEntry[];
 }
 
@@ -42,7 +46,7 @@ export default function AppTimeline({ groups, className, footer }: AppTimelinePr
   return (
     <div className={cn("space-y-6", className)}>
       {groups.map((group) => (
-        <section key={group.label}>
+        <section key={group.id ?? group.label}>
           <h3 className="mb-3 text-caption font-semibold text-text-secondary">{group.label}</h3>
 
           <ul

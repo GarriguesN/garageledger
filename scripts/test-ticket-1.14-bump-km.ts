@@ -85,22 +85,23 @@ if (task) {
 safeCall("restore km_actuales final", () => bumpKmIfHigher(1, restoreKm));
 
 // ── 4) La UI precarga el km del coche y no usa diálogos del navegador ──
-// Tras el rebuild, el formulario de gasto vive en AddExpenseWizard y el de
-// completar mantenimiento en CompleteTaskButton. La garantía es la misma que
-// cuando esto vivía en CarDetailClient: nada de prompt()/alert(), y el campo
-// de kilómetros arranca con el kilometraje actual del vehículo.
-const wizardPath = resolve(__dirname, "../src/app/coches/[id]/components/AddExpenseWizard.tsx");
+// Tras pasar los formularios a asistentes por pasos, el de gasto vive en
+// ExpenseWizard y el de completar mantenimiento en CompleteMaintenanceWizard.
+// La garantía es la misma que cuando esto vivía en CarDetailClient: nada de
+// prompt()/alert(), y el campo de kilómetros arranca con el kilometraje
+// actual del vehículo.
+const wizardPath = resolve(__dirname, "../src/components/wizards/ExpenseWizard.tsx");
 const wizardSource = readFileSync(wizardPath, "utf-8");
-expect("AddExpenseWizard no usa window.prompt()", !/\bwindow\.prompt\(|[^.\w]prompt\(/.test(wizardSource));
-expect("AddExpenseWizard no usa window.alert()", !/\bwindow\.alert\(|[^.\w]alert\(/.test(wizardSource));
-expect("AddExpenseWizard precarga km con el kilometraje del coche",
+expect("ExpenseWizard no usa window.prompt()", !/\bwindow\.prompt\(|[^.\w]prompt\(/.test(wizardSource));
+expect("ExpenseWizard no usa window.alert()", !/\bwindow\.alert\(|[^.\w]alert\(/.test(wizardSource));
+expect("ExpenseWizard precarga km con el kilometraje del coche",
   /km:\s*currentKm\s*>\s*0\s*\?\s*String\(currentKm\)/.test(wizardSource));
 
-const completePath = resolve(__dirname, "../src/app/coches/[id]/mantenimiento/[taskId]/CompleteTaskButton.tsx");
+const completePath = resolve(__dirname, "../src/components/wizards/CompleteMaintenanceWizard.tsx");
 const completeSource = readFileSync(completePath, "utf-8");
-expect("CompleteTaskButton precarga km con el kilometraje del coche",
-  /useState\(String\(currentKm\)\)/.test(completeSource));
-expect("CompleteTaskButton no usa window.confirm()", !/confirm\(/.test(completeSource));
+expect("CompleteMaintenanceWizard precarga km con el kilometraje del coche",
+  /km:\s*String\(currentKm\)/.test(completeSource));
+expect("CompleteMaintenanceWizard no usa window.confirm()", !/[^.\w]confirm\(/.test(completeSource));
 
 console.log(`\nTicket 1.14 — bumpKmIfHigher: Passed ${pass} / ${pass + fail}`);
 if (fail) process.exit(1);

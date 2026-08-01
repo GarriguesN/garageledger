@@ -37,6 +37,10 @@ export interface AppHeaderProps {
   /** Control libre a la izquierda (el ☰ del garaje). */
   leading?: HeaderAction;
   actions?: HeaderAction[];
+  /** Control propio a la derecha, después de las acciones. Es lo que permite
+   *  poner ahí algo que no es un botón suelto —el menú de los tres puntos del
+   *  vehículo, que despliega editar y archivar. */
+  trailing?: React.ReactNode;
   /** Fija la cabecera al hacer scroll. */
   sticky?: boolean;
   className?: string;
@@ -84,6 +88,7 @@ export default function AppHeader({
   back,
   leading,
   actions = [],
+  trailing,
   sticky = true,
   className,
 }: AppHeaderProps) {
@@ -131,8 +136,9 @@ export default function AppHeader({
           {actions.map((a) => (
             <IconButton key={a.label} action={a} />
           ))}
+          {trailing}
           {/* Equilibra el hueco izquierdo cuando el título va centrado. */}
-          {centered && actions.length === 0 && <span className="size-11" />}
+          {centered && actions.length === 0 && !trailing && <span className="size-11" />}
         </div>
       </div>
     </header>

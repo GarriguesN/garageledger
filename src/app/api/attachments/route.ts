@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
     const file = formData.get("file") as File | null;
     const documentTypeRaw = formData.get("document_type") as string | null;
     const validUntilRaw = formData.get("valid_until") as string | null;
+    const reminderMonthsRaw = formData.get("reminder_months") as string | null;
     if (!file || !carIdRaw) return NextResponse.json({ error: "Missing file or car_id" }, { status: 400 });
     const carId = parseInt(carIdRaw);
     const expenseId = expenseIdRaw ? parseInt(expenseIdRaw) : undefined;
@@ -48,6 +49,17 @@ export async function POST(req: NextRequest) {
     if (validUntilRaw) {
       validUntil = parseDate(validUntilRaw);
       if (!validUntil) return NextResponse.json({ error: "valid_until inválido" }, { status: 400 });
+    }
+    // Aviso previo a la caducidad, en meses. Sin fecha de caducidad no
+    // significa nada, así que se descarta en ese caso en vez de guardarlo
+    // huérfano.
+    let reminderMonths: number | null = null;
+    if (reminderMonthsRaw && validUntil) {
+      const parsed = Number.parseInt(reminderMonthsRaw, 10);
+      if (!Number.isFinite(parsed) || parsed < 0 || parsed > 12) {
+        return NextResponse.json({ error: "reminder_months inválido" }, { status: 400 });
+      }
+      reminderMonths = parsed;
     }
 
     // Validate BEFORE writing to disk (max-input trust: attacker could stream GB).
@@ -67,7 +79,7 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
     fs.writeFileSync(path.join(uploadDir(), uniqueName), buffer);
 
-    const att = createAttachment(carId, uniqueName, file.name, file.type, buffer.length, expenseId, documentType, validUntil);
+    const att = createAttachment(carId, uniqueName, file.name, file.type, buffer.length, expenseId, documentType, validUntil, reminderMonths);
     return NextResponse.json(att, { status: 201 });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });

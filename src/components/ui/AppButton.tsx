@@ -78,8 +78,11 @@ export default function AppButton({
   };
 
   if (href && !disabled) {
+    // El envoltorio de la animación tiene que estirarse también: si se queda
+    // en inline-flex, un botón `lg` —que es de ancho completo por
+    // definición— se encoge al ancho de su texto.
     return (
-      <motion.span {...press} className="inline-flex">
+      <motion.span {...press} className={cn("inline-flex", size === "lg" && "w-full")}>
         <Link href={href} aria-label={ariaLabel} className={classes}>
           {content}
         </Link>
