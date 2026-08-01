@@ -28,8 +28,12 @@ if (initial) {
 // Crea un gasto con km alto y verifica que los stats se actualizan.
 const before = safeCall("getKmStats before", () => getKmStats(1))!;
 const newKm = before.total + 2000;
+// La fecha es la de HOY, no una fija: la comprobación de abajo mira los km
+// del mes en curso, así que con una fecha escrita a mano el test empieza a
+// fallar solo el día que cambia el mes.
+const today = new Date().toISOString().slice(0, 10);
 const exp = safeCall("createExpense con km alto", () =>
-  createExpense(1, "Carburante", 50, "2026-07-23", "Test km stats", "", 40, newKm, null),
+  createExpense(1, "Carburante", 50, today, "Test km stats", "", 40, newKm, null),
 );
 const after = safeCall("getKmStats after", () => getKmStats(1));
 if (after) {

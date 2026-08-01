@@ -1,4 +1,5 @@
 import Database from "better-sqlite3";
+import fs from "fs";
 import path from "path";
 
 // DB_PATH: override por env var (e.g. tests en CI), sino busca
@@ -24,7 +25,7 @@ function resolveProjectRoot(): string {
   for (const dir of candidates) {
     if (!dir) continue;
     const pkg = path.join(dir, "package.json");
-    if (require("fs").existsSync(pkg)) return dir;
+    if (fs.existsSync(pkg)) return dir;
   }
   // Fallback a process.cwd() si no encontramos package.json.
   return process.cwd();
@@ -37,7 +38,7 @@ let db: Database.Database | null = null;
 export function getDb(): Database.Database {
   if (!db) {
     const dir = path.dirname(DB_PATH);
-    const { mkdirSync } = require("fs");
+    const { mkdirSync } = fs;
     try { mkdirSync(dir, { recursive: true }); } catch {}
     db = new Database(DB_PATH);
     db.pragma("journal_mode = WAL");

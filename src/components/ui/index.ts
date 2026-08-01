@@ -64,4 +64,7 @@ export {
 } from "./AppSkeleton";
 export { default as AppToast, useToast } from "./AppToast";
 export type { ToastState } from "./AppToast";
+// El sistema de asistentes no se exporta desde aquí: vive en
+// @/components/wizard (motor y piezas) y @/components/wizards (uno por
+// formulario). Esta biblioteca es de componentes de pantalla.
 export { cn } from "./cn";

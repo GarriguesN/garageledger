@@ -42,6 +42,17 @@ export interface Car {
   traccion: string | null;
 }
 
+/** Marcas distintas del garaje, ordenadas por frecuencia (la más usada
+ *  primero). Para los chips de "marcas recientes" del wizard de vehículo. */
+export function getRecentBrands(limit = 4): string[] {
+  const rows = getDb().prepare(
+    `SELECT marca, COUNT(*) as n FROM cars
+     WHERE marca <> '' AND archivado = 0
+     GROUP BY marca ORDER BY n DESC, marca ASC LIMIT ?`
+  ).all(limit) as { marca: string; n: number }[];
+  return rows.map((r) => r.marca);
+}
+
 export function getCars(includeArchived = false): Car[] {
   const where = includeArchived ? "" : " WHERE archivado = 0";
   return getDb().prepare(`SELECT * FROM cars${where} ORDER BY marca, modelo`).all() as Car[];
