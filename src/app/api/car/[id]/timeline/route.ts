@@ -6,5 +6,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  return NextResponse.json(getTimeline(parseInt(id), 100));
+  const { searchParams } = new URL(req.url);
+  const limit = Number(searchParams.get("limit")) || 100;
+  const offset = Number(searchParams.get("offset")) || 0;
+  return NextResponse.json(getTimeline(parseInt(id), limit, offset));
 }

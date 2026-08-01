@@ -2,14 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
 import { getAttachments, createAttachment, deleteAttachment } from "@/lib/db";
+import { validateUpload } from "@/lib/attachments";
+import { isValidDocumentType } from "@/lib/documents/catalog";
+import { parseDate } from "@/lib/validate";
 
-const UPLOAD_DIR = process.env.UPLOAD_DIR || "/opt/garageledger/data/uploads";
+export const runtime = "nodejs";
+
+function uploadDir(): string {
+  return process.env.UPLOAD_DIR || "/opt/garageledger/data/uploads";
+}
 
 function ensureDir(dir: string) {
   try { fs.mkdirSync(dir, { recursive: true }); } catch {}
 }
-
-export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -22,19 +27,59 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
-    const carId = parseInt(formData.get("car_id") as string);
-    const expenseId = formData.get("expense_id") ? parseInt(formData.get("expense_id") as string) : undefined;
-    const file = formData.get("file") as File;
-    if (!file || !carId) return NextResponse.json({ error: "Missing file or car_id" }, { status: 400 });
+    const carIdRaw = formData.get("car_id") as string | null;
+    const expenseIdRaw = formData.get("expense_id") as string | null;
+    const file = formData.get("file") as File | null;
+    const documentTypeRaw = formData.get("document_type") as string | null;
+    const validUntilRaw = formData.get("valid_until") as string | null;
+    const reminderMonthsRaw = formData.get("reminder_months") as string | null;
+    if (!file || !carIdRaw) return NextResponse.json({ error: "Missing file or car_id" }, { status: 400 });
+    const carId = parseInt(carIdRaw);
+    const expenseId = expenseIdRaw ? parseInt(expenseIdRaw) : undefined;
+    if (!Number.isFinite(carId)) return NextResponse.json({ error: "car_id inválido" }, { status: 400 });
 
-    ensureDir(UPLOAD_DIR);
+    let documentType: string | null = null;
+    if (documentTypeRaw) {
+      if (documentTypeRaw !== "otros" && !isValidDocumentType(documentTypeRaw)) {
+        return NextResponse.json({ error: "document_type inválido" }, { status: 400 });
+      }
+      documentType = documentTypeRaw;
+    }
+    let validUntil: string | null = null;
+    if (validUntilRaw) {
+      validUntil = parseDate(validUntilRaw);
+      if (!validUntil) return NextResponse.json({ error: "valid_until inválido" }, { status: 400 });
+    }
+    // Aviso previo a la caducidad, en meses. Sin fecha de caducidad no
+    // significa nada, así que se descarta en ese caso en vez de guardarlo
+    // huérfano.
+    let reminderMonths: number | null = null;
+    if (reminderMonthsRaw && validUntil) {
+      const parsed = Number.parseInt(reminderMonthsRaw, 10);
+      if (!Number.isFinite(parsed) || parsed < 0 || parsed > 12) {
+        return NextResponse.json({ error: "reminder_months inválido" }, { status: 400 });
+      }
+      reminderMonths = parsed;
+    }
 
-    const ext = path.extname(file.name) || "";
+    // Validate BEFORE writing to disk (max-input trust: attacker could stream GB).
+    const check = validateUpload({
+      name: file.name ?? "",
+      type: file.type ?? "",
+      size: file.size ?? 0,
+    });
+    if (!check.ok) {
+      return NextResponse.json({ error: check.error }, { status: check.status });
+    }
+
+    ensureDir(uploadDir());
+
+    const ext = path.extname(file.name).toLowerCase();
     const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
-    fs.writeFileSync(path.join(UPLOAD_DIR, uniqueName), buffer);
+    fs.writeFileSync(path.join(uploadDir(), uniqueName), buffer);
 
-    const att = createAttachment(carId, uniqueName, file.name, file.type, buffer.length, expenseId);
+    const att = createAttachment(carId, uniqueName, file.name, file.type, buffer.length, expenseId, documentType, validUntil, reminderMonths);
     return NextResponse.json(att, { status: 201 });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
