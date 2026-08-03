@@ -53,7 +53,13 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const body = await req.json();
+  // audit:B-5 — El único `req.json()` del proyecto sin try/catch. Un cuerpo
+  // malformado subía como excepción no controlada y salía un 500 genérico,
+  // mientras el resto de rutas devolvían un 400 con su motivo.
+  let body: any;
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ error: "Cuerpo JSON inválido" }, { status: 400 });
+  }
   const id = parseTaskId(body?.id ?? searchParams.get("id"));
   if (!id) return NextResponse.json({ error: "id inválido o ausente" }, { status: 400 });
   const { id: _, ...fields } = body;
