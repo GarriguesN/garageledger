@@ -144,9 +144,12 @@ export function PinWizard({ open, onClose, configured, onSaved }: PinWizardProps
   ];
 
   async function submit(values: PinValues) {
+    // `credentials` explícito: cambiar un PIN ya configurado exige sesión
+    // (audit:S-1) y la cookie es lo que la acredita.
     const res = await fetch("/api/pin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
       body: JSON.stringify({ action: "set", pin: values.pin }),
     });
     if (!res.ok) throw await errorFrom(res, "No se pudo guardar el PIN");

@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
 }
 
 // DELETE: clears the cookie (logout). Idempotent.
-export async function DELETE(req: NextRequest) {
+export async function DELETE() {
   const res = NextResponse.json({ ok: true });
   res.headers.append("Set-Cookie", clearSessionCookie());
   return res;

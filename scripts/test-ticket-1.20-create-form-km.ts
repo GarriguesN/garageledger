@@ -1,3 +1,4 @@
+import "./lib/test-db";  // primera línea: fija DB_PATH antes de cargar src/lib/db
 // Verifica el flujo end-to-end del form de crear/editar coche con los
 // nuevos campos fecha_matriculacion y km_origen (Ticket 1.19 follow-up).
 

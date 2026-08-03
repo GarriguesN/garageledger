@@ -7,8 +7,6 @@
 //   (4) El modal FullListModal renderiza todas las filas (no las limita).
 //   (5) El "Cargar más" viejo ha desaparecido.
 
-import React from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 
 let pass = 0, fail = 0;
 function expect(label: string, cond: boolean) {

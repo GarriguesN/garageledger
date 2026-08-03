@@ -1,3 +1,4 @@
+import "./lib/test-db";  // primera línea: fija DB_PATH antes de cargar src/lib/db
 // Verifica Ticket 1.14 — bumpKmIfHigher + km_actuales siempre al día.
 //
 // Cubre:

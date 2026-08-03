@@ -1,22 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
 import fs from "fs";
 import { getDb } from "@/lib/db/core";
 import { isAllowedMime, safeDownloadFilename } from "@/lib/attachments";
+import { attachmentFilePath } from "@/lib/uploads";
 import { updateAttachmentMeta } from "@/lib/db/attachments";
 import { isValidDocumentType } from "@/lib/documents/catalog";
-import { parseDate } from "@/lib/validate";
+import { parseDate, parseId } from "@/lib/validate";
 import type { Attachment } from "@/lib/db/attachments";
 
 export const runtime = "nodejs";
 
-function uploadDir(): string {
-  return process.env.UPLOAD_DIR || "/opt/garageledger/data/uploads";
-}
-
 // RFC 5987 + latin1 fallback for non-ASCII filenames.
 // Keeps Content-Disposition parser-safe across browsers.
-function contentDisposition(originalName: string, mime: string): string {
+function contentDisposition(originalName: string): string {
   const safe = safeDownloadFilename(originalName);
   const star = encodeURIComponent(safe).replace(/['()]/g, escape);
   return `attachment; filename="${safe}"; filename*=UTF-8''${star}`;
@@ -24,8 +20,8 @@ function contentDisposition(originalName: string, mime: string): string {
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: rawId } = await params;
-  const id = parseInt(rawId);
-  if (!Number.isFinite(id)) {
+  const id = parseId(rawId);
+  if (!id) {
     return NextResponse.json({ error: "id inválido" }, { status: 400 });
   }
 
@@ -43,12 +39,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   // Reject path traversal in stored filename (must resolve under UPLOAD_DIR).
-  const stored = path.basename(row.filename);     // strips any dir components
-  const dir = uploadDir();
-  const fullPath = path.join(dir, stored);
-  const resolved = path.resolve(fullPath);
-  const root = path.resolve(dir) + path.sep;
-  if (!resolved.startsWith(root)) {
+  // La comprobación vive en `attachmentFilePath` para que sea la misma aquí y
+  // en el borrado, en vez de estar copiada a medias.
+  const resolved = attachmentFilePath(row.filename);
+  if (!resolved) {
     return NextResponse.json({ error: "Ruta inválida" }, { status: 400 });
   }
   if (!fs.existsSync(resolved)) {
@@ -79,7 +73,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     headers: {
       "Content-Type": row.mime_type,
       "Content-Length": String(stat.size),
-      "Content-Disposition": contentDisposition(row.original_name, row.mime_type),
+      "Content-Disposition": contentDisposition(row.original_name),
       "X-Content-Type-Options": "nosniff",
       "Cache-Control": "private, no-store",
     },
@@ -91,8 +85,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 // contenido el usuario borra y vuelve a subir (mismo patrón que gastos/mantenimiento).
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: rawId } = await params;
-  const id = parseInt(rawId);
-  if (!Number.isFinite(id)) {
+  const id = parseId(rawId);
+  if (!id) {
     return NextResponse.json({ error: "id inválido" }, { status: 400 });
   }
 

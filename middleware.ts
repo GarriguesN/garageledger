@@ -37,7 +37,6 @@ export const config = {
 };
 
 const COOKIE_NAME = "gl_sess";
-const COOKIE_MAX_AGE_SEC = 12 * 60 * 60; // 12h, matches auth.ts SESSION_TTL_MS
 
 // Same dev fallback as src/lib/auth.ts (must keep in sync).
 // audit:C-1 — En producción, FAIL HARD si no hay secreto válido.
@@ -77,6 +76,26 @@ async function importHmacKey(secret: string): Promise<CryptoKey> {
   );
 }
 
+// La clave HMAC se derivaba del secreto EN CADA petición protegida, que es
+// todo /api/* y todas las páginas con datos. El secreto no cambia mientras el
+// proceso vive, así que la clave tampoco: se cachea la promesa (no el
+// resultado) para que dos peticiones simultáneas durante el arranque no
+// disparen dos importaciones.
+//
+// Se guarda junto al secreto del que salió: si alguien rota SESSION_SECRET y
+// reinicia, el módulo se recarga; y si por lo que sea no se recargara, la
+// comparación evita seguir firmando con la clave vieja.
+let cachedSecret: string | null = null;
+let cachedKey: Promise<CryptoKey> | null = null;
+
+function getHmacKey(secret: string): Promise<CryptoKey> {
+  if (!cachedKey || cachedSecret !== secret) {
+    cachedSecret = secret;
+    cachedKey = importHmacKey(secret);
+  }
+  return cachedKey;
+}
+
 // Constant-time string comparison
 function ctEq(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -104,7 +123,7 @@ export async function middleware(req: NextRequest) {
   const body = raw.slice(0, dot);
   const sig = raw.slice(dot + 1);
 
-  const key = await importHmacKey(getSecret());
+  const key = await getHmacKey(getSecret());
   const expectedBuf = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body));
   const expectedSig = btoa(String.fromCharCode(...new Uint8Array(expectedBuf)))
     .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");

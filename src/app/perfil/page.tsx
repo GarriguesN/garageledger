@@ -6,6 +6,11 @@ import ProfileClient from "./ProfileClient";
 import { getCars } from "@/lib/db/cars";
 import { getSetting } from "@/lib/db/core";
 import { readSessionFromValue } from "@/lib/auth";
+import { RELEASES } from "@/lib/changelog";
+// Fuente de verdad de la versión: package.json (AGENTS.md §6.2). Importarla
+// aquí evita que el "Acerca de" se quede desfasado como ocurría con la
+// cadena hardcodeada "1.0.0".
+import pkg from "../../../package.json";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +26,8 @@ export default async function ProfilePage() {
       <ProfileClient
         vehicleCount={vehicleCount}
         displayName={displayName}
-        appVersion="1.0.0"
+        appVersion={pkg.version}
+        releases={RELEASES}
       />
     </GarageShell>
   );

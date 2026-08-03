@@ -1,5 +1,6 @@
 import { getDb } from "./core";
 import { DOCUMENT_TYPES, type DocumentTypeId } from "@/lib/documents/catalog";
+import { removeAttachmentFile } from "@/lib/uploads";
 
 export interface Attachment {
   id: number;
@@ -55,8 +56,43 @@ export function getExpenseThumbnails(carId: number): Record<number, number> {
   return Object.fromEntries(rows.map((r) => [r.expense_id, r.attachment_id]));
 }
 
+/** audit:S-6 — Borra la fila Y el archivo.
+ *
+ *  Antes solo se borraba la fila, así que cada adjunto eliminado dejaba su
+ *  archivo en UPLOAD_DIR para siempre: no solo ocupaba sitio, es que ahí
+ *  seguían facturas, permisos de circulación y fotos del DNI que el usuario
+ *  creía haber borrado — y que además se copiaban en cada backup.
+ *
+ *  El orden importa: primero se lee el nombre, luego se borra la fila y solo
+ *  entonces el archivo. Si el unlink falla, la fila ya no está y el archivo
+ *  queda huérfano —el mismo caso de antes, pero solo cuando falla el disco—;
+ *  al revés se podría quedar una fila apuntando a un archivo inexistente. */
 export function deleteAttachment(id: number): void {
+  const row = getDb()
+    .prepare("SELECT filename FROM attachments WHERE id=?")
+    .get(id) as { filename: string } | undefined;
   getDb().prepare("DELETE FROM attachments WHERE id=?").run(id);
+  if (row?.filename) removeAttachmentFile(row.filename);
+}
+
+/** Nombres de archivo de todos los adjuntos de un coche.
+ *
+ *  Lo necesita `deleteCar`: el `ON DELETE CASCADE` de la FK se lleva las filas
+ *  pero SQLite no sabe nada de los archivos, así que hay que apuntarlos antes
+ *  de borrar el coche para poder limpiarlos después. */
+export function getAttachmentFilenames(carId: number): string[] {
+  const rows = getDb()
+    .prepare("SELECT filename FROM attachments WHERE car_id=?")
+    .all(carId) as { filename: string }[];
+  return rows.map((r) => r.filename).filter(Boolean);
+}
+
+/** ¿Este adjunto pertenece a este coche? (audit:B-8) */
+export function attachmentBelongsToCar(attachmentId: number, carId: number): boolean {
+  const row = getDb()
+    .prepare("SELECT 1 as ok FROM attachments WHERE id=? AND car_id=?")
+    .get(attachmentId, carId) as { ok: number } | undefined;
+  return !!row;
 }
 
 /** Corrige categoría y/o fecha de caducidad de un adjunto ya subido, sin

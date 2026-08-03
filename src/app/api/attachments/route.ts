@@ -1,27 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
-import { getAttachments, createAttachment, deleteAttachment } from "@/lib/db";
-import { validateUpload } from "@/lib/attachments";
+import { randomUUID } from "node:crypto";
+import { getAttachments, createAttachment, deleteAttachment, getCar, getExpense } from "@/lib/db";
+import { validateUpload, validateUploadContent } from "@/lib/attachments";
+import { ensureUploadDir, uploadDir } from "@/lib/uploads";
 import { isValidDocumentType } from "@/lib/documents/catalog";
-import { parseDate } from "@/lib/validate";
+import { parseDate, parseCarId, parseExpenseId, parseId } from "@/lib/validate";
 
 export const runtime = "nodejs";
 
-function uploadDir(): string {
-  return process.env.UPLOAD_DIR || "/opt/garageledger/data/uploads";
-}
-
-function ensureDir(dir: string) {
-  try { fs.mkdirSync(dir, { recursive: true }); } catch {}
-}
-
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const carId = searchParams.get("car_id");
-  const expenseId = searchParams.get("expense_id");
-  if (!carId) return NextResponse.json({ error: "car_id required" }, { status: 400 });
-  return NextResponse.json(getAttachments(parseInt(carId), expenseId ? parseInt(expenseId) : undefined));
+  const carId = parseCarId(searchParams.get("car_id"));
+  if (!carId) return NextResponse.json({ error: "car_id inválido o ausente" }, { status: 400 });
+  const rawExpense = searchParams.get("expense_id");
+  const expenseId = rawExpense === null ? undefined : parseExpenseId(rawExpense) ?? undefined;
+  if (rawExpense !== null && expenseId === undefined) {
+    return NextResponse.json({ error: "expense_id inválido" }, { status: 400 });
+  }
+  return NextResponse.json(getAttachments(carId, expenseId));
 }
 
 export async function POST(req: NextRequest) {
@@ -34,9 +32,33 @@ export async function POST(req: NextRequest) {
     const validUntilRaw = formData.get("valid_until") as string | null;
     const reminderMonthsRaw = formData.get("reminder_months") as string | null;
     if (!file || !carIdRaw) return NextResponse.json({ error: "Missing file or car_id" }, { status: 400 });
-    const carId = parseInt(carIdRaw);
-    const expenseId = expenseIdRaw ? parseInt(expenseIdRaw) : undefined;
-    if (!Number.isFinite(carId)) return NextResponse.json({ error: "car_id inválido" }, { status: 400 });
+    const carId = parseCarId(carIdRaw);
+    const expenseId = expenseIdRaw ? parseExpenseId(expenseIdRaw) ?? undefined : undefined;
+    if (!carId) return NextResponse.json({ error: "car_id inválido" }, { status: 400 });
+
+    // audit:B-8 — Integridad referencial antes de escribir nada.
+    //
+    // El coche tiene que existir: si no, se guardaba una fila apuntando a un
+    // id inexistente (la FK la habría rechazado, pero el archivo ya estaría
+    // escrito en disco) o, peor, se colgaba de un id que se reutilizara luego.
+    if (!getCar(carId)) {
+      return NextResponse.json({ error: "El vehículo no existe" }, { status: 404 });
+    }
+    // Y el gasto, si se indica, tiene que ser DE ESE COCHE. No se comprobaba,
+    // así que se podía colgar el ticket de un coche en el gasto de otro y la
+    // miniatura aparecía en un historial ajeno.
+    if (expenseIdRaw) {
+      if (expenseId === undefined) {
+        return NextResponse.json({ error: "expense_id inválido" }, { status: 400 });
+      }
+      const expense = getExpense(expenseId);
+      if (!expense || expense.car_id !== carId) {
+        return NextResponse.json(
+          { error: "El gasto no existe o no pertenece a este vehículo" },
+          { status: 400 },
+        );
+      }
+    }
 
     let documentType: string | null = null;
     if (documentTypeRaw) {
@@ -72,11 +94,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: check.error }, { status: check.status });
     }
 
-    ensureDir(uploadDir());
+    // El contenido se comprueba con el archivo ya en memoria pero ANTES de
+    // escribirlo (audit:S-7): hasta ahora todo lo que se validaba —el MIME y
+    // la extensión— lo declaraba el cliente, y un HTML renombrado a .png y
+    // enviado como image/png pasaba las dos comprobaciones.
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const content = validateUploadContent(buffer, file.type);
+    if (!content.ok) {
+      return NextResponse.json({ error: content.error }, { status: content.status });
+    }
+
+    ensureUploadDir();
 
     const ext = path.extname(file.name).toLowerCase();
-    const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
-    const buffer = Buffer.from(await file.arrayBuffer());
+    // audit:S-8 — randomUUID en vez de Math.random: no es que una colisión
+    // fuera probable, es que aquí una colisión sobrescribe el archivo de otro
+    // y no cuesta nada quitarse la duda.
+    const uniqueName = `${Date.now()}-${randomUUID()}${ext}`;
     fs.writeFileSync(path.join(uploadDir(), uniqueName), buffer);
 
     const att = createAttachment(carId, uniqueName, file.name, file.type, buffer.length, expenseId, documentType, validUntil, reminderMonths);
@@ -88,8 +122,8 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
-  deleteAttachment(parseInt(id));
+  const id = parseId(searchParams.get("id"));
+  if (!id) return NextResponse.json({ error: "id inválido o ausente" }, { status: 400 });
+  deleteAttachment(id);
   return NextResponse.json({ success: true });
 }

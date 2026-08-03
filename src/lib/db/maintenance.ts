@@ -18,9 +18,29 @@ export const DEFAULT_MANTENIMIENTO = [
 export function getMantenimientoConfig(carId: number): any[] {
   const car = getCar(carId);
   if (!car) return DEFAULT_MANTENIMIENTO;
-  const saved = car.mantenimiento_config ? JSON.parse(car.mantenimiento_config) : null;
+  // audit:B-4 — `mantenimiento_config` es una columna TEXT con JSON dentro, y
+  // hasta aquí se parseaba a pelo. Cualquier cosa que no fuera JSON válido
+  // —una edición a mano de la BD, una escritura a medias— lanzaba desde una
+  // función de lectura. Con un valor corrupto, lo razonable es caer a la
+  // configuración por defecto: peor es tumbar la pantalla.
+  const saved = safeParseConfig(car.mantenimiento_config);
   if (!saved) return DEFAULT_MANTENIMIENTO;
   return DEFAULT_MANTENIMIENTO.map(d => ({ ...d, ...(saved[d.id] || {}) }));
+}
+
+function safeParseConfig(raw: string | null): Record<string, any> | null {
+  if (!raw) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  // Un JSON válido puede ser `null`, `42` o `[1,2]`, y ninguno sirve como
+  // mapa de configuración: el `saved[d.id]` de abajo daría resultados raros
+  // en vez de un error claro.
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+  return parsed as Record<string, any>;
 }
 
 export function saveMantenimientoConfig(carId: number, config: Record<string, any>): void {
@@ -112,7 +132,14 @@ export function updateMaintenanceTask(id: number, fields: Record<string, any>): 
   const allowed = ["part_name","part_brand","part_model","current_km","current_date","next_km","next_date","interval_km","interval_months","notes","completed","preset_key","icon_key","reminder_days"];
   const sets: string[] = []; const vals: any[] = [];
   for (const k of allowed) {
-    if (k in fields && fields[k] !== null && fields[k] !== undefined) {
+    // audit:B-10 — `null` es un valor, no una ausencia. Filtrarlo junto con
+    // `undefined` hacía imposible VACIAR un campo: quitarle la fecha a una
+    // tarea o desactivar su recordatorio se ignoraba en silencio y la API
+    // devolvía la tarea sin cambios, como si hubiera funcionado.
+    //
+    // `undefined` sí se sigue ignorando, que es lo que significa "este campo
+    // no viene en la petición" cuando el cuerpo llega de JSON.parse.
+    if (k in fields && fields[k] !== undefined) {
       sets.push(`${k}=?`); vals.push(fields[k]);
     }
   }
@@ -175,24 +202,22 @@ export function getMaintenanceHistory(
   opts: { presetKey?: string | null; partName: string },
 ): { id: number; date: string | null; km: number | null; importe: number | null }[] {
   const db = getDb();
-  const rows = (opts.presetKey
-    ? db.prepare(
-        `SELECT id, current_date as date, current_km as km FROM maintenance_tasks
-         WHERE car_id=? AND completed=1 AND preset_key=? ORDER BY current_date DESC, id DESC`,
-      ).all(carId, opts.presetKey)
-    : db.prepare(
-        `SELECT id, current_date as date, current_km as km FROM maintenance_tasks
-         WHERE car_id=? AND completed=1 AND part_name=? ORDER BY current_date DESC, id DESC`,
-      ).all(carId, opts.partName)) as { id: number; date: string | null; km: number | null }[];
+  // El importe (el gasto que cerró cada tarea, si el usuario lo registró) se
+  // resuelve en la misma consulta con una subconsulta correlacionada, en vez
+  // de con una consulta por fila. Un LEFT JOIN sería lo natural, pero
+  // duplicaría filas si dos gastos apuntaran a la misma tarea; la subconsulta
+  // conserva el `LIMIT 1` que había y por tanto el resultado exacto de antes.
+  const select = `
+    SELECT t.id, t.current_date as date, t.current_km as km,
+           (SELECT e.importe FROM expenses e WHERE e.maintenance_task_id = t.id LIMIT 1) as importe
+    FROM maintenance_tasks t
+    WHERE t.car_id=? AND t.completed=1 AND`;
+  const order = "ORDER BY t.current_date DESC, t.id DESC";
 
-  // Importe: el gasto que cerró cada tarea, si el usuario lo registró.
-  const amountFor = db.prepare(
-    "SELECT importe FROM expenses WHERE maintenance_task_id=? LIMIT 1",
-  );
-  return rows.map((r) => {
-    const hit = amountFor.get(r.id) as { importe: number } | undefined;
-    return { ...r, importe: hit?.importe ?? null };
-  });
+  return (opts.presetKey
+    ? db.prepare(`${select} t.preset_key=? ${order}`).all(carId, opts.presetKey)
+    : db.prepare(`${select} t.part_name=? ${order}`).all(carId, opts.partName)
+  ) as { id: number; date: string | null; km: number | null; importe: number | null }[];
 }
 
 /** Una tarea por id, sin filtrar por completada. */

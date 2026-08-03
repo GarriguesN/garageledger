@@ -85,3 +85,53 @@ export function safeDownloadFilename(name: string): string {
 export function isAllowedMime(mime: string): boolean {
   return ALLOWED_MIME_TYPES.includes(mime);
 }
+
+// audit:S-7 — Hasta aquí, todo lo que se validaba lo declaraba el cliente:
+// `file.type` lo pone el navegador y la extensión la pone el nombre. Las dos
+// se escriben a mano. `validateUpload` comprueba que sean coherentes ENTRE SÍ,
+// que ya es algo, pero un HTML renombrado a .png y enviado como image/png pasa
+// las dos.
+//
+// El riesgo real está muy contenido —la descarga fuerza `attachment`, manda
+// `nosniff` y solo sirve cuatro MIME—, así que esto no tapa un agujero
+// abierto: cierra el único hueco que quedaba, que es que el archivo GUARDADO
+// sea lo que dice ser. Cuesta leer ocho bytes.
+
+/** ¿Empieza `buf` por esta secuencia de bytes? */
+function startsWith(buf: Uint8Array, sig: number[], offset = 0): boolean {
+  if (buf.length < offset + sig.length) return false;
+  return sig.every((b, i) => buf[offset + i] === b);
+}
+
+/**
+ * Deduce el tipo real de un archivo por su firma binaria. Devuelve null si no
+ * reconoce ninguna de las que aceptamos — que para lo que sirve aquí es lo
+ * mismo que "no permitido".
+ *
+ * Solo se miran los primeros bytes: es donde vive la firma de los cuatro
+ * formatos de la whitelist.
+ */
+export function sniffMime(buf: Uint8Array): string | null {
+  // JPEG: FF D8 FF
+  if (startsWith(buf, [0xff, 0xd8, 0xff])) return "image/jpeg";
+  // PNG: 89 "PNG" CR LF SUB LF
+  if (startsWith(buf, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return "image/png";
+  // WebP: "RIFF" ···· "WEBP"  (el tamaño va en medio, por eso el offset 8)
+  if (startsWith(buf, [0x52, 0x49, 0x46, 0x46]) &&
+      startsWith(buf, [0x57, 0x45, 0x42, 0x50], 8)) return "image/webp";
+  // PDF: "%PDF-"
+  if (startsWith(buf, [0x25, 0x50, 0x44, 0x46, 0x2d])) return "application/pdf";
+  return null;
+}
+
+/**
+ * Comprueba que el contenido real coincide con el MIME declarado. Se llama
+ * con el archivo ya en memoria, justo antes de escribirlo a disco.
+ */
+export function validateUploadContent(buf: Uint8Array, declaredMime: string): UploadCheckResult {
+  const actual = sniffMime(buf);
+  if (actual === null || actual !== declaredMime) {
+    return { ok: false, status: 415, error: "El contenido del archivo no coincide con su tipo" };
+  }
+  return { ok: true };
+}

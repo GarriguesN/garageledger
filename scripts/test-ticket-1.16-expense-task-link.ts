@@ -1,7 +1,8 @@
+import "./lib/test-db";  // primera línea: fija DB_PATH antes de cargar src/lib/db
 // Verifica Ticket 1.16: filas minimalistas, banner ITV/Seguro/Impuestos,
 // costeTaller sólo en DIY, y conexión gasto↔tarea de mantenimiento.
 
-import { createExpense, deleteExpense, getExpense, getExpenses } from "../src/lib/db/expenses";
+import { createExpense, deleteExpense } from "../src/lib/db/expenses";
 import {
   createMaintenanceTask, getMaintenanceTasks, deleteMaintenanceTask,
 } from "../src/lib/db/maintenance";
@@ -46,7 +47,6 @@ if (e1) deleteExpense(e1.id);
 const car = getCar(1)!;
 const initialKm = car.km_actuales;
 const intervalKm = 15000;
-const nextKm = initialKm + intervalKm;
 
 const task = safeCall("createMaintenanceTask Aceite", () =>
   createMaintenanceTask(1, "Cambio de aceite", {
@@ -57,7 +57,6 @@ const task = safeCall("createMaintenanceTask Aceite", () =>
 );
 expect("tarea creada", task?.id !== undefined);
 const taskId = task!.id;
-const taskNextKm = task!.next_km;
 
 // Gasto de tipo Taller con selectedTask, km nuevo.
 const newKm = initialKm + 500;
@@ -132,13 +131,11 @@ safeCall("restore km del coche", () => updateCar(1, { km_actuales: initialKm }))
 const taskA = safeCall("createMaintenanceTask Aceite 15k", () =>
   createMaintenanceTask(1, "Aceite 15k A", { interval_km: 15000, icon_key: "engine_oil" }),
 );
-const beforeA = getMaintenanceTasks(1, false).length;
 const eA = safeCall("createExpense A (interval+scheduleNext=true)", () =>
   createExpense(1, "Mantenimiento (Taller)", 60, "2026-07-23",
     "Aceite A", "", null, newKm + 1000, null,
     { maintenanceTaskId: taskA!.id, scheduleNext: true }),
 );
-const afterA = getMaintenanceTasks(1, false).length;
 expect("A) con interval + scheduleNext=true → tarea original cerrada",
   getMaintenanceTasks(1, false).find(t => t.id === taskA!.id) === undefined);
 expect("A) con interval + scheduleNext=true → siguiente tarea creada (completed=0)",
@@ -154,13 +151,11 @@ const taskB = safeCall("createMaintenanceTask Arreglo puntual sin interval", () 
 expect("B) tarea creada sin intervalos", taskB?.id !== undefined);
 expect("B) intervalo_km null", taskB?.interval_km === null);
 expect("B) intervalo_months null", taskB?.interval_months === null);
-const beforeB = getMaintenanceTasks(1, false).length;
 const eB = safeCall("createExpense B (sin interval + scheduleNext=false)", () =>
   createExpense(1, "Mantenimiento (Taller)", 300, "2026-07-23",
     "Arreglo parrilla", "", null, newKm + 2000, null,
     { maintenanceTaskId: taskB!.id, scheduleNext: false }),
 );
-const afterB = getMaintenanceTasks(1, false).length;
 expect("B) sin interval + scheduleNext=false → tarea original cerrada",
   getMaintenanceTasks(1, false).find(t => t.id === taskB!.id) === undefined);
 expect("B) sin interval + scheduleNext=false → NO se crea tarea fantasma",
@@ -173,13 +168,11 @@ if (eB) deleteExpense(eB.id);
 const taskC = safeCall("createMaintenanceTask Reparación", () =>
   createMaintenanceTask(1, "Reparación X", {}),
 );
-const beforeC = getMaintenanceTasks(1, false).length;
 const eC = safeCall("createExpense C (forzar scheduleNext=true en tarea sin interval)", () =>
   createExpense(1, "Mantenimiento (Taller)", 80, "2026-07-23",
     "Reparación X", "", null, newKm + 3000, null,
     { maintenanceTaskId: taskC!.id, scheduleNext: true }),
 );
-const afterC = getMaintenanceTasks(1, false).length;
 expect("C.1) forzar scheduleNext=true en sin interval → siguiente tarea creada",
   getMaintenanceTasks(1, false).some(t => t.part_name === "Reparación X"));
 const newC = getMaintenanceTasks(1, false).find(t => t.part_name === "Reparación X");
@@ -192,13 +185,11 @@ if (eC) deleteExpense(eC.id);
 const taskD = safeCall("createMaintenanceTask Pastillas", () =>
   createMaintenanceTask(1, "Pastillas freno", { interval_km: 30000, icon_key: "brake_pads" }),
 );
-const beforeD = getMaintenanceTasks(1, false).length;
 const eD = safeCall("createExpense D (forzar scheduleNext=false en con interval)", () =>
   createExpense(1, "Mantenimiento (Taller)", 120, "2026-07-23",
     "Pastillas freno", "", null, newKm + 4000, null,
     { maintenanceTaskId: taskD!.id, scheduleNext: false }),
 );
-const afterD = getMaintenanceTasks(1, false).length;
 expect("D) forzar scheduleNext=false → tarea original cerrada",
   getMaintenanceTasks(1, false).find(t => t.id === taskD!.id) === undefined);
 expect("D) forzar scheduleNext=false → NO crea siguiente tarea pendiente",
