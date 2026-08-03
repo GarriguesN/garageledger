@@ -1,18 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
 import fs from "fs";
 import { getDb } from "@/lib/db/core";
 import { isAllowedMime, safeDownloadFilename } from "@/lib/attachments";
+import { attachmentFilePath } from "@/lib/uploads";
 import { updateAttachmentMeta } from "@/lib/db/attachments";
 import { isValidDocumentType } from "@/lib/documents/catalog";
 import { parseDate } from "@/lib/validate";
 import type { Attachment } from "@/lib/db/attachments";
 
 export const runtime = "nodejs";
-
-function uploadDir(): string {
-  return process.env.UPLOAD_DIR || "/opt/garageledger/data/uploads";
-}
 
 // RFC 5987 + latin1 fallback for non-ASCII filenames.
 // Keeps Content-Disposition parser-safe across browsers.
@@ -43,12 +39,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   // Reject path traversal in stored filename (must resolve under UPLOAD_DIR).
-  const stored = path.basename(row.filename);     // strips any dir components
-  const dir = uploadDir();
-  const fullPath = path.join(dir, stored);
-  const resolved = path.resolve(fullPath);
-  const root = path.resolve(dir) + path.sep;
-  if (!resolved.startsWith(root)) {
+  // La comprobación vive en `attachmentFilePath` para que sea la misma aquí y
+  // en el borrado, en vez de estar copiada a medias.
+  const resolved = attachmentFilePath(row.filename);
+  if (!resolved) {
     return NextResponse.json({ error: "Ruta inválida" }, { status: 400 });
   }
   if (!fs.existsSync(resolved)) {

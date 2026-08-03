@@ -1,20 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
-import { getAttachments, createAttachment, deleteAttachment } from "@/lib/db";
+import { getAttachments, createAttachment, deleteAttachment, getCar, getExpense } from "@/lib/db";
 import { validateUpload } from "@/lib/attachments";
+import { ensureUploadDir, uploadDir } from "@/lib/uploads";
 import { isValidDocumentType } from "@/lib/documents/catalog";
 import { parseDate } from "@/lib/validate";
 
 export const runtime = "nodejs";
-
-function uploadDir(): string {
-  return process.env.UPLOAD_DIR || "/opt/garageledger/data/uploads";
-}
-
-function ensureDir(dir: string) {
-  try { fs.mkdirSync(dir, { recursive: true }); } catch {}
-}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -37,6 +30,30 @@ export async function POST(req: NextRequest) {
     const carId = parseInt(carIdRaw);
     const expenseId = expenseIdRaw ? parseInt(expenseIdRaw) : undefined;
     if (!Number.isFinite(carId)) return NextResponse.json({ error: "car_id inválido" }, { status: 400 });
+
+    // audit:B-8 — Integridad referencial antes de escribir nada.
+    //
+    // El coche tiene que existir: si no, se guardaba una fila apuntando a un
+    // id inexistente (la FK la habría rechazado, pero el archivo ya estaría
+    // escrito en disco) o, peor, se colgaba de un id que se reutilizara luego.
+    if (!getCar(carId)) {
+      return NextResponse.json({ error: "El vehículo no existe" }, { status: 404 });
+    }
+    // Y el gasto, si se indica, tiene que ser DE ESE COCHE. No se comprobaba,
+    // así que se podía colgar el ticket de un coche en el gasto de otro y la
+    // miniatura aparecía en un historial ajeno.
+    if (expenseId !== undefined) {
+      if (!Number.isFinite(expenseId)) {
+        return NextResponse.json({ error: "expense_id inválido" }, { status: 400 });
+      }
+      const expense = getExpense(expenseId);
+      if (!expense || expense.car_id !== carId) {
+        return NextResponse.json(
+          { error: "El gasto no existe o no pertenece a este vehículo" },
+          { status: 400 },
+        );
+      }
+    }
 
     let documentType: string | null = null;
     if (documentTypeRaw) {
@@ -72,7 +89,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: check.error }, { status: check.status });
     }
 
-    ensureDir(uploadDir());
+    ensureUploadDir();
 
     const ext = path.extname(file.name).toLowerCase();
     const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;

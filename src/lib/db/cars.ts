@@ -1,4 +1,6 @@
 import { getDb } from "./core";
+import { getAttachmentFilenames } from "./attachments";
+import { removeAttachmentFile } from "@/lib/uploads";
 
 export interface Car {
   id: number; marca: string; modelo: string; generacion: string;
@@ -137,8 +139,17 @@ export function updateCar(id: number, fields: Record<string, any>): Car | undefi
   return getCar(id);
 }
 
+/** audit:S-6 — Borrar un coche se lleva también sus archivos.
+ *
+ *  El `ON DELETE CASCADE` de la FK limpia las filas de `attachments`, pero
+ *  SQLite no sabe nada del disco: la documentación entera del vehículo —ficha
+ *  técnica, permiso de circulación, seguros, facturas— se quedaba en
+ *  UPLOAD_DIR y en todos los backups posteriores. Se apuntan los nombres antes
+ *  de borrar, porque después de la cascada ya no hay a quién preguntar. */
 export function deleteCar(id: number): void {
+  const filenames = getAttachmentFilenames(id);
   getDb().prepare("DELETE FROM cars WHERE id=?").run(id);
+  for (const f of filenames) removeAttachmentFile(f);
 }
 
 /** Bump the car's km_actuales to `km` ONLY if `km` is higher than the
