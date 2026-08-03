@@ -132,7 +132,14 @@ export function updateMaintenanceTask(id: number, fields: Record<string, any>): 
   const allowed = ["part_name","part_brand","part_model","current_km","current_date","next_km","next_date","interval_km","interval_months","notes","completed","preset_key","icon_key","reminder_days"];
   const sets: string[] = []; const vals: any[] = [];
   for (const k of allowed) {
-    if (k in fields && fields[k] !== null && fields[k] !== undefined) {
+    // audit:B-10 — `null` es un valor, no una ausencia. Filtrarlo junto con
+    // `undefined` hacía imposible VACIAR un campo: quitarle la fecha a una
+    // tarea o desactivar su recordatorio se ignoraba en silencio y la API
+    // devolvía la tarea sin cambios, como si hubiera funcionado.
+    //
+    // `undefined` sí se sigue ignorando, que es lo que significa "este campo
+    // no viene en la petición" cuando el cuerpo llega de JSON.parse.
+    if (k in fields && fields[k] !== undefined) {
       sets.push(`${k}=?`); vals.push(fields[k]);
     }
   }
