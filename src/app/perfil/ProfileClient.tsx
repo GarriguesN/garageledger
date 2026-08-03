@@ -167,9 +167,13 @@ export default function ProfileClient({
                       key={highlight}
                       className="flex gap-2.5 text-body leading-snug text-text-secondary"
                     >
+                      {/* El margen superior baja el punto hasta el centro
+                          óptico de la primera línea (22px de interlineado,
+                          punto de 6px). mt-2 es el paso de la rejilla que
+                          cae ahí; no pongas un valor a medida. */}
                       <span
                         aria-hidden="true"
-                        className="mt-[9px] size-1.5 shrink-0 rounded-pill"
+                        className="mt-2 size-1.5 shrink-0 rounded-pill"
                         style={{ backgroundColor: hexToRgba(colors.primary, 0.7) }}
                       />
                       <span>{highlight}</span>
