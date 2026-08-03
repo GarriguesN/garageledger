@@ -202,24 +202,22 @@ export function getMaintenanceHistory(
   opts: { presetKey?: string | null; partName: string },
 ): { id: number; date: string | null; km: number | null; importe: number | null }[] {
   const db = getDb();
-  const rows = (opts.presetKey
-    ? db.prepare(
-        `SELECT id, current_date as date, current_km as km FROM maintenance_tasks
-         WHERE car_id=? AND completed=1 AND preset_key=? ORDER BY current_date DESC, id DESC`,
-      ).all(carId, opts.presetKey)
-    : db.prepare(
-        `SELECT id, current_date as date, current_km as km FROM maintenance_tasks
-         WHERE car_id=? AND completed=1 AND part_name=? ORDER BY current_date DESC, id DESC`,
-      ).all(carId, opts.partName)) as { id: number; date: string | null; km: number | null }[];
+  // El importe (el gasto que cerró cada tarea, si el usuario lo registró) se
+  // resuelve en la misma consulta con una subconsulta correlacionada, en vez
+  // de con una consulta por fila. Un LEFT JOIN sería lo natural, pero
+  // duplicaría filas si dos gastos apuntaran a la misma tarea; la subconsulta
+  // conserva el `LIMIT 1` que había y por tanto el resultado exacto de antes.
+  const select = `
+    SELECT t.id, t.current_date as date, t.current_km as km,
+           (SELECT e.importe FROM expenses e WHERE e.maintenance_task_id = t.id LIMIT 1) as importe
+    FROM maintenance_tasks t
+    WHERE t.car_id=? AND t.completed=1 AND`;
+  const order = "ORDER BY t.current_date DESC, t.id DESC";
 
-  // Importe: el gasto que cerró cada tarea, si el usuario lo registró.
-  const amountFor = db.prepare(
-    "SELECT importe FROM expenses WHERE maintenance_task_id=? LIMIT 1",
-  );
-  return rows.map((r) => {
-    const hit = amountFor.get(r.id) as { importe: number } | undefined;
-    return { ...r, importe: hit?.importe ?? null };
-  });
+  return (opts.presetKey
+    ? db.prepare(`${select} t.preset_key=? ${order}`).all(carId, opts.presetKey)
+    : db.prepare(`${select} t.part_name=? ${order}`).all(carId, opts.partName)
+  ) as { id: number; date: string | null; km: number | null; importe: number | null }[];
 }
 
 /** Una tarea por id, sin filtrar por completada. */

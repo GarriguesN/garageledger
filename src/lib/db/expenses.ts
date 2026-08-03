@@ -45,8 +45,21 @@ function autoUpdateCarDate(carId: number, tipoOrId: string, date: string, fields
   }
 }
 
+/** Tope duro de filas por consulta.
+ *
+ *  `limit` llega de un query param (`/api/expenses?limit=…`), así que sin tope
+ *  un `?limit=999999999` se traía la tabla entera a memoria y la serializaba a
+ *  JSON. Diez mil gastos son más de veinte años de repostajes semanales: quien
+ *  pida más que eso no está mirando sus gastos.
+ *
+ *  La exportación a CSV pide 9999 y sigue entrando de sobra. */
+export const MAX_EXPENSES_LIMIT = 10000;
+
 export function getExpenses(carId: number, limit = 100): Expense[] {
-  return getDb().prepare("SELECT * FROM expenses WHERE car_id=? ORDER BY date DESC, id DESC LIMIT ?").all(carId, limit) as Expense[];
+  const safeLimit = Number.isFinite(limit) && limit > 0
+    ? Math.min(Math.floor(limit), MAX_EXPENSES_LIMIT)
+    : 100;
+  return getDb().prepare("SELECT * FROM expenses WHERE car_id=? ORDER BY date DESC, id DESC LIMIT ?").all(carId, safeLimit) as Expense[];
 }
 
 export function getExpense(id: number): Expense | undefined {

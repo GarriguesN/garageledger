@@ -1,5 +1,6 @@
 import { getDb } from "./core";
 import { getCar } from "./cars";
+import { MAX_EXPENSES_LIMIT } from "./expenses";
 import { DOCUMENT_TYPE_MAP, type DocumentTypeId } from "@/lib/documents/catalog";
 import { formatDate as esDate, formatDeadline } from "@/lib/format";
 import { carExpiries, itvDueDate, taxDueDate, type ExpiryCar } from "@/lib/domain/expiry";
@@ -382,7 +383,14 @@ export function getCarMetrics(carId: number) {
 // `offset` existe para permitir paginar en el futuro (audit:B-4) sin romper
 // a los llamadores actuales, que siempre piden desde el principio.
 export function getTimeline(carId: number, limit = 50, offset = 0): any[] {
-  return getDb().prepare("SELECT id, date, tipo, tipo_id, importe, descripcion, referencia, litros, km, coste_estimado_taller, maintenance_task_id, preset_key, 'expense' as entry_type FROM expenses WHERE car_id=? ORDER BY date DESC, id DESC LIMIT ? OFFSET ?").all(carId, limit, offset) as any[];
+  // Mismo tope que getExpenses: `limit` y `offset` vienen de query params
+  // (/api/car/[id]/timeline?limit=…), y sin acotarlos se podía pedir la tabla
+  // entera de una vez.
+  const safeLimit = Number.isFinite(limit) && limit > 0
+    ? Math.min(Math.floor(limit), MAX_EXPENSES_LIMIT)
+    : 50;
+  const safeOffset = Number.isFinite(offset) && offset > 0 ? Math.floor(offset) : 0;
+  return getDb().prepare("SELECT id, date, tipo, tipo_id, importe, descripcion, referencia, litros, km, coste_estimado_taller, maintenance_task_id, preset_key, 'expense' as entry_type FROM expenses WHERE car_id=? ORDER BY date DESC, id DESC LIMIT ? OFFSET ?").all(carId, safeLimit, safeOffset) as any[];
 }
 
 export function getMonthlyHistory(carId: number, months = 6): { month: string; total: number }[] {
@@ -447,18 +455,28 @@ export function getMonthlyKm(carId: number, months = 6): { month: string; km: nu
   if (rows.length === 0) return [];
 
   // Serie continua de los últimos `months` meses, incluidos los vacíos.
+  //
+  // `rows` viene ordenado por mes, y los meses del bucle también van en orden,
+  // así que basta con un puntero que avanza: antes se recorría el array entero
+  // con `filter` y `some` DENTRO del bucle, o sea O(meses × lecturas) para
+  // algo que es O(meses + lecturas).
   const out: { month: string; km: number }[] = [];
   const now = new Date();
   let previousReading: number | null = null;
+  let i = 0;                        // primera fila aún no consumida
+  let reading: number | null = null; // última lectura hasta el mes en curso
 
-  for (let i = months - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+  for (let back = months - 1; back >= 0; back--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - back, 1);
     const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
-    // Última lectura hasta el final de este mes.
-    const upTo = rows.filter((r) => r.month <= ym);
-    const reading = upTo.length ? upTo[upTo.length - 1].km : null;
-    const hasOwnReading = rows.some((r) => r.month === ym);
+    // Consume todas las lecturas hasta el final de este mes; la última manda.
+    let hasOwnReading = false;
+    while (i < rows.length && rows[i].month <= ym) {
+      reading = rows[i].km;
+      if (rows[i].month === ym) hasOwnReading = true;
+      i++;
+    }
 
     const km =
       hasOwnReading && previousReading != null && reading != null && reading > previousReading
