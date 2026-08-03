@@ -1,8 +1,8 @@
 import { getDb } from "./core";
 import { getCar } from "./cars";
-import { getMantenimientoConfig } from "./maintenance";
 import { DOCUMENT_TYPE_MAP, type DocumentTypeId } from "@/lib/documents/catalog";
 import { formatDate as esDate, formatDeadline } from "@/lib/format";
+import { carExpiries, itvDueDate, taxDueDate, type ExpiryCar } from "@/lib/domain/expiry";
 
 export function getMonthlySpend(carId: number): { current: number; previous: number } {
   const now = new Date();
@@ -167,33 +167,21 @@ export function getMaintenanceSpend(carId: number): number {
   return row.total;
 }
 
-/** Cuándo toca la próxima ITV: dos años si el coche tiene menos de diez,
- *  uno a partir de ahí. Se exporta porque la pantalla de resumen pinta esa
- *  misma fecha en "Próximos eventos" y las dos deben decir lo mismo. */
+// audit:B-2 — El cálculo de vencimientos vive ahora en `@/lib/domain/expiry`,
+// escrito una sola vez. Estos dos nombres se conservan porque la pantalla de
+// resumen y `lib/ui/events` los importan de aquí; delegan y ya está.
 export function getItvDueDate(car: {
   fecha_ultima_itv: string | null;
   ano: number | null;
 }): Date | null {
-  if (!car.fecha_ultima_itv) return null;
-  const last = new Date(car.fecha_ultima_itv + "T12:00:00");
-  const interval = car.ano && car.ano > new Date().getFullYear() - 10 ? 24 : 12;
-  return new Date(last.getTime() + interval * 30 * 24 * 60 * 60 * 1000);
+  return itvDueDate(car);
 }
 
-/** Cuándo vuelve a tocar el impuesto de circulación: un año después del
- *  último pago. `fecha_ivtm` la rellena el usuario y
- *  `fecha_impuesto_circulacion` la deduce el auto-update de gastos; manda la
- *  más reciente de las dos. */
 export function getTaxDueDate(car: {
   fecha_ivtm: string | null;
   fecha_impuesto_circulacion: string | null;
 }): Date | null {
-  const paid = [car.fecha_ivtm, car.fecha_impuesto_circulacion]
-    .filter((d): d is string => !!d)
-    .sort()
-    .pop();
-  if (!paid) return null;
-  return new Date(new Date(paid + "T12:00:00").getTime() + 365 * 24 * 60 * 60 * 1000);
+  return taxDueDate(car);
 }
 
 /** "en 15 días" / "hace 2 meses", para la segunda línea de un aviso. Se
@@ -320,96 +308,71 @@ export function getCarMetrics(carId: number) {
       }
     }
 
-    // ITV alerts
-    const itvDue = getItvDueDate(car);
-    if (car.fecha_ultima_itv && itvDue) {
-      const due = itvDue;
-      if (due < new Date()) {
-        alerts.push({
-          type: 'critical',
-          message: `ITV caducada (${car.fecha_ultima_itv})`,
-          title: `ITV caducada (${esDate(car.fecha_ultima_itv)})`,
-          detail: `Venció ${formatRelativeDays(due)}`,
-          topic: 'itv',
-        });
-      } else if ((due.getTime() - Date.now()) < 30 * 24 * 60 * 60 * 1000) {
-        alerts.push({
-          type: 'warning',
-          message: `ITV próxima: ${due.toLocaleDateString("es-ES")}`,
-          title: `ITV (${esDate(due.toISOString().slice(0, 10))})`,
-          detail: `Vence ${formatRelativeDays(due)}`,
-          topic: 'itv',
-        });
-      }
+    // audit:B-2 — Las tres caducidades salen del mismo cálculo que usan la
+    // puntuación, el estado del coche y la lista de próximos eventos.
+    const { itv, insurance, tax } = carExpiries(car);
+
+    // ITV
+    if (itv.state === "expired") {
+      alerts.push({
+        type: 'critical',
+        message: `ITV caducada (${car.fecha_ultima_itv})`,
+        title: `ITV caducada (${esDate(car.fecha_ultima_itv!)})`,
+        detail: `Venció ${formatRelativeDays(itv.due!)}`,
+        topic: 'itv',
+      });
+    } else if (itv.state === "soon") {
+      alerts.push({
+        type: 'warning',
+        message: `ITV próxima: ${itv.due!.toLocaleDateString("es-ES")}`,
+        title: `ITV (${esDate(itv.due!.toISOString().slice(0, 10))})`,
+        detail: `Vence ${formatRelativeDays(itv.due!)}`,
+        topic: 'itv',
+      });
     }
 
-    // Seguro alerts
-    if (car.fecha_vencimiento_seguro) {
-      const daysLeft = Math.ceil((new Date(car.fecha_vencimiento_seguro + "T12:00:00").getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-      if (daysLeft < 0) {
-        alerts.push({
-          type: 'critical',
-          message: `Seguro caducado (${car.fecha_vencimiento_seguro})`,
-          title: 'Seguro del vehículo',
-          detail: `Caducado el ${esDate(car.fecha_vencimiento_seguro)}`,
-          topic: 'insurance',
-        });
-      } else if (daysLeft < 60) {
-        alerts.push({
-          type: 'warning',
-          message: `Seguro vence en ${daysLeft} días (${car.fecha_vencimiento_seguro})`,
-          title: 'Seguro del vehículo',
-          detail: `Vence en ${daysLeft} días`,
-          topic: 'insurance',
-        });
-      }
+    // Seguro
+    if (insurance.state === "expired") {
+      alerts.push({
+        type: 'critical',
+        message: `Seguro caducado (${car.fecha_vencimiento_seguro})`,
+        title: 'Seguro del vehículo',
+        detail: `Caducado el ${esDate(car.fecha_vencimiento_seguro!)}`,
+        topic: 'insurance',
+      });
+    } else if (insurance.state === "soon") {
+      alerts.push({
+        type: 'warning',
+        message: `Seguro vence en ${insurance.daysLeft} días (${car.fecha_vencimiento_seguro})`,
+        title: 'Seguro del vehículo',
+        detail: `Vence en ${insurance.daysLeft} días`,
+        topic: 'insurance',
+      });
     }
 
-    // Impuesto de circulación (IVTM) — anual, dos formas:
-    //   - fecha_impuesto_circulacion: la pone el auto-update al marcar el
-    //     checkbox del IVTM en un gasto. La alerta sale si < hace 1 año.
-    //   - fecha_ivtm: la rellena el usuario directamente en el form.
-    if (car.fecha_impuesto_circulacion) {
-      const lastTax = new Date(car.fecha_impuesto_circulacion + "T12:00:00");
-      const dueTax = new Date(lastTax.getTime() + 365 * 24 * 60 * 60 * 1000);
-      if (dueTax < new Date()) {
-        alerts.push({
-          type: 'critical',
-          message: `Impuesto de circulación caducado (${car.fecha_impuesto_circulacion})`,
-          title: 'Impuesto de circulación',
-          detail: `Venció ${formatRelativeDays(dueTax)}`,
-          topic: 'tax',
-        });
-      } else if ((dueTax.getTime() - Date.now()) < 30 * 24 * 60 * 60 * 1000) {
-        alerts.push({
-          type: 'warning',
-          message: `Impuesto de circulación próximo: ${dueTax.toLocaleDateString("es-ES")}`,
-          title: 'Impuesto de circulación',
-          detail: `Vence ${formatRelativeDays(dueTax)}`,
-          topic: 'tax',
-        });
-      }
-    }
-    if (car.fecha_ivtm) {
-      const lastIvtm = new Date(car.fecha_ivtm + "T12:00:00");
-      const dueIvtm = new Date(lastIvtm.getTime() + 365 * 24 * 60 * 60 * 1000);
-      if (dueIvtm < new Date()) {
-        alerts.push({
-          type: 'critical',
-          message: `IVTM caducado (${car.fecha_ivtm})`,
-          title: 'IVTM',
-          detail: `Venció ${formatRelativeDays(dueIvtm)}`,
-          topic: 'tax',
-        });
-      } else if ((dueIvtm.getTime() - Date.now()) < 30 * 24 * 60 * 60 * 1000) {
-        alerts.push({
-          type: 'warning',
-          message: `IVTM próximo: ${dueIvtm.toLocaleDateString("es-ES")}`,
-          title: 'IVTM',
-          detail: `Vence ${formatRelativeDays(dueIvtm)}`,
-          topic: 'tax',
-        });
-      }
+    // Impuesto de circulación (IVTM). Se apunta por dos vías —el checkbox del
+    // IVTM en un gasto rellena `fecha_impuesto_circulacion`, y el formulario
+    // del coche rellena `fecha_ivtm`—, y antes cada una generaba SU propia
+    // alerta: un coche con las dos fechas mostraba el mismo trámite dos veces,
+    // una como "Impuesto de circulación" y otra como "IVTM", con fechas
+    // distintas si los dos apuntes no coincidían. `taxDueDate` se queda con el
+    // pago más reciente, que es el que manda, y sale un solo aviso.
+    if (tax.state === "expired") {
+      alerts.push({
+        type: 'critical',
+        message: `Impuesto de circulación caducado (${car.fecha_ivtm || car.fecha_impuesto_circulacion})`,
+        title: 'Impuesto de circulación',
+        detail: `Venció ${formatRelativeDays(tax.due!)}`,
+        topic: 'tax',
+      });
+    } else if (tax.state === "soon") {
+      alerts.push({
+        type: 'warning',
+        message: `Impuesto de circulación próximo: ${tax.due!.toLocaleDateString("es-ES")}`,
+        title: 'Impuesto de circulación',
+        detail: `Vence ${formatRelativeDays(tax.due!)}`,
+        topic: 'tax',
+      });
     }
   }
   const estado = car ? computeCarEstado(car) : null;
@@ -426,31 +389,30 @@ export function getMonthlyHistory(carId: number, months = 6): { month: string; t
   return getDb().prepare(`SELECT strftime('%Y-%m', date) as month, SUM(importe) as total FROM expenses WHERE car_id=? AND date>=date('now','-${months} months','start of month') GROUP BY month ORDER BY month ASC`).all(carId) as any[];
 }
 
-function daysUntil(dateStr: string | null): number | null {
-  if (!dateStr) return null;
-  return Math.ceil((new Date(dateStr + "T12:00:00").getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-}
-
+/** Estado resumido del coche, el que se pinta en la tarjeta del garaje.
+ *
+ *  audit:B-2 — Esta función miraba `daysUntil(fecha_ultima_itv)`, que son los
+ *  días transcurridos desde la ÚLTIMA inspección, y llamaba "ITV Caducada" a
+ *  todo lo que pasara de 30 días. Nunca aplicaba el intervalo. Un coche de
+ *  2018 con la ITV pasada hace trece meses —en plazo, porque le toca cada dos
+ *  años— aparecía como caducado en la ficha mientras la puntuación decía 100 y
+ *  "Próximos eventos" daba una fecha futura. Tres respuestas para el mismo
+ *  coche. Ahora las tres salen de `carExpiries`. */
 export function computeCarEstado(car: any, tasks?: any[]): string {
-  const daysItv = daysUntil(car.fecha_ultima_itv);
-  const daysSeg = daysUntil(car.fecha_vencimiento_seguro);
-  if (!car.fecha_ultima_itv) return "A revisar"; // no ITV registered
+  // Sin ITV apuntada no se puede afirmar nada: se pide revisar los datos.
+  if (!car.fecha_ultima_itv) return "A revisar";
 
-  // Check ITV expired
-  if (daysItv !== null && daysItv! < 0 && Math.abs(daysItv!) > 30) return "ITV Caducada";
-  // Check seguro expired
-  if (daysSeg !== null && daysSeg! < 0) return "Seguro Caducado";
+  const { itv, insurance } = carExpiries(car as ExpiryCar);
 
-  // Check maintenance tasks
+  if (itv.state === "expired") return "ITV Caducada";
+  if (insurance.state === "expired") return "Seguro Caducado";
+
   const taskList = tasks ?? getDb().prepare("SELECT * FROM maintenance_tasks WHERE car_id=? AND completed=0").all(car.id) as any[];
   const overdueTask = taskList.find((t: any) => t.next_km && t.next_km <= car.km_actuales);
   if (overdueTask) return "Taller necesario";
 
-  // Check if anything is near
   const nearTask = taskList.find((t: any) => t.next_km && (t.next_km - car.km_actuales) < ((t.interval_km || 15000) * 0.15));
-  const nearItv = daysItv !== null && daysItv! < 60;
-  const nearSeg = daysSeg !== null && daysSeg! < 60;
-  if (nearTask || nearItv || nearSeg || (daysItv !== null && daysItv! < 0)) return "A revisar";
+  if (nearTask || itv.state === "soon" || insurance.state === "soon") return "A revisar";
 
   return "Al dia";
 }

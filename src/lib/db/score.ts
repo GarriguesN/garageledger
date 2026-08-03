@@ -16,7 +16,7 @@
 
 import { getDb } from "./core";
 import { getCar } from "./cars";
-import type { Car } from "./cars";
+import { carExpiries, daysUntil } from "@/lib/domain/expiry";
 
 /** Cuánto resta cada problema. */
 const PENALTY = {
@@ -77,20 +77,6 @@ function conditionFor(score: number): CarCondition {
   return "malo";
 }
 
-function daysUntil(dateStr: string | null | undefined): number | null {
-  if (!dateStr) return null;
-  const t = new Date(dateStr + "T12:00:00").getTime();
-  if (Number.isNaN(t)) return null;
-  return Math.ceil((t - Date.now()) / 86_400_000);
-}
-
-/** Intervalo en meses entre ITVs según la edad del vehículo (normativa
- *  española simplificada: hasta 10 años, cada 2; después, cada año). */
-function itvIntervalMonths(car: Car): number {
-  const age = car.ano ? new Date().getFullYear() - car.ano : 0;
-  return age <= 10 ? 24 : 12;
-}
-
 export function computeCarScore(carId: number): CarScore {
   const car = getCar(carId);
   if (!car) {
@@ -146,37 +132,35 @@ export function computeCarScore(carId: number): CarScore {
     });
   }
 
-  // ── ITV ─────────────────────────────────────────────────────────
-  if (car.fecha_ultima_itv) {
-    const last = new Date(car.fecha_ultima_itv + "T12:00:00");
-    const dueDate = new Date(last);
-    dueDate.setMonth(dueDate.getMonth() + itvIntervalMonths(car));
-    const days = Math.ceil((dueDate.getTime() - Date.now()) / 86_400_000);
+  // ── ITV, seguro e impuesto ──────────────────────────────────────
+  //
+  // audit:B-2 — Los vencimientos salen del mismo módulo que usan las alertas y
+  // el estado del coche. Aquí había una tercera copia del cálculo de la ITV
+  // que discrepaba de la de metrics.ts en un año de antigüedad y en unos diez
+  // días de fecha, así que la nota y el aviso podían no coincidir.
+  //
+  // La ventana de aviso de la nota es intencionadamente más corta que la de
+  // las alertas: un seguro que vence dentro de dos meses merece un recordatorio
+  // pero no bajarle la puntuación al coche.
+  const { itv, insurance, tax } = carExpiries(car);
+  const SCORE_WARN_DAYS = 30;
 
-    if (days < 0) {
-      factors.push({ label: "ITV caducada", penalty: PENALTY.itvExpired });
-    } else if (days < 30) {
-      factors.push({ label: `ITV en ${days} días`, penalty: PENALTY.itvSoon });
-    }
+  if (itv.state === "expired") {
+    factors.push({ label: "ITV caducada", penalty: PENALTY.itvExpired });
+  } else if (itv.state !== "unknown" && itv.daysLeft! < SCORE_WARN_DAYS) {
+    factors.push({ label: `ITV en ${itv.daysLeft} días`, penalty: PENALTY.itvSoon });
   }
 
-  // ── Seguro ──────────────────────────────────────────────────────
-  const insuranceDays = daysUntil(car.fecha_vencimiento_seguro);
-  if (insuranceDays !== null) {
-    if (insuranceDays < 0) {
-      factors.push({ label: "Seguro caducado", penalty: PENALTY.insuranceExpired });
-    } else if (insuranceDays < 30) {
-      factors.push({ label: `Seguro vence en ${insuranceDays} días`, penalty: PENALTY.insuranceSoon });
-    }
+  if (insurance.state === "expired") {
+    factors.push({ label: "Seguro caducado", penalty: PENALTY.insuranceExpired });
+  } else if (insurance.state !== "unknown" && insurance.daysLeft! < SCORE_WARN_DAYS) {
+    factors.push({ label: `Seguro vence en ${insurance.daysLeft} días`, penalty: PENALTY.insuranceSoon });
   }
 
-  // ── Impuesto de circulación ─────────────────────────────────────
-  const lastTax = car.fecha_ivtm || car.fecha_impuesto_circulacion;
-  if (lastTax) {
-    const days = daysUntil(lastTax);
-    if (days !== null && days < -365) {
-      factors.push({ label: "Impuesto de circulación pendiente", penalty: PENALTY.taxOverdue });
-    }
+  // El impuesto solo penaliza cuando ya se ha pasado el año: que venza dentro
+  // de tres semanas no es un problema del coche, es un recordatorio.
+  if (tax.state === "expired") {
+    factors.push({ label: "Impuesto de circulación pendiente", penalty: PENALTY.taxOverdue });
   }
 
   const total = factors.reduce((sum, f) => sum + f.penalty, 0);
