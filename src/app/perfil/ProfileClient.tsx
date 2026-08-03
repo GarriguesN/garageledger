@@ -10,16 +10,30 @@
 
 import { useEffect, useState } from "react";
 import {
-  AppCard, AppSection, AppListTile, AppDivider, AppButton, AppToast,
+  AppCard, AppSection, AppListTile, AppDivider, AppButton, AppModal, AppToast,
 } from "@/components/ui";
 import { useToast } from "@/components/ui/AppToast";
 import { NameWizard, PinWizard } from "@/components/wizards/ProfileWizards";
 import { colors, hexToRgba } from "@/design/tokens";
+import type { ReleaseNote } from "@/lib/changelog";
 
 export interface ProfileClientProps {
   vehicleCount: number;
   displayName: string;
   appVersion: string;
+  /** Novedades por versión, de la más reciente a la más antigua. */
+  releases: ReleaseNote[];
+}
+
+/** "2026-08-03" → "3 de agosto de 2026" (fecha humana, no ISO). */
+function humanDate(iso: string): string {
+  const d = new Date(iso + "T12:00:00");
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("es-ES", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 }
 
 function initials(name: string): string {
@@ -29,7 +43,7 @@ function initials(name: string): string {
 }
 
 export default function ProfileClient({
-  vehicleCount, displayName: initialName, appVersion,
+  vehicleCount, displayName: initialName, appVersion, releases,
 }: ProfileClientProps) {
   const { toast, show, dismiss } = useToast();
 
@@ -40,6 +54,8 @@ export default function ProfileClient({
   const [pinConfigured, setPinConfigured] = useState<boolean | null>(null);
   const [pinOpen, setPinOpen] = useState(false);
   const [pinKey, setPinKey] = useState(0);
+
+  const [newsOpen, setNewsOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/pin")
@@ -113,9 +129,60 @@ export default function ProfileClient({
 
       <AppSection title="Acerca de">
         <AppCard>
+          <AppListTile
+            icon="sparkles"
+            label="Novedades"
+            description="Qué hay de nuevo en cada versión"
+            value={releases[0]?.version ?? undefined}
+            onClick={() => setNewsOpen(true)}
+          />
+          <AppDivider />
           <AppListTile icon="info" label="Versión" value={appVersion} chevron={false} />
         </AppCard>
       </AppSection>
+
+      <AppModal open={newsOpen} onClose={() => setNewsOpen(false)} title="Novedades">
+        {releases.length === 0 ? (
+          <p className="py-8 text-center text-body text-text-secondary">
+            Todavía no hay novedades que contar.
+          </p>
+        ) : (
+          <div className="space-y-6">
+            {releases.map((release, i) => (
+              <section key={release.version}>
+                <header className="flex items-baseline gap-2">
+                  <span
+                    className="rounded-pill px-2 py-0.5 text-caption font-semibold text-primary"
+                    style={{ backgroundColor: hexToRgba(colors.primary, 0.14) }}
+                  >
+                    v{release.version}
+                  </span>
+                  <span className="text-caption text-text-muted">
+                    {humanDate(release.date)}
+                  </span>
+                </header>
+                <ul className="mt-3 space-y-2.5">
+                  {release.highlights.map((highlight) => (
+                    <li
+                      key={highlight}
+                      className="flex gap-2.5 text-body leading-snug text-text-secondary"
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="mt-[9px] size-1.5 shrink-0 rounded-pill"
+                        style={{ backgroundColor: hexToRgba(colors.primary, 0.7) }}
+                      />
+                      <span>{highlight}</span>
+                    </li>
+                  ))}
+                </ul>
+                {/* Separador entre versiones, excepto tras la más antigua. */}
+                {i < releases.length - 1 && <AppDivider className="mt-6" />}
+              </section>
+            ))}
+          </div>
+        )}
+      </AppModal>
 
       <NameWizard
         key={`name-${nameKey}`}

@@ -34,5 +34,5 @@ ssh "$HOST" "cd $REMOTE_DIR && tar xzf garageledger-deploy.tar.gz && \
   pm2 restart garageledger || node .next/standalone/server.js &"
 
 echo ""
-echo "✅ Desplegado en $HOST (GarageLedger v1.5.0)"
+echo "✅ Desplegado en $HOST (GarageLedger v$(node -p "require('./package.json').version"))"
 rm -f /tmp/garageledger-deploy.tar.gz
