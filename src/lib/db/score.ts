@@ -220,13 +220,19 @@ export function getScoreHistory(
   months = 12,
 ): { month: string; score: number }[] {
   ensureScoreTable();
+  // audit:B-9 — `months` se interpolaba en el SQL. Hoy siempre llega de código
+  // nuestro, así que no había inyección explotable, pero es el único sitio del
+  // proyecto donde una consulta se construye concatenando en vez de con `?`:
+  // el día que alguien lo cuelgue de un query param, el agujero ya está hecho.
+  // SQLite acepta el modificador como parámetro si se arma la cadena aparte.
+  const window = `-${Math.max(1, Math.floor(months))} months`;
   const rows = getDb()
     .prepare(
       `SELECT month, score FROM car_score_history
-       WHERE car_id=? AND month >= strftime('%Y-%m', date('now', '-${months} months'))
+       WHERE car_id=? AND month >= strftime('%Y-%m', date('now', ?))
        ORDER BY month ASC`,
     )
-    .all(carId) as { month: string; score: number }[];
+    .all(carId, window) as { month: string; score: number }[];
 
   const current = new Date().toISOString().slice(0, 7);
   if (!rows.some((r) => r.month === current)) {

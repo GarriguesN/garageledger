@@ -386,7 +386,15 @@ export function getTimeline(carId: number, limit = 50, offset = 0): any[] {
 }
 
 export function getMonthlyHistory(carId: number, months = 6): { month: string; total: number }[] {
-  return getDb().prepare(`SELECT strftime('%Y-%m', date) as month, SUM(importe) as total FROM expenses WHERE car_id=? AND date>=date('now','-${months} months','start of month') GROUP BY month ORDER BY month ASC`).all(carId) as any[];
+  // audit:B-9 — Igual que en getScoreHistory: el modificador va como parámetro
+  // en vez de concatenado. Es el mismo patrón, y era el otro sitio donde
+  // aparecía.
+  const window = `-${Math.max(1, Math.floor(months))} months`;
+  return getDb().prepare(
+    `SELECT strftime('%Y-%m', date) as month, SUM(importe) as total FROM expenses
+     WHERE car_id=? AND date>=date('now', ?, 'start of month')
+     GROUP BY month ORDER BY month ASC`,
+  ).all(carId, window) as any[];
 }
 
 /** Estado resumido del coche, el que se pinta en la tarjeta del garaje.
