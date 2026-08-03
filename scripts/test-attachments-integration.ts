@@ -1,16 +1,14 @@
 // Integration test: ejecuta los handlers POST/GET reales con BD sqlite en memoria
 // y UPLOAD_DIR temporal. Sin servidor, sin red, sin PIN — solo código real del handler.
 
+// Primera línea: fija DB_PATH/UPLOAD_DIR antes de que se cargue src/lib/db.
+// Antes esto se hacía en el cuerpo del fichero y no servía de nada —los
+// imports ya se habían evaluado— así que el test escribía en la BD real.
+import { TEST_DB_PATH as TMP_DB, TEST_UPLOAD_DIR as TMP_UPL } from "./lib/test-db";
+
 import fs from "fs";
 import path from "path";
-import os from "os";
 
-const TMP_DB   = path.join(os.tmpdir(), `garage-test-${Date.now()}.db`);
-const TMP_UPL  = path.join(os.tmpdir(), `garage-uploads-${Date.now()}`);
-process.env.DB_PATH    = TMP_DB;
-process.env.UPLOAD_DIR = TMP_UPL;
-
-// Imports DESPUÉS de fijar env (getDb() lee DB_PATH en su primera llamada).
 import { POST as attachmentsPOST, GET as attachmentsGET } from "../src/app/api/attachments/route";
 import { GET as attachmentGET }   from "../src/app/api/attachments/[id]/route";
 import { getDb } from "../src/lib/db/core";

@@ -1,3 +1,4 @@
+import "./lib/test-db";  // primera línea: fija DB_PATH antes de cargar src/lib/db
 // Verifica la card de kilometraje (totales / este mes / media mensual).
 
 import { getKmStats, getCar } from "../src/lib/db/cars";

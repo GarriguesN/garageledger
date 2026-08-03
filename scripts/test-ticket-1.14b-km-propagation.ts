@@ -1,3 +1,4 @@
+import "./lib/test-db";  // primera línea: fija DB_PATH antes de cargar src/lib/db
 // Verifica Ticket 1.14 follow-up: el form de Añadir gasto siempre se
 // pre-rellena con car.km_actuales, nunca con el valor cacheado al mount.
 

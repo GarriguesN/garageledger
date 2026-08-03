@@ -1,3 +1,4 @@
+import "./lib/test-db";  // primera línea: fija DB_PATH antes de cargar src/lib/db
 // Verifica Ticket 1.16: filas minimalistas, banner ITV/Seguro/Impuestos,
 // costeTaller sólo en DIY, y conexión gasto↔tarea de mantenimiento.
 

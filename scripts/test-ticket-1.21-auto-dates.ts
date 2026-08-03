@@ -1,3 +1,4 @@
+import { TEST_DB_PATH } from "./lib/test-db";  // primera línea: fija DB_PATH antes de cargar src/lib/db
 // Verifica Ticket 1.20: ITV/Seguro/Impuestos autoactualizan las fechas
 // del coche, y la nueva columna fecha_impuesto_circulacion + datos
 // técnicos (potencia, cilindrada, peso, plazas, color) funcionan.
@@ -89,8 +90,13 @@ expect("KmStats retorna avgPerYear (null o number)",
   stats === null || typeof stats.avgPerYear === "number" || stats.avgPerYear === null);
 
 // ── 8) Idempotencia de migración: PRAGMA tiene las 6 nuevas columnas ──
+// Se abre la MISMA BD contra la que corre el test, no una ruta del servidor:
+// antes esto apuntaba a `/opt/garageledger/data/garageledger.db` y las siete
+// comprobaciones de abajo fallaban en cualquier máquina que no fuera la de
+// producción. Lo que se quiere verificar es que `migrateSchema` dejó las
+// columnas puestas, y eso se comprueba donde acaba de correr.
 const cols = safeCall("PRAGMA table_info cars", () =>
-  new Database("/opt/garageledger/data/garageledger.db", { readonly: true })
+  new Database(TEST_DB_PATH, { readonly: true })
     .prepare("PRAGMA table_info(cars)").all().map((c: { name: string }) => c.name),
 ) || [];
 for (const c of ["fecha_impuesto_circulacion", "potencia_cv", "cilindrada_cc", "peso_kg", "plazas", "color"]) {

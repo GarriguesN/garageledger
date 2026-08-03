@@ -1,3 +1,4 @@
+import "./lib/test-db";  // primera línea: fija DB_PATH antes de cargar src/lib/db
 // Verifica el contrato del catálogo de mantenimientos predefinidos
 // (Ticket 1.15): MAINTENANCE_PRESETS, groupPresetsByCategory,
 // findPresetByKey y getIconForKey.
