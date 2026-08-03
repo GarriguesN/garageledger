@@ -203,10 +203,26 @@ export function getKmStats(carId: number): KmStats {
   const total = car?.km_actuales ?? 0;
   const origen: "matriculacion" | "primer_registro" = car?.km_origen ?? "matriculacion";
 
-  // Recoge los gastos con km no nulo, ordenados por fecha.
+  // Lecturas de cuentakilómetros, de la más antigua a la más reciente.
+  //
+  // audit:B-1 — Se descartan las de fecha futura. El formulario de gasto deja
+  // poner cualquier fecha, y una lectura de dentro de seis meses no es una
+  // medida: es una errata o un apunte adelantado. Colada en el cálculo hacía
+  // algo peor que dar un número raro — lo rompía del todo: al comparar fechas
+  // como texto, un gasto de 2026-12-31 caía en "este mes", se tomaba como
+  // última lectura, y como sus km eran menores que los de meses anteriores la
+  // resta salía negativa y `thisMonth` acababa en null. La card de kilometraje
+  // se quedaba en blanco sin que nada explicara por qué.
+  //
+  // El filtro va en SQL: además de ser el sitio donde se dice qué es una
+  // lectura válida, evita traerse a memoria filas que se van a tirar.
   type Row = { date: string; km: number };
   const rows = getDb()
-    .prepare("SELECT date, km FROM expenses WHERE car_id=? AND km IS NOT NULL AND km > 0 ORDER BY date ASC, id ASC")
+    .prepare(
+      `SELECT date, km FROM expenses
+       WHERE car_id=? AND km IS NOT NULL AND km > 0 AND date <= date('now')
+       ORDER BY date ASC, id ASC`,
+    )
     .all(carId) as Row[];
 
   // Km este mes: diferencia entre el último km y el último km anterior
@@ -214,8 +230,11 @@ export function getKmStats(carId: number): KmStats {
   // (current - prev) usando el último gasto del mes anterior.
   const ym = new Date().toISOString().slice(0, 7);
   const monthStart = `${ym}-01`;
-  const inMonth = rows.filter(r => r.date >= monthStart);
-  const beforeMonth = rows.filter(r => r.date < monthStart);
+  // `rows` viene ordenado, así que el corte es un índice, no dos recorridos.
+  const cut = rows.findIndex((r) => r.date >= monthStart);
+  const firstOfMonth = cut === -1 ? rows.length : cut;
+  const inMonth = rows.slice(firstOfMonth);
+  const beforeMonth = rows.slice(0, firstOfMonth);
   let thisMonth: number | null = null;
   if (inMonth.length > 0 && beforeMonth.length > 0) {
     const lastIn = inMonth[inMonth.length - 1].km;

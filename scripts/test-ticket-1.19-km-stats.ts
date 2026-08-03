@@ -53,6 +53,36 @@ if (after) {
   expect("thisMonth !== null tras crear gasto este mes", after.thisMonth !== null);
 }
 
+// ── audit:B-1 — Un gasto con fecha futura no puede romper la card ─────────
+//
+// El formulario deja poner cualquier fecha. Antes, un gasto de dentro de unos
+// meses entraba en el cálculo de "este mes" (las fechas se comparan como
+// texto), se tomaba como última lectura y, al ser sus km menores que los de
+// meses anteriores, la resta salía negativa y thisMonth se quedaba en null.
+// Este es el caso exacto que había en la BD de desarrollo: un gasto con fecha
+// 2026-12-31 dejaba la card de kilometraje en blanco.
+{
+  const antes = safeCall("getKmStats antes del gasto futuro", () => getKmStats(1))!;
+
+  const futuro = new Date();
+  futuro.setMonth(futuro.getMonth() + 5);
+  const fechaFutura = futuro.toISOString().slice(0, 10);
+  // Km deliberadamente BAJOS: es lo que hacía que la resta saliera negativa.
+  const kmBajos = 100;
+  const gastoFuturo = safeCall("createExpense con fecha futura", () =>
+    createExpense(1, "Carburante", 50, fechaFutura, "Gasto adelantado", "", 40, kmBajos, null),
+  );
+
+  const despues = safeCall("getKmStats con gasto futuro", () => getKmStats(1));
+  if (despues) {
+    expect("un gasto futuro no anula thisMonth", despues.thisMonth === antes.thisMonth);
+    expect("un gasto futuro no cambia la media", despues.avgPerMonth === antes.avgPerMonth);
+    expect("thisMonth nunca es negativo", despues.thisMonth === null || despues.thisMonth >= 0);
+  }
+
+  if (gastoFuturo) safeCall("deleteExpense futuro", () => deleteExpense(gastoFuturo.id));
+}
+
 // Cleanup.
 if (exp) safeCall("deleteExpense", () => deleteExpense(exp.id));
 
