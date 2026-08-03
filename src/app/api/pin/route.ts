@@ -34,7 +34,7 @@ function inferLegacyPinLength(stored: string | undefined): number {
 // primero. Es la misma asimetría que el middleware documenta para "/".
 type OwnerCheck = { ok: true } | { ok: false; status: 401 | 403; error: string };
 
-function requireOwner(req: NextRequest, body: { currentPin?: unknown }): OwnerCheck {
+async function requireOwner(req: NextRequest, body: { currentPin?: unknown }): Promise<OwnerCheck> {
   const stored = getSetting("pin") || "";
   // Primer uso: sin PIN configurado no hay secreto que proteger.
   if (!stored) return { ok: true };
@@ -44,7 +44,7 @@ function requireOwner(req: NextRequest, body: { currentPin?: unknown }): OwnerCh
 
   // 2) O el PIN actual, para clientes sin cookie (curl, scripts de mantenimiento).
   const current = body?.currentPin;
-  if (typeof current === "string" && current.length > 0 && verifyPin(current, stored)) {
+  if (typeof current === "string" && current.length > 0 && await verifyPin(current, stored)) {
     return { ok: true };
   }
 
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ valid: false }, { status: 400 });
     }
     const stored = getSetting("pin") || "";
-    const valid = verifyPin(pin, stored);
+    const valid = await verifyPin(pin, stored);
 
     const res = NextResponse.json({ valid });
     if (valid) {
@@ -106,13 +106,13 @@ export async function POST(req: NextRequest) {
   }
 
   if (action === "set") {
-    const owner = requireOwner(req, body);
+    const owner = await requireOwner(req, body);
     if (!owner.ok) return NextResponse.json({ error: owner.error }, { status: owner.status });
 
     if (typeof pin !== "string" || pin.length < 4 || pin.length > 10 || !/^\d+$/.test(pin)) {
       return NextResponse.json({ error: "El PIN debe tener entre 4 y 10 dígitos" }, { status: 400 });
     }
-    setSetting("pin", hashPin(pin));
+    setSetting("pin", await hashPin(pin));
     // Persistimos la longitud para que el GET pueda saber cuántos dígitos
     // esperar antes de auto-verificar (Ticket 1.16-mejora).
     setSetting("pin_length", String(pin.length));
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
   // audit:C-2 — Acción explícita para eliminar el PIN. Antes se usaba
   // action='set' con pin='' pero la validación de length >= 4 lo rechazaba.
   if (action === "unset") {
-    const owner = requireOwner(req, body);
+    const owner = await requireOwner(req, body);
     if (!owner.ok) return NextResponse.json({ error: owner.error }, { status: owner.status });
 
     setSetting("pin", "");

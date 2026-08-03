@@ -1,38 +1,88 @@
-import { scryptSync, randomBytes, timingSafeEqual, createHmac, createHash } from "node:crypto";
+import { scrypt, randomBytes, timingSafeEqual, createHmac, createHash } from "node:crypto";
+import { promisify } from "node:util";
+
+// Versión asíncrona de scrypt: corre en el threadpool de libuv en vez de
+// bloquear el event loop. Con N=2^17 cada derivación son ~220 ms, y `scryptSync`
+// los pasaba parado, sin atender ninguna otra petición. Los tres llamadores
+// viven dentro de un handler que ya era `async`, así que no cuesta nada.
+const scryptAsync = promisify(scrypt) as (
+  password: string, salt: Buffer, keylen: number,
+  options: { N: number; r: number; p: number; maxmem: number },
+) => Promise<Buffer>;
 
 const SCRYPT_KEYLEN = 64;
-const SCRYPT_N = 16384;
+// audit:S-3 — 2^17, el coste que OWASP recomienda para login interactivo
+// (antes 2^14). Un PIN numérico es un secreto pobre: si alguien se lleva la
+// BD, la diferencia entre 2^14 y 2^17 es la diferencia entre romper los
+// 10.000 PINs posibles en minutos o en un rato largo. En el login legítimo
+// son ~150 ms, imperceptibles al teclear.
+//
+// El formato `scrypt$N$r$p$salt$hash` guarda los parámetros junto al hash,
+// así que los PINs ya guardados con 2^14 se siguen verificando con SU coste
+// y se reescriben con el nuevo la próxima vez que se cambie el PIN.
+const SCRYPT_N = 131072;
 const SCRYPT_R = 8;
 const SCRYPT_P = 1;
 
+/** scrypt necesita ~128·N·r bytes. El límite por defecto de Node (32 MB) se
+ *  queda corto con N=2^17 (≈134 MB) y lanza. Se calcula con holgura. */
+function scryptMaxmem(N: number, r: number): number {
+  return 256 * N * r;
+}
+
 // -------- PIN hash (scrypt) --------
 
-export function hashPin(pin: string): string {
+export async function hashPin(pin: string): Promise<string> {
   const salt = randomBytes(16);
-  const hash = scryptSync(pin, salt, SCRYPT_KEYLEN, { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P });
+  const hash = await scryptAsync(pin, salt, SCRYPT_KEYLEN, {
+    N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P, maxmem: scryptMaxmem(SCRYPT_N, SCRYPT_R),
+  });
   // Format: scrypt$N$r$p$saltHex$hashHex  -> easy to detect + future-proof
   return `scrypt$${SCRYPT_N}$${SCRYPT_R}$${SCRYPT_P}$${salt.toString("hex")}$${hash.toString("hex")}`;
 }
 
-export function verifyPin(pin: string, stored: string): boolean {
+/** Comparación de dos cadenas en tiempo constante, incluida la longitud.
+ *  Se comparan sus digests: tienen tamaño fijo, así que `timingSafeEqual`
+ *  no puede lanzar por longitudes distintas ni delatarlas al hacerlo. */
+function constantTimeStringEq(a: string, b: string): boolean {
+  return timingSafeEqual(
+    createHash("sha256").update(a, "utf8").digest(),
+    createHash("sha256").update(b, "utf8").digest(),
+  );
+}
+
+export async function verifyPin(pin: string, stored: string): Promise<boolean> {
   if (!stored) return false;
-  // Legacy: existing plaintext PIN (<4 ints, no "$" markers)
+  // Legacy: existing plaintext PIN (<4 ints, no "$" markers).
+  // audit:S-9 — Comparación en tiempo constante también aquí. `stored === pin`
+  // corta en el primer byte distinto y, sobre todo, delata la longitud del
+  // PIN de golpe. Es deuda temporal (la fila se migra al primer `set`), pero
+  // mientras exista no tiene por qué filtrar nada.
   if (!stored.startsWith("scrypt$")) {
-    return stored === pin;
+    return constantTimeStringEq(stored, pin);
   }
   const parts = stored.split("$");
   if (parts.length !== 6) return false;
   const [, nStr, rStr, pStr, saltHex, hashHex] = parts;
   const N = Number(nStr), r = Number(rStr), p = Number(pStr);
   if (!N || !r || !p || !saltHex || !hashHex) return false;
-  let salt: Buffer, expected: Buffer;
-  try {
-    salt = Buffer.from(saltHex, "hex");
-    expected = Buffer.from(hashHex, "hex");
-  } catch {
-    return false;
-  }
-  const actual = scryptSync(pin, salt, expected.length, { N, r, p });
+
+  // `Buffer.from(x, "hex")` no lanza con basura: se para en el primer carácter
+  // que no es hexadecimal y devuelve lo que llevara, incluido un buffer vacío.
+  // Con un hash corrupto en BD eso acababa comparando dos buffers vacíos, que
+  // `timingSafeEqual` considera IGUALES: cualquier PIN entraba. De ahí que la
+  // forma se valide antes de convertir, y que se exija longitud no nula.
+  const isHex = (s: string) => s.length > 0 && s.length % 2 === 0 && /^[0-9a-fA-F]+$/.test(s);
+  if (!isHex(saltHex) || !isHex(hashHex)) return false;
+
+  const salt = Buffer.from(saltHex, "hex");
+  const expected = Buffer.from(hashHex, "hex");
+  if (salt.length === 0 || expected.length === 0) return false;
+  // Se usan los parámetros GUARDADOS, no los actuales: así subir el coste no
+  // invalida los PINs existentes.
+  const actual = await scryptAsync(pin, salt, expected.length, {
+    N, r, p, maxmem: scryptMaxmem(N, r),
+  });
   if (actual.length !== expected.length) return false;
   return timingSafeEqual(actual, expected);
 }
