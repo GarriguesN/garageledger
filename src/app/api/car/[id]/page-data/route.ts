@@ -19,14 +19,16 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const [metrics, timeline, notes, documents, maintenanceTasks, kmStats] = await Promise.all([
-    Promise.resolve(getCarMetrics(carId)),
-    Promise.resolve(getTimeline(carId, 100)),
-    Promise.resolve(getCarNotes(carId)),
-    Promise.resolve(getCarDocuments(carId)),
-    Promise.resolve(getMaintenanceTasks(carId)),
-    Promise.resolve(getKmStats(carId)),
-  ]);
+  // Estas seis lecturas son SÍNCRONAS: better-sqlite3 no es asíncrono. Antes
+  // iban envueltas en `Promise.resolve` dentro de un `Promise.all`, que no
+  // paralelizaba nada —se ejecutan igual, una detrás de otra— pero daba a
+  // entender lo contrario a quien leyera el fichero.
+  const metrics = getCarMetrics(carId);
+  const timeline = getTimeline(carId, 100);
+  const notes = getCarNotes(carId);
+  const documents = getCarDocuments(carId);
+  const maintenanceTasks = getMaintenanceTasks(carId);
+  const kmStats = getKmStats(carId);
 
   return NextResponse.json({ car, metrics, timeline, notes, documents, maintenanceTasks, kmStats });
 }

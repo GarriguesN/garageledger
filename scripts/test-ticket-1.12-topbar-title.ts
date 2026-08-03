@@ -2,8 +2,6 @@
 // muestra el título correcto para cada pathname. La parte de fetch fallback
 // cuando el SC no inyecta el atributo se cubre en tests de integración.
 
-import React from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 
 let pass = 0, fail = 0;
 function expect(label: string, cond: boolean) {

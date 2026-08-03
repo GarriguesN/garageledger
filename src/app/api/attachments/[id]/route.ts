@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 
 // RFC 5987 + latin1 fallback for non-ASCII filenames.
 // Keeps Content-Disposition parser-safe across browsers.
-function contentDisposition(originalName: string, mime: string): string {
+function contentDisposition(originalName: string): string {
   const safe = safeDownloadFilename(originalName);
   const star = encodeURIComponent(safe).replace(/['()]/g, escape);
   return `attachment; filename="${safe}"; filename*=UTF-8''${star}`;
@@ -73,7 +73,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     headers: {
       "Content-Type": row.mime_type,
       "Content-Length": String(stat.size),
-      "Content-Disposition": contentDisposition(row.original_name, row.mime_type),
+      "Content-Disposition": contentDisposition(row.original_name),
       "X-Content-Type-Options": "nosniff",
       "Cache-Control": "private, no-store",
     },

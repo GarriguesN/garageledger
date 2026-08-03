@@ -7,7 +7,6 @@ import {
   MAINTENANCE_PRESETS, groupPresetsByCategory, findPresetByKey, getIconForKey,
 } from "../src/lib/maintenance/presets";
 import { createMaintenanceTask, getMaintenanceTasks, deleteMaintenanceTask } from "../src/lib/db";
-import type { Car, MaintenanceTask } from "../src/app/coches/[id]/lib/types";
 
 let pass = 0, fail = 0;
 function expect(label: string, cond: boolean) {

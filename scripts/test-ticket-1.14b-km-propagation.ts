@@ -2,7 +2,7 @@ import "./lib/test-db";  // primera línea: fija DB_PATH antes de cargar src/lib
 // Verifica Ticket 1.14 follow-up: el form de Añadir gasto siempre se
 // pre-rellena con car.km_actuales, nunca con el valor cacheado al mount.
 
-import { createExpense, getCar, getExpense, deleteExpense } from "../src/lib/db";
+import { createExpense, getCar, deleteExpense } from "../src/lib/db";
 import { bumpKmIfHigher } from "../src/lib/db/cars";
 import * as fs from "fs";
 import * as path from "path";

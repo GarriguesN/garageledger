@@ -37,7 +37,6 @@ export const config = {
 };
 
 const COOKIE_NAME = "gl_sess";
-const COOKIE_MAX_AGE_SEC = 12 * 60 * 60; // 12h, matches auth.ts SESSION_TTL_MS
 
 // Same dev fallback as src/lib/auth.ts (must keep in sync).
 // audit:C-1 — En producción, FAIL HARD si no hay secreto válido.

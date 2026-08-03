@@ -9,7 +9,7 @@ import { TEST_DB_PATH as TMP_DB, TEST_UPLOAD_DIR as TMP_UPL } from "./lib/test-d
 import fs from "fs";
 import path from "path";
 
-import { POST as attachmentsPOST, GET as attachmentsGET } from "../src/app/api/attachments/route";
+import { POST as attachmentsPOST } from "../src/app/api/attachments/route";
 import { GET as attachmentGET }   from "../src/app/api/attachments/[id]/route";
 import { getDb } from "../src/lib/db/core";
 

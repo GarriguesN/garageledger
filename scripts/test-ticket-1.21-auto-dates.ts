@@ -4,7 +4,7 @@ import { TEST_DB_PATH } from "./lib/test-db";  // primera línea: fija DB_PATH a
 // técnicos (potencia, cilindrada, peso, plazas, color) funcionan.
 
 import { getCar, updateCar } from "../src/lib/db/cars";
-import { createExpense, deleteExpense, getExpense } from "../src/lib/db/expenses";
+import { createExpense, deleteExpense } from "../src/lib/db/expenses";
 import { getKmStats } from "../src/lib/db/cars";
 import Database from "better-sqlite3";
 
@@ -66,7 +66,7 @@ expect("Impuestos con flag → fecha_impuesto_circulacion = fecha gasto",
 if (e4) deleteExpense(e4.id);
 
 // ── 5) Datos técnicos del coche (Ticket 1.20) ──
-const updated = safeCall("updateCar con datos técnicos", () => updateCar(1, {
+safeCall("updateCar con datos técnicos", () => updateCar(1, {
   potencia_cv: 140, cilindrada_cc: 1800, peso_kg: 1320, plazas: 5, color: "Negro",
 }));
 const carWithTech = getCar(1)!;
