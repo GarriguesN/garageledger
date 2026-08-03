@@ -18,9 +18,29 @@ export const DEFAULT_MANTENIMIENTO = [
 export function getMantenimientoConfig(carId: number): any[] {
   const car = getCar(carId);
   if (!car) return DEFAULT_MANTENIMIENTO;
-  const saved = car.mantenimiento_config ? JSON.parse(car.mantenimiento_config) : null;
+  // audit:B-4 — `mantenimiento_config` es una columna TEXT con JSON dentro, y
+  // hasta aquí se parseaba a pelo. Cualquier cosa que no fuera JSON válido
+  // —una edición a mano de la BD, una escritura a medias— lanzaba desde una
+  // función de lectura. Con un valor corrupto, lo razonable es caer a la
+  // configuración por defecto: peor es tumbar la pantalla.
+  const saved = safeParseConfig(car.mantenimiento_config);
   if (!saved) return DEFAULT_MANTENIMIENTO;
   return DEFAULT_MANTENIMIENTO.map(d => ({ ...d, ...(saved[d.id] || {}) }));
+}
+
+function safeParseConfig(raw: string | null): Record<string, any> | null {
+  if (!raw) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  // Un JSON válido puede ser `null`, `42` o `[1,2]`, y ninguno sirve como
+  // mapa de configuración: el `saved[d.id]` de abajo daría resultados raros
+  // en vez de un error claro.
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+  return parsed as Record<string, any>;
 }
 
 export function saveMantenimientoConfig(carId: number, config: Record<string, any>): void {
