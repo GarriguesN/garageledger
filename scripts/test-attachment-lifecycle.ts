@@ -89,6 +89,32 @@ async function main() {
     expect("queda enlazado al gasto correcto", ok.body.expense_id === gastoPropio.id);
   }
 
+  // ── 3b) audit:S-7/S-8 — El archivo tiene que ser lo que dice ser, y su
+  //    nombre en disco no puede colisionar con el de otro.
+  {
+    const car = createCar({ marca: "Renault", modelo: "Clio" });
+
+    const fd = new FormData();
+    fd.append("car_id", String(car.id));
+    // Un HTML con todo bien puesto salvo el contenido: extensión .png y
+    // Content-Type image/png. Pasa `validateUpload` porque son coherentes
+    // entre sí; es la firma binaria la que lo caza.
+    fd.append("file", new Blob([Buffer.from("<html><script>alert(1)</script>")], {
+      type: "image/png",
+    }), "inocente.png");
+    const req = new Request("http://localhost/api/attachments", { method: "POST", body: fd });
+    const res = await attachmentsPOST(req as never);
+
+    expect("HTML disfrazado de PNG → 415", res.status === 415, `(${res.status})`);
+    expect("y no llega a escribirse nada", getAttachments(car.id).length === 0);
+
+    // Dos subidas del mismo archivo no pueden acabar en el mismo fichero.
+    const a = (await upload(car.id, { name: "foto.png" })).body;
+    const b = (await upload(car.id, { name: "foto.png" })).body;
+    expect("dos subidas iguales generan nombres distintos", a.filename !== b.filename);
+    expect("las dos siguen en disco", fileExists(a.filename) && fileExists(b.filename));
+  }
+
   // ── 4) Un coche inexistente no acepta adjuntos.
   {
     const { res } = await upload(987654);

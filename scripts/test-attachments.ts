@@ -3,6 +3,8 @@
 
 import {
   validateUpload,
+  validateUploadContent,
+  sniffMime,
   isAllowedMime,
   safeDownloadFilename,
   MAX_FILE_SIZE_BYTES,
@@ -121,6 +123,55 @@ console.log("\n=== 5) safeDownloadFilename — solo vectores de seguridad (NO la
 {
   const r = safeDownloadFilename("   ");
   eq("solo espacios → fallback", r, "adjunto");
+}
+
+// ── audit:S-7 — Firma binaria: que el archivo sea lo que dice ser ─────────
+//
+// `validateUpload` solo puede contrastar lo que declara el cliente (MIME y
+// extensión) consigo mismo. Estas comprobaciones miran los bytes.
+console.log("\n=== Firma binaria (sniffMime / validateUploadContent) ===");
+
+const SIGNATURES: Record<string, Buffer> = {
+  "image/jpeg": Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]),
+  "image/png": Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]),
+  "image/webp": Buffer.concat([
+    Buffer.from("RIFF"), Buffer.from([0x24, 0x00, 0x00, 0x00]), Buffer.from("WEBPVP8 "),
+  ]),
+  "application/pdf": Buffer.from("%PDF-1.7\n%âãÏÓ", "latin1"),
+};
+
+for (const [mime, bytes] of Object.entries(SIGNATURES)) {
+  eq(`reconoce ${mime} por su firma`, sniffMime(bytes), mime);
+  eq(`acepta ${mime} declarado correctamente`, validateUploadContent(bytes, mime), { ok: true });
+}
+
+// El vector que importa: contenido que no es lo que dice el MIME.
+{
+  const html = Buffer.from("<html><script>alert(1)</script></html>");
+  eq("HTML no tiene firma conocida", sniffMime(html), null);
+  eq("HTML declarado como image/png → 415",
+    validateUploadContent(html, "image/png"),
+    { ok: false, status: 415, error: "El contenido del archivo no coincide con su tipo" });
+}
+{
+  // Un PNG de verdad, pero declarado como PDF: tampoco cuela.
+  eq("PNG declarado como application/pdf → 415",
+    validateUploadContent(SIGNATURES["image/png"], "application/pdf"),
+    { ok: false, status: 415, error: "El contenido del archivo no coincide con su tipo" });
+}
+{
+  // RIFF sin "WEBP" en el offset 8 es otro formato (WAV, AVI…).
+  const wav = Buffer.concat([
+    Buffer.from("RIFF"), Buffer.from([0x24, 0x00, 0x00, 0x00]), Buffer.from("WAVEfmt "),
+  ]);
+  eq("RIFF que no es WebP no se reconoce", sniffMime(wav), null);
+}
+{
+  eq("archivo vacío no se reconoce", sniffMime(Buffer.alloc(0)), null);
+  eq("archivo más corto que la firma no revienta", sniffMime(Buffer.from([0x89, 0x50])), null);
+  // Una firma correcta pero desplazada no vale: tiene que estar al principio.
+  const desplazado = Buffer.concat([Buffer.from([0x00]), SIGNATURES["image/png"]]);
+  eq("firma desplazada no se reconoce", sniffMime(desplazado), null);
 }
 
 console.log("\n---");

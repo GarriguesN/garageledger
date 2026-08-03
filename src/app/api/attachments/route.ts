@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
+import { randomUUID } from "node:crypto";
 import { getAttachments, createAttachment, deleteAttachment, getCar, getExpense } from "@/lib/db";
-import { validateUpload } from "@/lib/attachments";
+import { validateUpload, validateUploadContent } from "@/lib/attachments";
 import { ensureUploadDir, uploadDir } from "@/lib/uploads";
 import { isValidDocumentType } from "@/lib/documents/catalog";
 import { parseDate } from "@/lib/validate";
@@ -89,11 +90,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: check.error }, { status: check.status });
     }
 
+    // El contenido se comprueba con el archivo ya en memoria pero ANTES de
+    // escribirlo (audit:S-7): hasta ahora todo lo que se validaba —el MIME y
+    // la extensión— lo declaraba el cliente, y un HTML renombrado a .png y
+    // enviado como image/png pasaba las dos comprobaciones.
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const content = validateUploadContent(buffer, file.type);
+    if (!content.ok) {
+      return NextResponse.json({ error: content.error }, { status: content.status });
+    }
+
     ensureUploadDir();
 
     const ext = path.extname(file.name).toLowerCase();
-    const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
-    const buffer = Buffer.from(await file.arrayBuffer());
+    // audit:S-8 — randomUUID en vez de Math.random: no es que una colisión
+    // fuera probable, es que aquí una colisión sobrescribe el archivo de otro
+    // y no cuesta nada quitarse la duda.
+    const uniqueName = `${Date.now()}-${randomUUID()}${ext}`;
     fs.writeFileSync(path.join(uploadDir(), uniqueName), buffer);
 
     const att = createAttachment(carId, uniqueName, file.name, file.type, buffer.length, expenseId, documentType, validUntil, reminderMonths);
