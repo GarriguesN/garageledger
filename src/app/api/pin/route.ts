@@ -2,19 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSetting, setSetting } from "@/lib/db";
 import {
   hashPin, verifyPin, isPinHashed,
-  issueSessionCookie, clearSessionCookie, readSessionCookie, checkRate,
+  issueSessionCookie, clearSessionCookie, readSessionCookie,
+  checkRate, clientIp, type RateScope,
 } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
-
-function clientIp(req: NextRequest): string {
-  // audit:A-4 — No confiar en X-Forwarded-For: el cliente puede spoofarlo
-  // para obtener un bucket de rate limit fresco. Solo x-real-ip, que nginx
-  // (CT 105) establece de forma fiable.
-  const real = req.headers.get("x-real-ip");
-  if (real) return real.trim();
-  return "local";
-}
 
 // Used only to derive a stable PIN length for legacy plaintext rows where the
 // PIN is no longer recoverable. Once migrated (or unset), we return 0 and the
@@ -75,15 +67,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const ip = clientIp(req);
-  const rl = checkRate(ip);
-  if (!rl.ok) {
-    return NextResponse.json(
-      { error: "Demasiados intentos. Inténtalo más tarde." },
-      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } },
-    );
-  }
-
+  // El cuerpo se lee antes que el rate limit porque el bucket depende de la
+  // acción (audit:S-2): contar `set` y `verify` juntos permitía a un atacante
+  // agotar con `set` los intentos de desbloqueo del usuario legítimo.
   let body: any;
   try {
     body = await req.json();
@@ -91,6 +77,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Cuerpo JSON inválido" }, { status: 400 });
   }
   const { action, pin } = body ?? {};
+
+  if (action !== "verify" && action !== "set" && action !== "unset") {
+    return NextResponse.json({ error: "Acción inválida" }, { status: 400 });
+  }
+
+  const rl = checkRate(clientIp(req.headers), action as RateScope);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Demasiados intentos. Inténtalo más tarde." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } },
+    );
+  }
 
   if (action === "verify") {
     if (typeof pin !== "string" || pin.length < 4 || pin.length > 10 || !/^\d+$/.test(pin)) {
@@ -137,5 +135,7 @@ export async function POST(req: NextRequest) {
     return res;
   }
 
+  // Inalcanzable: la acción se valida arriba, antes del rate limit. Se deja
+  // por exhaustividad del tipo de retorno.
   return NextResponse.json({ error: "Acción inválida" }, { status: 400 });
 }

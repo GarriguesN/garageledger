@@ -6,6 +6,11 @@
 
 import "./lib/test-db";  // primera línea: fija DB_PATH antes de cargar src/lib/db
 
+// Este test mide la autorización, no el rate limit (que tiene el suyo en
+// test-pin-rate-limit.ts). Declarando proxy de confianza, cada caso estrena
+// IP y por tanto bucket, y el limitador no se cruza por medio.
+process.env.TRUST_PROXY_HEADERS = "1";
+
 import { POST, GET } from "../src/app/api/pin/route";
 import { getSetting } from "../src/lib/db/core";
 import { issueSessionCookie, isPinHashed } from "../src/lib/auth";
