@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCar, getCars, createCar, updateCar, deleteCar } from "@/lib/db";
 import { attachmentBelongsToCar } from "@/lib/db/attachments";
+import { parseCarId } from "@/lib/validate";
 
 // audit:B-8 — La foto de un coche tiene que ser un adjunto DE ESE COCHE.
 // No se comprobaba, así que `foto_attachment_id` podía apuntar a la foto de
@@ -21,9 +22,11 @@ function photoIdError(carId: number, value: unknown): string | null {
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id");
-  if (id) {
-    const car = getCar(parseInt(id));
+  const raw = searchParams.get("id");
+  if (raw !== null) {
+    const id = parseCarId(raw);
+    if (!id) return NextResponse.json({ error: "id inválido" }, { status: 400 });
+    const car = getCar(id);
     return car ? NextResponse.json(car) : NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   return NextResponse.json(getCars());
@@ -79,15 +82,16 @@ export async function PUT(req: NextRequest) {
   try { body = await req.json(); } catch {
     return NextResponse.json({ error: "Cuerpo JSON inválido" }, { status: 400 });
   }
-  const { id, ...fields } = body;
-  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+  const { id: rawId, ...fields } = body ?? {};
+  const id = parseCarId(rawId);
+  if (!id) return NextResponse.json({ error: "id inválido o ausente" }, { status: 400 });
 
   if ("foto_attachment_id" in fields) {
-    const err = photoIdError(parseInt(id), fields.foto_attachment_id);
+    const err = photoIdError(id, fields.foto_attachment_id);
     if (err) return NextResponse.json({ error: err }, { status: 400 });
   }
 
-  const updated = updateCar(parseInt(id), fields);
+  const updated = updateCar(id, fields);
   return updated
     ? NextResponse.json(updated)
     : NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -95,8 +99,8 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
-  deleteCar(parseInt(id));
+  const id = parseCarId(searchParams.get("id"));
+  if (!id) return NextResponse.json({ error: "id inválido o ausente" }, { status: 400 });
+  deleteCar(id);
   return NextResponse.json({ success: true });
 }

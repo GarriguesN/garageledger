@@ -4,13 +4,15 @@ import { getCarNotes } from "@/lib/db/notes";
 import { getCarDocuments } from "@/lib/db/attachments";
 import { getMaintenanceTasks } from "@/lib/db/maintenance";
 import { getKmStats } from "@/lib/db/cars";
+import { parseCarId } from "@/lib/validate";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const carId = parseInt(id);
+  const carId = parseCarId(id);
+  if (!carId) return NextResponse.json({ error: "id inválido" }, { status: 400 });
 
   const car = getCar(carId);
   if (!car) {

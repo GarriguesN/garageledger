@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createExpense, updateExpense, deleteExpense, getExpenses } from "@/lib/db";
+import { parseCarId, parseExpenseId, parseTaskId } from "@/lib/validate";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const carId = searchParams.get("car_id");
+  const carId = parseCarId(searchParams.get("car_id"));
+  if (!carId) return NextResponse.json({ error: "car_id inválido o ausente" }, { status: 400 });
   const limit = parseInt(searchParams.get("limit") || "100");
-  if (!carId) return NextResponse.json({ error: "car_id required" }, { status: 400 });
-  return NextResponse.json(getExpenses(parseInt(carId), limit));
+  return NextResponse.json(getExpenses(carId, Number.isFinite(limit) ? limit : 100));
 }
 
 export async function POST(req: NextRequest) {
@@ -14,19 +15,22 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); } catch {
     return NextResponse.json({ error: "Cuerpo JSON inválido" }, { status: 400 });
   }
-  if (!body?.carId) return NextResponse.json({ error: "carId requerido" }, { status: 400 });
+  const carId = parseCarId(body?.carId);
+  if (!carId) return NextResponse.json({ error: "carId requerido" }, { status: 400 });
+
   const importe = typeof body.importe === "string" ? parseFloat(body.importe) : body.importe;
   if (typeof importe !== "number" || !Number.isFinite(importe) || importe < 0) {
     return NextResponse.json({ error: "importe inválido" }, { status: 400 });
   }
+
   const exp = createExpense(
-    body.carId, body.tipo, body.importe,
+    carId, body.tipo, body.importe,
     body.date || new Date().toISOString().split("T")[0],
     body.descripcion || "", body.referencia || "",
     body.litros || null, body.km || null, body.costeTaller || null,
     {
       impuestoCirculacion: (body.tipoId === "impuestos" || body.tipo === "Impuestos") && body.impuesto_circulacion === true,
-      maintenanceTaskId: body.maintenanceTaskId || undefined,
+      maintenanceTaskId: parseTaskId(body.maintenanceTaskId) ?? undefined,
       // Ticket 1.16-fix: el frontend envía scheduleNext explícitamente.
       // Default true (compatibilidad) si la tarea tiene intervalos; el
       // frontend lo pone false para tareas puntuales o cuando el usuario
@@ -49,10 +53,11 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Cuerpo JSON inválido" }, { status: 400 });
   }
   // El frontend envía el id como query param (?id=37) y los campos en el body.
-  const id = body.id ?? searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+  const id = parseExpenseId(body?.id ?? searchParams.get("id"));
+  if (!id) return NextResponse.json({ error: "id inválido o ausente" }, { status: 400 });
+
   const { id: _, ...fields } = body;
-  const updated = updateExpense(parseInt(id), fields);
+  const updated = updateExpense(id, fields);
   return updated
     ? NextResponse.json(updated)
     : NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -60,8 +65,8 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
-  deleteExpense(parseInt(id));
+  const id = parseExpenseId(searchParams.get("id"));
+  if (!id) return NextResponse.json({ error: "id inválido o ausente" }, { status: 400 });
+  deleteExpense(id);
   return NextResponse.json({ success: true });
 }

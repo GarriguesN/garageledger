@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getExpenses, getCar } from "@/lib/db";
 import { safeDownloadFilename } from "@/lib/attachments";
+import { parseCarId } from "@/lib/validate";
 
 // audit:S-5 — Un CSV es texto, pero Excel y Google Sheets lo leen como
 // programa: una celda que empieza por `=`, `+`, `-` o `@` es una fórmula y se
@@ -36,11 +37,14 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const car = getCar(parseInt(id));
+  const { id: rawId } = await params;
+  const carId = parseCarId(rawId);
+  if (!carId) return NextResponse.json({ error: "id inválido" }, { status: 400 });
+
+  const car = getCar(carId);
   if (!car) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const expenses = getExpenses(parseInt(id), 9999);
+  const expenses = getExpenses(carId, 9999);
   const headers = ["Fecha", "Tipo", "Importe", "Descripción", "Litros", "Km", "Coste Taller"];
   const rows = expenses.map((e) => [
     csvCell(e.date),

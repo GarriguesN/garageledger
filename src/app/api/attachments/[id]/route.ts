@@ -5,7 +5,7 @@ import { isAllowedMime, safeDownloadFilename } from "@/lib/attachments";
 import { attachmentFilePath } from "@/lib/uploads";
 import { updateAttachmentMeta } from "@/lib/db/attachments";
 import { isValidDocumentType } from "@/lib/documents/catalog";
-import { parseDate } from "@/lib/validate";
+import { parseDate, parseId } from "@/lib/validate";
 import type { Attachment } from "@/lib/db/attachments";
 
 export const runtime = "nodejs";
@@ -20,8 +20,8 @@ function contentDisposition(originalName: string, mime: string): string {
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: rawId } = await params;
-  const id = parseInt(rawId);
-  if (!Number.isFinite(id)) {
+  const id = parseId(rawId);
+  if (!id) {
     return NextResponse.json({ error: "id inválido" }, { status: 400 });
   }
 
@@ -85,8 +85,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 // contenido el usuario borra y vuelve a subir (mismo patrón que gastos/mantenimiento).
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: rawId } = await params;
-  const id = parseInt(rawId);
-  if (!Number.isFinite(id)) {
+  const id = parseId(rawId);
+  if (!id) {
     return NextResponse.json({ error: "id inválido" }, { status: 400 });
   }
 

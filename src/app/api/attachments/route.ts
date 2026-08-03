@@ -6,16 +6,20 @@ import { getAttachments, createAttachment, deleteAttachment, getCar, getExpense 
 import { validateUpload, validateUploadContent } from "@/lib/attachments";
 import { ensureUploadDir, uploadDir } from "@/lib/uploads";
 import { isValidDocumentType } from "@/lib/documents/catalog";
-import { parseDate } from "@/lib/validate";
+import { parseDate, parseCarId, parseExpenseId, parseId } from "@/lib/validate";
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const carId = searchParams.get("car_id");
-  const expenseId = searchParams.get("expense_id");
-  if (!carId) return NextResponse.json({ error: "car_id required" }, { status: 400 });
-  return NextResponse.json(getAttachments(parseInt(carId), expenseId ? parseInt(expenseId) : undefined));
+  const carId = parseCarId(searchParams.get("car_id"));
+  if (!carId) return NextResponse.json({ error: "car_id inválido o ausente" }, { status: 400 });
+  const rawExpense = searchParams.get("expense_id");
+  const expenseId = rawExpense === null ? undefined : parseExpenseId(rawExpense) ?? undefined;
+  if (rawExpense !== null && expenseId === undefined) {
+    return NextResponse.json({ error: "expense_id inválido" }, { status: 400 });
+  }
+  return NextResponse.json(getAttachments(carId, expenseId));
 }
 
 export async function POST(req: NextRequest) {
@@ -28,9 +32,9 @@ export async function POST(req: NextRequest) {
     const validUntilRaw = formData.get("valid_until") as string | null;
     const reminderMonthsRaw = formData.get("reminder_months") as string | null;
     if (!file || !carIdRaw) return NextResponse.json({ error: "Missing file or car_id" }, { status: 400 });
-    const carId = parseInt(carIdRaw);
-    const expenseId = expenseIdRaw ? parseInt(expenseIdRaw) : undefined;
-    if (!Number.isFinite(carId)) return NextResponse.json({ error: "car_id inválido" }, { status: 400 });
+    const carId = parseCarId(carIdRaw);
+    const expenseId = expenseIdRaw ? parseExpenseId(expenseIdRaw) ?? undefined : undefined;
+    if (!carId) return NextResponse.json({ error: "car_id inválido" }, { status: 400 });
 
     // audit:B-8 — Integridad referencial antes de escribir nada.
     //
@@ -43,8 +47,8 @@ export async function POST(req: NextRequest) {
     // Y el gasto, si se indica, tiene que ser DE ESE COCHE. No se comprobaba,
     // así que se podía colgar el ticket de un coche en el gasto de otro y la
     // miniatura aparecía en un historial ajeno.
-    if (expenseId !== undefined) {
-      if (!Number.isFinite(expenseId)) {
+    if (expenseIdRaw) {
+      if (expenseId === undefined) {
         return NextResponse.json({ error: "expense_id inválido" }, { status: 400 });
       }
       const expense = getExpense(expenseId);
@@ -118,8 +122,8 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
-  deleteAttachment(parseInt(id));
+  const id = parseId(searchParams.get("id"));
+  if (!id) return NextResponse.json({ error: "id inválido o ausente" }, { status: 400 });
+  deleteAttachment(id);
   return NextResponse.json({ success: true });
 }
