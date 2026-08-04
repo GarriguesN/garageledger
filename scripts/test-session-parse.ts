@@ -14,6 +14,8 @@
 // checks the outputs. Run with:
 //   tsx scripts/test-session-parse.ts
 
+import "./lib/test-db";
+
 import {
   issueSessionCookie,
   readSessionCookie,
@@ -75,9 +77,7 @@ async function buildExpiredValue(): Promise<string> {
   // Forge a value with exp in the past. We build it the same way auth.ts
   // does, so we need its internal `sign` — but we can use HMAC directly
   // since both share SESSION_SECRET via getSecret() / process.env.
-  const SECRET = process.env.SESSION_SECRET && process.env.SESSION_SECRET.length >= 32
-    ? process.env.SESSION_SECRET
-    : "garageledger-dev-secret-do-not-use-in-prod-min-32chars";
+  const SECRET = process.env.SESSION_SECRET as string;
   const { createHmac } = await import("node:crypto");
   const b64url = (buf: Buffer | string) => Buffer.from(buf).toString("base64url");
   const payload = JSON.stringify({ uid: "owner", iat: 0, exp: Date.now() - 1 });

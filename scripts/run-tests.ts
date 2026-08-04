@@ -31,6 +31,7 @@ for (const file of testFiles) {
       ...process.env,
       DB_PATH: path.join(sandbox, "garageledger.db"),
       UPLOAD_DIR: path.join(sandbox, "uploads"),
+      SESSION_SECRET: process.env.SESSION_SECRET || "garageledger-test-secret-do-not-use-in-prod-min-32chars",
     },
   });
   if (result.status !== 0) failed++;

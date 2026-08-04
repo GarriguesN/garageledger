@@ -40,6 +40,10 @@ if (!process.env.UPLOAD_DIR) {
 }
 fs.mkdirSync(process.env.UPLOAD_DIR, { recursive: true });
 
+if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
+  process.env.SESSION_SECRET = "garageledger-test-secret-do-not-use-in-prod-min-32chars";
+}
+
 export const TEST_DB_PATH = process.env.DB_PATH;
 export const TEST_UPLOAD_DIR = process.env.UPLOAD_DIR;
 
