@@ -155,8 +155,6 @@ export function completeMaintenanceTask(
 ): MaintenanceTask | undefined {
   const task = getDb().prepare("SELECT * FROM maintenance_tasks WHERE id=?").get(id) as MaintenanceTask | undefined;
   if (!task) return undefined;
-  // Ticket 1.14: bump the car's odometer when completing a task.
-  bumpKmIfHigher(task.car_id, currentKm);
   const nextKm = task.interval_km ? currentKm + task.interval_km : null;
   const nextDate = task.interval_months ? (() => {
     const d = new Date(currentDate + "T12:00:00");
@@ -172,6 +170,8 @@ export function completeMaintenanceTask(
   // para siempre.
   const db = getDb();
   const tx = db.transaction(() => {
+    // Ticket 1.14: bump the car's odometer when completing a task.
+    bumpKmIfHigher(task.car_id, currentKm);
     db.prepare("UPDATE maintenance_tasks SET completed=1, current_km=?, current_date=? WHERE id=?").run(currentKm, currentDate, id);
     if (!scheduleNext) return null;
     const r = db.prepare(`
