@@ -16,7 +16,7 @@
   "license": "ISC",
   "dependencies": {
     "@techstark/opencv-js": "^5.0.0-release.1",
-    "better-sqlite3": "^13.0.1",
+    "better-sqlite3": "^13.0.2",
     "chart.js": "^4.5.1",
     "chartjs-plugin-datalabels": "^2.2.0",
     "framer-motion": "^12.42.2",
