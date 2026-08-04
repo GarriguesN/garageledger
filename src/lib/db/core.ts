@@ -231,17 +231,21 @@ function migrateSchema(db: Database.Database) {
     "Lavado": "lavado",
     "Otros": "otros",
   };
-  for (const [label, id] of Object.entries(tipoIdMap)) {
-    db.prepare(
-      "UPDATE expenses SET tipo_id=? WHERE tipo=? AND (tipo_id IS NULL OR tipo_id='')"
-    ).run(id, label);
-  }
+  const updateExpenseTipo = db.prepare(
+    "UPDATE expenses SET tipo_id=? WHERE tipo=? AND (tipo_id IS NULL OR tipo_id='')"
+  );
+  const updateTaskPreset = db.prepare(
+    "UPDATE maintenance_tasks SET preset_key=? WHERE part_name=? AND (preset_key IS NULL OR preset_key='')"
+  );
 
-  for (const [partName, presetKey] of presets) {
-    db.prepare(
-      "UPDATE maintenance_tasks SET preset_key=? WHERE part_name=? AND (preset_key IS NULL OR preset_key='')",
-    ).run(presetKey, partName);
-  }
+  db.transaction(() => {
+    for (const [label, id] of Object.entries(tipoIdMap)) {
+      updateExpenseTipo.run(id, label);
+    }
+    for (const [partName, presetKey] of presets) {
+      updateTaskPreset.run(presetKey, partName);
+    }
+  })();
 
   // Documentos del vehículo: document_type (catálogo de src/lib/documents/catalog.ts,
   // NULL = "otros") + valid_until (fecha de caducidad opcional, entrada manual).
