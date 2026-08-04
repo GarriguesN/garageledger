@@ -14,9 +14,22 @@ import os from "os";
 import path from "path";
 
 const scriptsDir = path.join(process.cwd(), "scripts");
-const testFiles = readdirSync(scriptsDir)
+const srcDir = path.join(process.cwd(), "src");
+
+// Legacy flat scripts in scripts/test-*.ts
+const legacyTestFiles = readdirSync(scriptsDir)
   .filter((f) => /^test-.*\.tsx?$/.test(f))
+  .map((f) => path.join("scripts", f))
   .sort();
+
+// New collocated tests in src/**/*.test.ts(x)
+const collocatedTestFiles = readdirSync(srcDir, { recursive: true })
+  .map(f => f.toString())
+  .filter((f) => /\.test\.tsx?$/.test(f))
+  .map((f) => path.join("src", f))
+  .sort();
+
+const testFiles = [...legacyTestFiles, ...collocatedTestFiles];
 
 const tmpRoot = mkdtempSync(path.join(os.tmpdir(), "garageledger-suite-"));
 
@@ -24,7 +37,7 @@ let failed = 0;
 for (const file of testFiles) {
   console.log(`\n▶ ${file}`);
   const sandbox = path.join(tmpRoot, file.replace(/\W+/g, "_"));
-  const result = spawnSync("npx", ["tsx", path.join("scripts", file)], {
+  const result = spawnSync("npx", ["tsx", file], {
     stdio: "inherit",
     cwd: process.cwd(),
     env: {
