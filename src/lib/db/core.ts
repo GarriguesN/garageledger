@@ -231,17 +231,35 @@ function migrateSchema(db: Database.Database) {
     "Lavado": "lavado",
     "Otros": "otros",
   };
-  for (const [label, id] of Object.entries(tipoIdMap)) {
-    db.prepare(
-      "UPDATE expenses SET tipo_id=? WHERE tipo=? AND (tipo_id IS NULL OR tipo_id='')"
-    ).run(id, label);
-  }
+  const expCases = Object.entries(tipoIdMap)
+    .map(([label, id]) => `WHEN '${label.replace(/'/g, "''")}' THEN '${id}'`)
+    .join("\n    ");
+  const expLabels = Object.keys(tipoIdMap)
+    .map(label => `'${label.replace(/'/g, "''")}'`)
+    .join(", ");
+  db.prepare(`
+    UPDATE expenses
+    SET tipo_id = CASE tipo
+      ${expCases}
+    END
+    WHERE (tipo_id IS NULL OR tipo_id = '')
+      AND tipo IN (${expLabels})
+  `).run();
 
-  for (const [partName, presetKey] of presets) {
-    db.prepare(
-      "UPDATE maintenance_tasks SET preset_key=? WHERE part_name=? AND (preset_key IS NULL OR preset_key='')",
-    ).run(presetKey, partName);
-  }
+  const mtCases = presets
+    .map(([partName, presetKey]) => `WHEN '${partName.replace(/'/g, "''")}' THEN '${presetKey}'`)
+    .join("\n    ");
+  const mtPartNames = presets
+    .map(([partName]) => `'${partName.replace(/'/g, "''")}'`)
+    .join(", ");
+  db.prepare(`
+    UPDATE maintenance_tasks
+    SET preset_key = CASE part_name
+      ${mtCases}
+    END
+    WHERE (preset_key IS NULL OR preset_key = '')
+      AND part_name IN (${mtPartNames})
+  `).run();
 
   // Documentos del vehículo: document_type (catálogo de src/lib/documents/catalog.ts,
   // NULL = "otros") + valid_until (fecha de caducidad opcional, entrada manual).
